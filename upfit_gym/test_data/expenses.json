@@ -1,0 +1,9 @@
+{
+    "name": "Aluguel",
+    "year": 2024,
+    "month": "Janeiro",
+    "due_date": "2024-08-12",
+    "value": 1250,
+    "paid": "À pagar",
+    "notes": "Nota de conta à pagar"
+}

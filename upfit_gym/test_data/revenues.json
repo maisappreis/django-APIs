@@ -1,0 +1,9 @@
+{
+    "customer": 1,
+    "year": 2024,
+    "month": "Janeiro",
+    "payment_day": "10",
+    "value": 254.54,
+    "paid": "Pago",
+    "notes": "Nota de teste"
+}
