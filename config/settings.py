@@ -46,9 +46,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'upfit_gym',
     'dental_clinic',
-    'customer',
-    'revenue',
-    'expense',
 ]
 
 MIDDLEWARE = [
@@ -65,6 +62,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://localhost:8081",
+    "http://localhost:5173",
     os.getenv('ALLOWED_ORIGIN')
     # "https://maisappreis.github.io/"
 ]
