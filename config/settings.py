@@ -62,6 +62,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
     "http://localhost:5173",
     "http://localhost:5173/upfit-gym/",
+    "http://127.0.0.1:5173/upfit-gym/",
     os.getenv('ALLOWED_ORIGIN'),
     os.getenv('ALLOWED_ORIGIN_URL'),
 ]
