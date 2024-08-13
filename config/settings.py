@@ -29,7 +29,11 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 # DEBUG = os.getenv('DEBUG', 'False') == 'True'
 DEBUG = 'False'
 
-ALLOWED_HOSTS = ['.versel.app', '127.0.0.1']
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'django-apis-two.vercel.app'
+    ]
 
 
 # Application definition
