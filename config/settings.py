@@ -108,17 +108,6 @@ DATABASES = {
     }
 }
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / "db.sqlite3",
-#         'USER': os.getenv('DB_USER_MYSQL'),
-#         'PASSWORD': os.getenv('DB_PASSWORD_MYSQL'),
-#         'HOST': os.getenv('DB_HOST_MYSQL'),
-#         'PORT': os.getenv('DB_PORT_MYSQL'),
-#     }
-# }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
