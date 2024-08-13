@@ -2,11 +2,11 @@
 
 ## Gym Company
 A web application to manage the company's customers, income and expenses.
-Front-end on: ...
+Front-end on: https://github.com/maisappreis/upfit-project
 
 ## Dental Clinic
 A web application to manage the patient schedule, income and expenses of the dental clinic, as well as to perform the monthly cash closing.
-Front-end on: ....
+Front-end on: https://github.com/maisappreis/dental-clinic-web-system
 
 ## Technologies:
 - Django
