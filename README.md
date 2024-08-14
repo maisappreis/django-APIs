@@ -51,3 +51,9 @@ To run migrations:
 python manage.py makemigrations
 python manage.py migrate
 ```
+
+### Database
+Acessa: mysql -u [username] -p
+Conecta: mysql -h [endpoint] -u [username] -p
+Cria db: CREATE DATABASE `mysql-db`;
+Exibe: SHOW DATABASES;
