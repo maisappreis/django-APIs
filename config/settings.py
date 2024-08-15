@@ -25,16 +25,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = os.getenv('DEBUG', 'False') == 'True'
-DEBUG = 'False'
+if os.getenv('DJANGO_PORT', '8000') == '8000':
+    DEBUG = True
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / "database.sqlite3",
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST'),
+            'PORT': os.getenv('DB_PORT'),
+        }
+    }
+else:
+    DEBUG = False
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('NAME_MYSQL'),
+            'USER': os.getenv('USER_MYSQL'),
+            'PASSWORD': os.getenv('PASSWORD_MYSQL'),
+            'HOST': os.getenv('HOST_MYSQL'),
+            'PORT': os.getenv('PORT_MYSQL'),
+        }
+    }
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'django-apis-two.vercel.app'
-    ]
-
+ALLOWED_HOSTS = ['*'] if DEBUG else ['django-apis-two.vercel.app']
 
 # Application definition
 
@@ -91,35 +107,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
-
-# Database
-# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-
-# Local
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / "db.sqlite3",
-#         'USER': os.getenv('DB_USER'),
-#         'PASSWORD': os.getenv('DB_PASSWORD'),
-#         'HOST': os.getenv('DB_HOST'),
-#         'PORT': os.getenv('DB_PORT'),
-#     }
-# }
-
-# Production
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('NAME_MYSQL'),
-        'USER': os.getenv('USER_MYSQL'),
-        'PASSWORD': os.getenv('PASSWORD_MYSQL'),
-        'HOST': os.getenv('HOST_MYSQL'),
-        'PORT': os.getenv('PORT_MYSQL'),
-    }
-}
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators

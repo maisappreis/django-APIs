@@ -6,6 +6,7 @@
 
 # Database
 *.sqlite3
+database.sqlite3
 
 # Media
 /media/
