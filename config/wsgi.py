@@ -20,4 +20,4 @@ if not is_development:
     call_command('makemigrations')
     call_command('migrate')
 
-application = get_wsgi_application()
+app = get_wsgi_application()
