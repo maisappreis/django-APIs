@@ -64,7 +64,7 @@ DATABASES = {
 }
 
 # ALLOWED_HOSTS = ['*'] if DEBUG else ['django-apis-two.vercel.app']
-ALLOWED_HOSTS = ['django-apis-two.vercel.app']
+ALLOWED_HOSTS = ['django-apis-two.vercel.app', 'django-apis-3h4a2vcu8-maisappreis-projects.vercel.app']
 
 # Application definition
 
