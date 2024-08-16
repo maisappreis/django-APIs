@@ -57,3 +57,6 @@ Acessa: mysql -u [username] -p
 Conecta: mysql -h [endpoint] -u [username] -p
 Cria db: CREATE DATABASE `mysql-db`;
 Exibe: SHOW DATABASES;
+
+### Commands
+python manage.py migrate [app] zero

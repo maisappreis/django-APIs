@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+from .utils import is_development
 
 load_dotenv()
 
@@ -25,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
-if os.getenv('DJANGO_PORT', '8000') == '8000':
+if is_development():
     DEBUG = True
     DATABASES = {
         'default': {
@@ -62,8 +63,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'drf_spectacular',
     'corsheaders',
+    'accounts',
     'upfit_gym',
     'dental_clinic',
 ]
@@ -80,6 +83,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://localhost:8081",
@@ -88,7 +92,34 @@ CORS_ALLOWED_ORIGINS = [
     "https://maisappreis.github.io"
 ]
 
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https?://(\w+\.)?127\.0\.0\.1:5173$',
+]
+
+CORS_ALLOW_HEADERS = [
+    'Authorization',
+    'Content-Type',
+    'X-Requested-With',
+    'X-CSRFToken',
+]
+
 ROOT_URLCONF = 'config.urls'
+LOGIN_URL = '/api/accounts/login'
+LOGIN_REDIRECT_URL = '/api'
+
+CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_HTTPONLY = True 
+
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+    'https://maisappreis.github.io'
+]
 
 TEMPLATES = [
     {
