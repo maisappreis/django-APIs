@@ -1,10 +1,9 @@
 from django.db import models
-from .models_test import *
 
-# Real models used by authenticated users.
+# Test models used by unauthenticated users test applications, like a portfolio.
 
 
-class Customer(models.Model):
+class CustomerTest(models.Model):
     STATUS_CHOICES = [
         ('Ativo', 'Ativo'),
         ('Inativo', 'Inativo'),
@@ -26,7 +25,7 @@ class Customer(models.Model):
         unique_together = ['name']
 
 
-class Expense(models.Model):
+class ExpenseTest(models.Model):
     PAYMENT_CHOICES = [
         ('À pagar', 'À pagar'),
         ('Pago', 'Pago'),
@@ -48,14 +47,14 @@ class Expense(models.Model):
         unique_together = ['name', 'year', 'month']
 
 
-class Revenue(models.Model):
+class RevenueTest(models.Model):
     PAYMENT_CHOICES = [
         ('À pagar', 'À pagar'),
         ('Link enviado', 'Link enviado'),
         ('Pago', 'Pago'),
     ]
 
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=False)
+    customer = models.ForeignKey(CustomerTest, on_delete=models.CASCADE, null=False)
     year = models.IntegerField(null=False, blank=False)
     month = models.CharField(max_length=50, null=False, blank=False)
     payment_day = models.IntegerField(null=False, blank=False)

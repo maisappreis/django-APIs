@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import *
 
+# Real serializers used by authenticated users.
+
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
