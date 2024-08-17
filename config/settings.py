@@ -26,45 +26,33 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
-# if is_development():
-#     DEBUG = True
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.sqlite3',
-#             'NAME': BASE_DIR / "database.sqlite3",
-#             'USER': os.getenv('DB_USER'),
-#             'PASSWORD': os.getenv('DB_PASSWORD'),
-#             'HOST': os.getenv('DB_HOST'),
-#             'PORT': os.getenv('DB_PORT'),
-#         }
-#     }
-# else:
-#     DEBUG = False
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.mysql',
-#             'NAME': os.getenv('NAME_MYSQL'),
-#             'USER': os.getenv('USER_MYSQL'),
-#             'PASSWORD': os.getenv('PASSWORD_MYSQL'),
-#             'HOST': os.getenv('HOST_MYSQL'),
-#             'PORT': os.getenv('PORT_MYSQL'),
-#         }
-#     }
-
-DEBUG = False
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('NAME_MYSQL'),
-        'USER': os.getenv('USER_MYSQL'),
-        'PASSWORD': os.getenv('PASSWORD_MYSQL'),
-        'HOST': os.getenv('HOST_MYSQL'),
-        'PORT': os.getenv('PORT_MYSQL'),
+if is_development():
+    DEBUG = True
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / "database.sqlite3",
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST'),
+            'PORT': os.getenv('DB_PORT'),
+        }
     }
-}
+    ALLOWED_HOSTS = ['*']
+else:
+    DEBUG = False
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('NAME_MYSQL'),
+            'USER': os.getenv('USER_MYSQL'),
+            'PASSWORD': os.getenv('PASSWORD_MYSQL'),
+            'HOST': os.getenv('HOST_MYSQL'),
+            'PORT': os.getenv('PORT_MYSQL'),
+        }
+    }
+    ALLOWED_HOSTS = ['django-apis-two.vercel.app']
 
-# ALLOWED_HOSTS = ['*'] if DEBUG else ['django-apis-two.vercel.app']
-ALLOWED_HOSTS = ['django-apis-two.vercel.app', 'django-apis-3h4a2vcu8-maisappreis-projects.vercel.app']
 
 # Application definition
 
