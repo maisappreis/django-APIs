@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from .utils import is_development
+import re
 
 load_dotenv()
 
@@ -51,7 +52,10 @@ else:
             'PORT': os.getenv('PORT_MYSQL'),
         }
     }
-    ALLOWED_HOSTS = ['django-apis-two.vercel.app']
+    ALLOWED_HOSTS = [
+        'django-apis-two.vercel.app',
+        re.compile(r'^.*\.maisappreis-projects\.vercel\.app$'),  
+    ]
 
 
 # Application definition
