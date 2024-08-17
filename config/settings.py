@@ -58,6 +58,11 @@ else:
         '.vercel.app',
     ]
 
+ALLOWED_HOSTS = [
+    'django-apis-two.vercel.app',
+    '.maisappreis-projects.vercel.app',
+    '.vercel.app',
+]
 
 # Application definition
 
