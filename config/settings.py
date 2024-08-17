@@ -54,7 +54,6 @@ else:
     }
     ALLOWED_HOSTS = [
         'django-apis-two.vercel.app',
-        re.compile(r'^.*\.maisappreis-projects\.vercel\.app$'),  
     ]
 
 
