@@ -13,7 +13,6 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from .utils import is_development
-import re
 
 load_dotenv()
 
@@ -43,7 +42,6 @@ if is_development():
 else:
     print('produção')
     DEBUG = False
-    # DEBUG = True
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -60,12 +58,6 @@ else:
         '.vercel.app',
         # '*'
     ]
-
-# ALLOWED_HOSTS = [
-#     'django-apis-two.vercel.app',
-#     '.maisappreis-projects.vercel.app',
-#     '.vercel.app',
-# ]
 
 # Application definition
 

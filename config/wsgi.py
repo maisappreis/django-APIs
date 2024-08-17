@@ -15,10 +15,11 @@ from .utils import is_development
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
-if not is_development:
-    # print('migrations..')
-    django.setup()
-    call_command('makemigrations')
-    call_command('migrate')
+# if not is_development:
+#     print('migrations..')
+django.setup()
+call_command('makemigrations')
+call_command('migrate')
 
-app = get_wsgi_application()
+application = get_wsgi_application()
+app = application
