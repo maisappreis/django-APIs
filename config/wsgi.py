@@ -16,6 +16,7 @@ from .utils import is_development
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 if not is_development:
+    # print('migrations..')
     django.setup()
     call_command('makemigrations')
     call_command('migrate')

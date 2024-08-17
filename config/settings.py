@@ -41,7 +41,9 @@ if is_development():
     }
     ALLOWED_HOSTS = ['*']
 else:
+    print('produção')
     DEBUG = False
+    # DEBUG = True
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -56,13 +58,14 @@ else:
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
         '.vercel.app',
+        # '*'
     ]
 
-ALLOWED_HOSTS = [
-    'django-apis-two.vercel.app',
-    '.maisappreis-projects.vercel.app',
-    '.vercel.app',
-]
+# ALLOWED_HOSTS = [
+#     'django-apis-two.vercel.app',
+#     '.maisappreis-projects.vercel.app',
+#     '.vercel.app',
+# ]
 
 # Application definition
 
