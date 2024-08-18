@@ -12,13 +12,12 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-from .utils import is_development
 
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+is_development = False
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
@@ -26,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
-if is_development():
+if is_development:
     DEBUG = True
     DATABASES = {
         'default': {
@@ -40,7 +39,6 @@ if is_development():
     }
     ALLOWED_HOSTS = ['*']
 else:
-    print('produção')
     DEBUG = False
     DATABASES = {
         'default': {
@@ -56,7 +54,6 @@ else:
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
         '.vercel.app',
-        # '*'
     ]
 
 # Application definition
@@ -113,13 +110,14 @@ ROOT_URLCONF = 'config.urls'
 LOGIN_URL = '/api/accounts/login'
 LOGIN_REDIRECT_URL = '/api'
 
+CSRF_COOKIE_NAME = 'csrftoken'
 CSRF_COOKIE_HTTPONLY = False
-SESSION_COOKIE_HTTPONLY = True 
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
 
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5173',
