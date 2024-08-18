@@ -11,5 +11,6 @@ urlpatterns = [
     # path('password_reset/done/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
     # path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     # path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
-    path('csrf/', set_csrf_token),
+    path('set-csrf-token/', set_csrf_token),
+    path('get-csrf-token/', get_csrf_token),
 ]

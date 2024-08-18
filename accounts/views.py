@@ -11,6 +11,11 @@ def set_csrf_token(request):
     return JsonResponse({'detail': 'CSRF cookie set successfully.', 'csrfToken': csrf_token})
 
 
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    return JsonResponse({'csrfToken': request.META.get('CSRF_COOKIE')})
+
+
 class CustomLoginView(auth_views.LoginView):
     def form_invalid(self, form):
         return JsonResponse({'errors': form.errors}, status=400)
