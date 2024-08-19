@@ -23,7 +23,10 @@ class CustomLoginView(auth_views.LoginView):
     def form_valid(self, form):
         super().form_valid(form)
         user = self.request.user
-        token, created = Token.objects.get_or_create(user=user)
+
+        Token.objects.filter(user=user).delete()
+        token = Token.objects.create(user=user)
+
         self.request.session.set_test_cookie()
 
         return JsonResponse({
