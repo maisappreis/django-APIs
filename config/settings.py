@@ -39,7 +39,7 @@ if is_development:
     }
     ALLOWED_HOSTS = ['*']
 else:
-    DEBUG = False
+    DEBUG = True # TODO: Marcar como False depois
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -54,6 +54,7 @@ else:
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
         '.vercel.app',
+        '*' # TODO: excluir depois
     ]
 
 # Application definition
