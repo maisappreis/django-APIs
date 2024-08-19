@@ -1,8 +1,10 @@
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.contrib.auth import views as auth_views
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import login as auth_login
 from django.http import JsonResponse
+# from django.contrib.auth import logout
+# from django.views.generic import View
+# from django.views.decorators.csrf import csrf_exempt
 
 
 @ensure_csrf_cookie
@@ -38,3 +40,11 @@ class CustomLoginView(auth_views.LoginView):
             'detail': 'Login successful',
             'token': token.key,
         })
+
+
+# class CustomLogoutView(View):
+#     @csrf_exempt
+#     def post(self, request, *args, **kwargs):
+#         Token.objects.filter(user=request.user).delete()
+#         logout(request)
+#         return JsonResponse({'message': 'Logout realizado com sucesso.'}, status=200)
