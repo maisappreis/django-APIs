@@ -1,3 +1,18 @@
 from django.contrib import admin
+from .models import *
 
-# Register your models here.
+
+@admin.register(RevenueTest)
+class RevenueTestAdmin(admin.ModelAdmin):
+    list_display = ('name', 'cpf', 'procedure', 'payment', 'installments', 'value', 'notes')
+    search_fields = ('name', 'cpf')
+    list_filter = ('date', 'name', 'cpf')
+    ordering = ('date',)
+
+
+@admin.register(ExpenseTest)
+class ExpenseTestAdmin(admin.ModelAdmin):
+    list_display = ('name', 'year', 'month', 'installments', 'date', 'value', 'is_paid', 'notes')
+    search_fields = ('name', 'date')
+    list_filter = ('name', 'year', 'month', 'date')
+    ordering = ('date',)
