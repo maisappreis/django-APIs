@@ -10,13 +10,34 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class RevenueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Revenue
+        fields = '__all__'
+
+
 class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Expense
         fields = '__all__'
 
 
-class RevenueSerializer(serializers.ModelSerializer):
+# Test serializers used by unauthenticated users test application, like a portfolio.
+
+
+class CustomerTestSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Revenue
+        model = CustomerTest
+        fields = '__all__'
+
+
+class RevenueTestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RevenueTest
+        fields = '__all__'
+
+
+class ExpenseTestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseTest
         fields = '__all__'
