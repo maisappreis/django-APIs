@@ -40,7 +40,7 @@ class ExpenseCreateView(generics.ListCreateAPIView):
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
 
-def create(self, request, *args, **kwargs):
+    def create(self, request, *args, **kwargs):
         data = request.data
         installments = data.get('installments', "")
 
