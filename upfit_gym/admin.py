@@ -20,7 +20,7 @@ class RevenueAdmin(admin.ModelAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ('name', 'year', 'month', 'due_date', 'value', 'paid')
+    list_display = ('name', 'year', 'month', 'date', 'value', 'paid')
     search_fields = ('name',)
     list_filter = ('paid', 'year', 'month')
     ordering = ('year', 'month')
@@ -44,7 +44,7 @@ class RevenueTestAdmin(admin.ModelAdmin):
 
 @admin.register(ExpenseTest)
 class ExpenseTestAdmin(admin.ModelAdmin):
-    list_display = ('name', 'year', 'month', 'due_date', 'value', 'paid')
+    list_display = ('name', 'year', 'month', 'date', 'value', 'paid')
     search_fields = ('name',)
     list_filter = ('paid', 'year', 'month')
     ordering = ('year', 'month')

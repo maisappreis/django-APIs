@@ -4,9 +4,7 @@ from .serializers import *
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from babel.dates import format_date
+from dental_clinic.utils import createInstallments
 
 # Real views used by authenticated users.
 
@@ -47,23 +45,12 @@ class ExpenseCreateView(generics.ListCreateAPIView):
         if installments == "":
             return super().create(request, *args, **kwargs)
         
-        installments = int(installments)
-        initial_date = datetime.strptime(data['date'], "%Y-%m-%d")
-        created_objects = []
-
-        for i in range(installments):
-            installment_data = data.copy()
-            installment_data['installments'] = f"{i+1}/{installments}"
-            date_obj = initial_date + relativedelta(months=i)
-            installment_data['date'] = (date_obj).strftime("%Y-%m-%d")
-            month_name = format_date(date_obj, format='MMMM', locale='pt_BR')
-            installment_data['month'] = month_name.capitalize()
-            installment_data['year'] = (date_obj).year
-
-            serializer = self.get_serializer(data=installment_data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            created_objects.append(serializer.data)
+        serializer, created_objects = createInstallments(
+            serializer_class=self.get_serializer_class(),
+            perform_create=self.perform_create,
+            installments=installments,
+            data=data
+        )
 
         headers = self.get_success_headers(serializer.data)
         return Response(created_objects, status=201, headers=headers)
@@ -114,23 +101,12 @@ class ExpenseTestCreateView(generics.ListCreateAPIView):
         if installments == "":
             return super().create(request, *args, **kwargs)
         
-        installments = int(installments)
-        initial_date = datetime.strptime(data['date'], "%Y-%m-%d")
-        created_objects = []
-
-        for i in range(installments):
-            installment_data = data.copy()
-            installment_data['installments'] = f"{i+1}/{installments}"
-            date_obj = initial_date + relativedelta(months=i)
-            installment_data['date'] = (date_obj).strftime("%Y-%m-%d")
-            month_name = format_date(date_obj, format='MMMM', locale='pt_BR')
-            installment_data['month'] = month_name.capitalize()
-            installment_data['year'] = (date_obj).year
-
-            serializer = self.get_serializer(data=installment_data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            created_objects.append(serializer.data)
+        serializer, created_objects = createInstallments(
+            serializer_class=self.get_serializer_class(),
+            perform_create=self.perform_create,
+            installments=installments,
+            data=data
+        )
 
         headers = self.get_success_headers(serializer.data)
         return Response(created_objects, status=201, headers=headers)
