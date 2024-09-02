@@ -14,17 +14,29 @@ class RevenueListView(generics.ListAPIView):
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
+    # def get_queryset(self):
+    #     return Revenue.objects.filter(user=self.request.user)
+
 
 class RevenueCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
+    # def get_queryset(self):
+    #     return Revenue.objects.filter(user=self.request.user)
+
+    # def perform_create(self, serializer):
+    #     serializer.save(user=self.request.user)
+
 
 class RevenueUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
+
+    # def get_queryset(self):
+    #     return Revenue.objects.filter(user=self.request.user)
 
 
 class ExpenseListView(generics.ListAPIView):
@@ -60,6 +72,24 @@ class ExpenseUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
+
+
+class AgendaListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Agenda.objects.all()
+    serializer_class = AgendaSerializer
+
+
+class AgendaCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Agenda.objects.all()
+    serializer_class = AgendaSerializer
+
+
+class AgendaUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Agenda.objects.all()
+    serializer_class = AgendaSerializer
 
 
 # Test views used by unauthenticated users test application, like a portfolio.
@@ -116,3 +146,21 @@ class ExpenseTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [AllowAny]
     queryset = ExpenseTest.objects.all()
     serializer_class = ExpenseTestSerializer
+
+
+class AgendaTestListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    queryset = AgendaTest.objects.all()
+    serializer_class = AgendaTestSerializer
+
+
+class AgendaTestCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = AgendaTest.objects.all()
+    serializer_class = AgendaTestSerializer
+
+
+class AgendaTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    queryset = AgendaTest.objects.all()
+    serializer_class = AgendaTestSerializer

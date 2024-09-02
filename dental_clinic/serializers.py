@@ -16,6 +16,12 @@ class ExpenseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class AgendaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Agenda
+        fields = '__all__'
+
+
 # Test serializers used by unauthenticated users test application, like a portfolio.
 
 
@@ -28,4 +34,10 @@ class RevenueTestSerializer(serializers.ModelSerializer):
 class ExpenseTestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpenseTest
+        fields = '__all__'
+
+
+class AgendaTestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgendaTest
         fields = '__all__'

@@ -1,9 +1,11 @@
 from django.db import models
+# from django.contrib.auth.models import User
 
 # Real models used by authenticated users.
 
 
 class Revenue(models.Model):
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='revenues')
     date = models.DateField(null=False, blank=False)
     name = models.CharField(max_length=255, null=False, blank=False)
     cpf = models.CharField(max_length=14, null=False, blank=True)
@@ -22,6 +24,7 @@ class Revenue(models.Model):
 
 
 class Expense(models.Model):
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
     year = models.IntegerField(null=False, blank=False)
     month = models.CharField(max_length=50, null=False, blank=False)
     name = models.CharField(max_length=255, null=False, blank=False)
@@ -36,6 +39,19 @@ class Expense(models.Model):
     
     class Meta:
         unique_together = ['name', 'year', 'month', 'value']
+
+
+class Agenda(models.Model):
+    name = models.CharField(max_length=255, null=False, blank=False)
+    date = models.DateField(null=False, blank=False)
+    time = models.CharField(max_length=10, null=False, blank=False)
+    notes = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        unique_together = ['name', 'date', 'time']
 
 
 # Test models used by unauthenticated users test application, like a portfolio.
@@ -74,3 +90,16 @@ class ExpenseTest(models.Model):
     
     class Meta:
         unique_together = ['name', 'year', 'month', 'value']
+
+
+class AgendaTest(models.Model):
+    name = models.CharField(max_length=255, null=False, blank=False)
+    date = models.DateField(null=False, blank=False)
+    time = models.CharField(max_length=10, null=False, blank=False)
+    notes = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        unique_together = ['name', 'date', 'time']
