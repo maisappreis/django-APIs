@@ -92,6 +92,42 @@ class AgendaUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AgendaSerializer
 
 
+class MonthClosingListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = MonthClosing.objects.all()
+    serializer_class = MonthClosingSerializer
+
+
+class MonthClosingCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = MonthClosing.objects.all()
+    serializer_class = MonthClosingSerializer
+
+    # def create:
+
+    # Preciso interceptar a view create, fazer os devidos cálculos,
+    # e modificar os seguintes valores, que chegaram zerados,
+    # para salvar no banco de dados.
+
+    # Criar as funções de cálculos nos útils.
+
+    # gross_revenue = 0
+    # net_revenue = 0
+    # expenses = 0
+    # profit = 0
+
+    # other_revenue = 0
+    # balance = 0
+
+
+class MonthClosingUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = MonthClosing.objects.all()
+    serializer_class = MonthClosingSerializer
+
+    # Precisará refazer os cálculos, e salvar atualizado.
+
+
 # Test views used by unauthenticated users test application, like a portfolio.
 
 
@@ -164,3 +200,39 @@ class AgendaTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [AllowAny]
     queryset = AgendaTest.objects.all()
     serializer_class = AgendaTestSerializer
+
+
+class MonthClosingTestListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = MonthClosingTest.objects.all()
+    serializer_class = MonthClosingTestSerializer
+
+
+class MonthClosingTestCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = MonthClosingTest.objects.all()
+    serializer_class = MonthClosingTestSerializer
+
+    # def create:
+
+    # Preciso interceptar a view create, fazer os devidos cálculos,
+    # e modificar os seguintes valores, que chegaram zerados,
+    # para salvar no banco de dados.
+
+    # Criar as funções de cálculos nos útils.
+
+    # gross_revenue = 0
+    # net_revenue = 0
+    # expenses = 0
+    # profit = 0
+
+    # other_revenue = 0
+    # balance = 0
+
+
+class MonthClosingTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = MonthClosingTest.objects.all()
+    serializer_class = MonthClosingTestSerializer
+
+    # Precisará refazer os cálculos, e salvar atualizado.

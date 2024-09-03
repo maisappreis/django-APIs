@@ -26,6 +26,14 @@ class AgendaAdmin(admin.ModelAdmin):
     ordering = ('date',)
 
 
+@admin.register(MonthClosing)
+class MonthClosingAdmin(admin.ModelAdmin):
+    list_display = ('reference', 'month', 'year', 'bank_value', 'cash_value', 'card_value', 'gross_revenue', 'net_revenue', 'expenses', 'profit', 'other_revenue', 'balance')
+    search_fields = ('reference', 'month', 'year')
+    list_filter = ('reference', 'month', 'year')
+    ordering = ('reference',)
+
+
 @admin.register(RevenueTest)
 class RevenueTestAdmin(admin.ModelAdmin):
     list_display = ('name', 'cpf', 'procedure', 'payment', 'installments', 'value', 'notes')
@@ -48,3 +56,11 @@ class AgendaTestAdmin(admin.ModelAdmin):
     search_fields = ('name', 'date')
     list_filter = ('name', 'date', 'time')
     ordering = ('date',)
+
+
+@admin.register(MonthClosingTest)
+class MonthClosingTestAdmin(admin.ModelAdmin):
+    list_display = ('reference', 'month', 'year', 'bank_value', 'cash_value', 'card_value', 'gross_revenue', 'net_revenue', 'expenses', 'profit', 'other_revenue', 'balance')
+    search_fields = ('reference', 'month', 'year')
+    list_filter = ('reference', 'month', 'year')
+    ordering = ('reference',)

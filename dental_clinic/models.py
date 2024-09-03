@@ -14,6 +14,7 @@ class Revenue(models.Model):
     payment = models.CharField(max_length=255, null=False, blank=False)
     installments = models.IntegerField(null=False, blank=False)
     value = models.FloatField(null=False, blank=False)
+    net_value = models.FloatField(default=0, null=False, blank=False)
     notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -54,6 +55,27 @@ class Agenda(models.Model):
         unique_together = ['name', 'date', 'time']
 
 
+class MonthClosing(models.Model):
+    reference = models.CharField(max_length=55, unique=True, null=False, blank=False)
+    month = models.IntegerField(null=False, blank=False)
+    year = models.IntegerField(null=False, blank=False)
+
+    bank_value =  models.FloatField(null=False, blank=False)
+    cash_value =  models.FloatField(null=False, blank=False)
+    card_value =  models.FloatField(null=False, blank=False)
+
+    gross_revenue =  models.FloatField(null=False, blank=False)
+    net_revenue =  models.FloatField(null=False, blank=False)
+    expenses =  models.FloatField(null=False, blank=False)
+    profit =  models.FloatField(null=False, blank=False)
+
+    other_revenue =  models.FloatField(null=False, blank=False)
+    balance =  models.FloatField(null=False, blank=False)
+
+    def __str__(self):
+        return self.reference
+
+
 # Test models used by unauthenticated users test application, like a portfolio.
 
 
@@ -66,6 +88,7 @@ class RevenueTest(models.Model):
     payment = models.CharField(max_length=255, null=False, blank=False)
     installments = models.IntegerField(null=False, blank=False)
     value = models.FloatField(null=False, blank=False)
+    net_value = models.FloatField(default=0, null=False, blank=False)
     notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -103,3 +126,24 @@ class AgendaTest(models.Model):
     
     class Meta:
         unique_together = ['name', 'date', 'time']
+
+
+class MonthClosingTest(models.Model):
+    reference = models.CharField(max_length=55, unique=True, null=False, blank=False)
+    month = models.IntegerField(null=False, blank=False)
+    year = models.IntegerField(null=False, blank=False)
+
+    bank_value =  models.FloatField(null=False, blank=False)
+    cash_value =  models.FloatField(null=False, blank=False)
+    card_value =  models.FloatField(null=False, blank=False)
+
+    gross_revenue =  models.FloatField(null=False, blank=False)
+    net_revenue =  models.FloatField(null=False, blank=False)
+    expenses =  models.FloatField(null=False, blank=False)
+    profit =  models.FloatField(null=False, blank=False)
+
+    other_revenue =  models.FloatField(null=False, blank=False)
+    balance =  models.FloatField(null=False, blank=False)
+
+    def __str__(self):
+        return self.reference

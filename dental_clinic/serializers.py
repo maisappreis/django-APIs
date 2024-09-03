@@ -22,6 +22,12 @@ class AgendaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class MonthClosingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthClosing
+        fields = '__all__'
+
+
 # Test serializers used by unauthenticated users test application, like a portfolio.
 
 
@@ -40,4 +46,10 @@ class ExpenseTestSerializer(serializers.ModelSerializer):
 class AgendaTestSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgendaTest
+        fields = '__all__'
+
+
+class MonthClosingTestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthClosingTest
         fields = '__all__'

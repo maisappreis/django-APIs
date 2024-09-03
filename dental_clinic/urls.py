@@ -14,6 +14,10 @@ urlpatterns = [
     path('agenda/', AgendaListView.as_view(), name='agenda-list'),
     path('agenda/create/', AgendaCreateView.as_view(), name='agenda-create'),
     path('agenda/<int:pk>/', AgendaUpdateDestroyView.as_view(), name='agenda-update-destroy'),
+
+    path('month_closing/', MonthClosingListView.as_view(), name='month-closing-list'),
+    path('month_closing/create/', MonthClosingCreateView.as_view(), name='month-closing-create'),
+    path('month_closing/<int:pk>/', MonthClosingUpdateDestroyView.as_view(), name='month-closing-update-destroy'),
     
     path('test/expense/', ExpenseTestListView.as_view(), name='expense-list'),
     path('test/expense/create/', ExpenseTestCreateView.as_view(), name='expense-create'),
@@ -26,4 +30,8 @@ urlpatterns = [
     path('test/agenda/', AgendaTestListView.as_view(), name='agenda-list'),
     path('test/agenda/create/', AgendaTestCreateView.as_view(), name='agenda-create'),
     path('test/agenda/<int:pk>/', AgendaTestUpdateDestroyView.as_view(), name='agenda-update-destroy'),
+
+    path('test/month_closing/', MonthClosingTestListView.as_view(), name='month-closing-list'),
+    path('test/month_closing/create/', MonthClosingTestCreateView.as_view(), name='month-closing-create'),
+    path('test/month_closing/<int:pk>/', MonthClosingTestUpdateDestroyView.as_view(), name='month-closing-update-destroy'),
 ]
