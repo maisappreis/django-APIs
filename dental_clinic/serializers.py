@@ -28,6 +28,15 @@ class MonthClosingSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class RevenueNetValueUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()
+    net_value = serializers.FloatField()
+
+    class Meta:
+        model = Revenue
+        fields = ['id', 'net_value']
+
+
 # Test serializers used by unauthenticated users test application, like a portfolio.
 
 
@@ -53,3 +62,12 @@ class MonthClosingTestSerializer(serializers.ModelSerializer):
     class Meta:
         model = MonthClosingTest
         fields = '__all__'
+
+
+class RevenueTestNetValueUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()
+    net_value = serializers.FloatField()
+
+    class Meta:
+        model = RevenueTest
+        fields = ['id', 'net_value']
