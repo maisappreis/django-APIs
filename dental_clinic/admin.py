@@ -4,7 +4,7 @@ from .models import *
 
 @admin.register(Revenue)
 class RevenueAdmin(admin.ModelAdmin):
-    list_display = ('name', 'cpf', 'procedure', 'payment', 'installments', 'value', 'net_value', 'notes')
+    list_display = ('date', 'release_date', 'name', 'cpf', 'procedure', 'payment', 'installments', 'value', 'net_value', 'notes')
     search_fields = ('name', 'cpf')
     list_filter = ('date', 'name', 'cpf')
     ordering = ('date',)
@@ -28,7 +28,7 @@ class AgendaAdmin(admin.ModelAdmin):
 
 @admin.register(MonthClosing)
 class MonthClosingAdmin(admin.ModelAdmin):
-    list_display = ('reference', 'month', 'year', 'bank_value', 'cash_value', 'card_value', 'gross_revenue', 'net_revenue', 'expenses', 'profit', 'other_revenue', 'balance')
+    list_display = ('reference', 'month', 'year', 'bank_value', 'cash_value', 'card_value', 'card_value_next_month', 'gross_revenue', 'net_revenue', 'expenses', 'profit', 'other_revenue', 'balance')
     search_fields = ('reference', 'month', 'year')
     list_filter = ('reference', 'month', 'year')
     ordering = ('reference',)
@@ -36,7 +36,7 @@ class MonthClosingAdmin(admin.ModelAdmin):
 
 @admin.register(RevenueTest)
 class RevenueTestAdmin(admin.ModelAdmin):
-    list_display = ('name', 'cpf', 'procedure', 'payment', 'installments', 'value', 'net_value', 'notes')
+    list_display = ('date', 'release_date', 'name', 'cpf', 'procedure', 'payment', 'installments', 'value', 'net_value', 'notes')
     search_fields = ('name', 'cpf')
     list_filter = ('date', 'name', 'cpf')
     ordering = ('date',)
@@ -60,7 +60,7 @@ class AgendaTestAdmin(admin.ModelAdmin):
 
 @admin.register(MonthClosingTest)
 class MonthClosingTestAdmin(admin.ModelAdmin):
-    list_display = ('reference', 'month', 'year', 'bank_value', 'cash_value', 'card_value', 'gross_revenue', 'net_revenue', 'expenses', 'profit', 'other_revenue', 'balance')
+    list_display = ('reference', 'month', 'year', 'bank_value', 'cash_value', 'card_value', 'card_value_next_month', 'gross_revenue', 'net_revenue', 'expenses', 'profit', 'other_revenue', 'balance')
     search_fields = ('reference', 'month', 'year')
     list_filter = ('reference', 'month', 'year')
     ordering = ('reference',)

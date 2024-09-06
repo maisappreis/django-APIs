@@ -112,6 +112,7 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
         bank_value = data.get('bank_value')
         cash_value = data.get('cash_value')
         card_value = data.get('card_value')
+        card_value_next_month = data.get('card_value_next_month')
         expenses = data.get('expenses')
         other_revenue = data.get('other_revenue')
 
@@ -122,15 +123,18 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
             next_month = month + 1
             next_year = year
 
-        gross_revenue = calculate_sum_values(Revenue, month=month, year=year)
-        net_revenue = calculate_sum_values(Revenue, month=month, year=year, value_field='net_value')
+        gross_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='release_date')
+        net_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='release_date', value_field='net_value')
         expenses = calculate_sum_values(Expense, month=next_month, year=next_year)
         profit = calculate_profit(net_revenue, expenses)
-        balance = calculate_balance(bank_value, cash_value, card_value, other_revenue, expenses, profit)
+        
+        card_value_this_month = card_value - card_value_next_month
+        balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, profit)
 
         data['bank_value'] = bank_value
         data['cash_value'] = cash_value
         data['card_value'] = card_value
+        data['card_value_next_month'] = card_value_next_month
         data['gross_revenue'] = gross_revenue
         data['net_revenue'] = net_revenue
         data['expenses'] = expenses
@@ -173,6 +177,7 @@ class UpdateNetValuesView(APIView):
                 try:
                     revenue = Revenue.objects.get(id=item['id'])
                     revenue.net_value = item['net_value']
+                    revenue.release_date = item['release_date']
                     revenue.save()
                 except Revenue.DoesNotExist:
                     return Response({"detail": f"Revenue with id {item['id']} not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -272,6 +277,7 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
         bank_value = data.get('bank_value')
         cash_value = data.get('cash_value')
         card_value = data.get('card_value')
+        card_value_next_month = data.get('card_value_next_month')
         expenses = data.get('expenses')
         other_revenue = data.get('other_revenue')
 
@@ -282,15 +288,18 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
             next_month = month + 1
             next_year = year
 
-        gross_revenue = calculate_sum_values(RevenueTest, month=month, year=year)
-        net_revenue = calculate_sum_values(RevenueTest, month=month, year=year, value_field='net_value')
+        gross_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='release_date')
+        net_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='release_date', value_field='net_value')
         expenses = calculate_sum_values(ExpenseTest, month=next_month, year=next_year)
         profit = calculate_profit(net_revenue, expenses)
-        balance = calculate_balance(bank_value, cash_value, card_value, other_revenue, expenses, profit)
+        
+        card_value_this_month = card_value - card_value_next_month
+        balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, profit)
 
         data['bank_value'] = bank_value
         data['cash_value'] = cash_value
         data['card_value'] = card_value
+        data['card_value_next_month'] = card_value_next_month
         data['gross_revenue'] = gross_revenue
         data['net_revenue'] = net_revenue
         data['expenses'] = expenses
@@ -333,6 +342,7 @@ class UpdateNetValuesTestView(APIView):
                 try:
                     revenue = RevenueTest.objects.get(id=item['id'])
                     revenue.net_value = item['net_value']
+                    revenue.release_date = item['release_date']
                     revenue.save()
                 except Revenue.DoesNotExist:
                     return Response({"detail": f"Revenue with id {item['id']} not found."}, status=status.HTTP_404_NOT_FOUND)

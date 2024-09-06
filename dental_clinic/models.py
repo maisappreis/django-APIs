@@ -7,6 +7,7 @@ from django.db import models
 class Revenue(models.Model):
     # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='revenues')
     date = models.DateField(null=False, blank=False)
+    release_date = models.DateField(null=True, blank=True, default=None)
     name = models.CharField(max_length=255, null=False, blank=False)
     cpf = models.CharField(max_length=14, null=False, blank=True)
     nf = models.BooleanField(default=False, null=False, blank=False)
@@ -63,6 +64,7 @@ class MonthClosing(models.Model):
     bank_value =  models.FloatField(null=False, blank=False)
     cash_value =  models.FloatField(null=False, blank=False)
     card_value =  models.FloatField(null=False, blank=False)
+    card_value_next_month =  models.FloatField(default=0, null=False, blank=False)
 
     gross_revenue =  models.FloatField(null=False, blank=False)
     net_revenue =  models.FloatField(null=False, blank=False)
@@ -81,6 +83,7 @@ class MonthClosing(models.Model):
 
 class RevenueTest(models.Model):
     date = models.DateField(null=False, blank=False)
+    release_date = models.DateField(null=True, blank=True, default=None)
     name = models.CharField(max_length=255, null=False, blank=False)
     cpf = models.CharField(max_length=14, null=False, blank=True)
     nf = models.BooleanField(default=False, null=False, blank=False)
@@ -136,6 +139,7 @@ class MonthClosingTest(models.Model):
     bank_value =  models.FloatField(null=False, blank=False)
     cash_value =  models.FloatField(null=False, blank=False)
     card_value =  models.FloatField(null=False, blank=False)
+    card_value_next_month =  models.FloatField(default=0, null=False, blank=False)
 
     gross_revenue =  models.FloatField(null=False, blank=False)
     net_revenue =  models.FloatField(null=False, blank=False)
