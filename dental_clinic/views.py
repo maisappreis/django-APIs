@@ -126,7 +126,9 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
         gross_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='release_date')
         net_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='release_date', value_field='net_value')
         expenses = calculate_sum_values(Expense, month=next_month, year=next_year)
-        profit = calculate_profit(net_revenue, expenses)
+
+        half_expenses = expenses/2
+        profit = calculate_profit(net_revenue, half_expenses)
         
         card_value_this_month = card_value - card_value_next_month
         balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, profit)
@@ -291,7 +293,9 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
         gross_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='release_date')
         net_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='release_date', value_field='net_value')
         expenses = calculate_sum_values(ExpenseTest, month=next_month, year=next_year)
-        profit = calculate_profit(net_revenue, expenses)
+        
+        half_expenses = expenses/2
+        profit = calculate_profit(net_revenue, half_expenses)
         
         card_value_this_month = card_value - card_value_next_month
         balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, profit)
