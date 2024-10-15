@@ -1,15 +1,20 @@
-# Django APIs for Web Application
+# Django APIs for Web Applications
 
 ## Gym Company
-A web application to manage the company's customers, income and expenses.
-Front-end on: https://github.com/maisappreis/upfit-project
+A web application to manage the company's customers, income and expenses. <br>
+Front-end code on: https://github.com/maisappreis/upfit-project
+
+You can try it out in this production test version: https://maisappreis.github.io/upfit-gym/
 
 ## Dental Clinic
-A web application to manage the patient schedule, income and expenses of the dental clinic, as well as to perform the monthly cash closing.
-Front-end on: https://github.com/maisappreis/dental-clinic-web-system
+A web application to manage the patient schedule, income and expenses of the dental clinic, as well as to perform the monthly cash closing. <br>
+Front-end code on: https://github.com/maisappreis/dental-clinic-web-system
+
+You can try it out in this production test version: https://maisappreis.github.io/dental-clinic/
 
 ## Technologies:
 - Django
+- Python
 
 ## 🌱 Backend Development
 
