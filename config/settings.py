@@ -49,6 +49,9 @@ else:
             'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
             'HOST': os.getenv('NEON_DB_HOST'),
             'PORT': os.getenv('NEON_DB_PORT', '5432'),
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
         }
     }
     ALLOWED_HOSTS = [
