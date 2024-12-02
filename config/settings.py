@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -25,6 +26,7 @@ is_development = False
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
 
 if is_development:
     DEBUG = True
@@ -41,17 +43,27 @@ if is_development:
     ALLOWED_HOSTS = ['*']
 else:
     DEBUG = False
+    # DATABASES = {
+    #     'default': {
+    #         'ENGINE': 'django.db.backends.postgresql',
+    #         'NAME': os.getenv('NEON_DB_NAME'),
+    #         'USER': os.getenv('NEON_DB_USER'),
+    #         'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
+    #         'HOST': os.getenv('NEON_DB_HOST'),
+    #         'PORT': os.getenv('NEON_DB_PORT', '5432'),
+    #         'OPTIONS': {
+    #             'sslmode': 'require',
+    #         },
+    #     }
+    # }
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('NEON_DB_NAME'),
-            'USER': os.getenv('NEON_DB_USER'),
-            'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
-            'HOST': os.getenv('NEON_DB_HOST'),
-            'PORT': os.getenv('NEON_DB_PORT', '5432'),
-            'OPTIONS': {
-                'sslmode': 'require',
-            },
+            'NAME': tmpPostgres.path.replace('/', ''),
+            'USER': tmpPostgres.username,
+            'PASSWORD': tmpPostgres.password,
+            'HOST': tmpPostgres.hostname,
+            'PORT': 5432,
         }
     }
     ALLOWED_HOSTS = [
