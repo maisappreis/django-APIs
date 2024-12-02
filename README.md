@@ -64,4 +64,8 @@ Cria db: CREATE DATABASE `mysql-db`;
 Exibe: SHOW DATABASES;
 
 ### Commands
+To reset database migrations:
 python manage.py migrate [app] zero
+
+To update requirements.txt
+pip freeze > requirements.txt
