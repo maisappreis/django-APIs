@@ -18,7 +18,7 @@ load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-is_development = True
+is_development = False
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
@@ -43,12 +43,12 @@ else:
     DEBUG = False
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.getenv('NAME_MYSQL'),
-            'USER': os.getenv('USER_MYSQL'),
-            'PASSWORD': os.getenv('PASSWORD_MYSQL'),
-            'HOST': os.getenv('HOST_MYSQL'),
-            'PORT': os.getenv('PORT_MYSQL'),
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('NEON_DB_NAME'),
+            'USER': os.getenv('NEON_DB_USER'),
+            'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
+            'HOST': os.getenv('NEON_DB_HOST'),
+            'PORT': os.getenv('NEON_DB_PORT', '5432'),
         }
     }
     ALLOWED_HOSTS = [
