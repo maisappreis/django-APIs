@@ -15,7 +15,9 @@ from django.core.management import call_command
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 django.setup()
-# call_command('makemigrations')
+
+# To make migrations on production
+call_command('makemigrations')
 call_command('migrate')
 
 application = get_wsgi_application()

@@ -42,7 +42,7 @@ if is_development:
     }
     ALLOWED_HOSTS = ['*']
 else:
-    DEBUG = False
+    DEBUG = True # TODO: para False
     # DATABASES = {
     #     'default': {
     #         'ENGINE': 'django.db.backends.postgresql',
@@ -64,6 +64,9 @@ else:
             'PASSWORD': tmpPostgres.password,
             'HOST': tmpPostgres.hostname,
             'PORT': 5432,
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
         }
     }
     ALLOWED_HOSTS = [
