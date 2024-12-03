@@ -58,11 +58,17 @@ else:
     # }
     DATABASES = {
         'default': {
+            # 'ENGINE': 'django.db.backends.postgresql',
+            # 'NAME': tmpPostgres.path.replace('/', ''),
+            # 'USER': tmpPostgres.username,
+            # 'PASSWORD': tmpPostgres.password,
+            # 'HOST': tmpPostgres.hostname,
+            # 'PORT': 5432,
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': tmpPostgres.path.replace('/', ''),
-            'USER': tmpPostgres.username,
-            'PASSWORD': tmpPostgres.password,
-            'HOST': tmpPostgres.hostname,
+            'NAME': str(tmpPostgres.path.replace('/', '')),
+            'USER': str(tmpPostgres.username),
+            'PASSWORD': str(tmpPostgres.password),
+            'HOST': str(tmpPostgres.hostname),
             'PORT': 5432,
             'OPTIONS': {
                 'sslmode': 'require',
