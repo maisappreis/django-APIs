@@ -26,7 +26,7 @@ is_development = False
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
+# tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
 
 if is_development:
     DEBUG = True
@@ -43,38 +43,38 @@ if is_development:
     ALLOWED_HOSTS = ['*']
 else:
     DEBUG = True # TODO: para False
-    # DATABASES = {
-    #     'default': {
-    #         'ENGINE': 'django.db.backends.postgresql',
-    #         'NAME': os.getenv('NEON_DB_NAME'),
-    #         'USER': os.getenv('NEON_DB_USER'),
-    #         'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
-    #         'HOST': os.getenv('NEON_DB_HOST'),
-    #         'PORT': os.getenv('NEON_DB_PORT', '5432'),
-    #         'OPTIONS': {
-    #             'sslmode': 'require',
-    #         },
-    #     }
-    # }
     DATABASES = {
         'default': {
-            # 'ENGINE': 'django.db.backends.postgresql',
-            # 'NAME': tmpPostgres.path.replace('/', ''),
-            # 'USER': tmpPostgres.username,
-            # 'PASSWORD': tmpPostgres.password,
-            # 'HOST': tmpPostgres.hostname,
-            # 'PORT': 5432,
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': str(tmpPostgres.path.replace('/', '')),
-            'USER': str(tmpPostgres.username),
-            'PASSWORD': str(tmpPostgres.password),
-            'HOST': str(tmpPostgres.hostname),
-            'PORT': 5432,
+            'NAME': os.getenv('NEON_DB_NAME'),
+            'USER': os.getenv('NEON_DB_USER'),
+            'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
+            'HOST': os.getenv('NEON_DB_HOST'),
+            'PORT': os.getenv('NEON_DB_PORT', '5432'),
             'OPTIONS': {
                 'sslmode': 'require',
             },
         }
     }
+    # DATABASES = {
+    #     'default': {
+    #         # 'ENGINE': 'django.db.backends.postgresql',
+    #         # 'NAME': tmpPostgres.path.replace('/', ''),
+    #         # 'USER': tmpPostgres.username,
+    #         # 'PASSWORD': tmpPostgres.password,
+    #         # 'HOST': tmpPostgres.hostname,
+    #         # 'PORT': 5432,
+    #         'ENGINE': 'django.db.backends.postgresql',
+    #         'NAME': str(tmpPostgres.path.replace('/', '')),
+    #         'USER': str(tmpPostgres.username),
+    #         'PASSWORD': str(tmpPostgres.password),
+    #         'HOST': str(tmpPostgres.hostname),
+    #         'PORT': 5432,
+    #         'OPTIONS': {
+    #             'sslmode': 'require',
+    #         },
+    #     }
+    # }
     ALLOWED_HOSTS = [
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
