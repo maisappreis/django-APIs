@@ -1,10 +1,10 @@
 import os
 import json
 from django.core.management.base import BaseCommand
-from django.db import transaction, IntegrityError
-from upfit_gym.models import *
+from django.db import transaction
+from upfit_gym.models import Customer
 
-# Command:
+# Command
 # python manage.py import_customers --file upfit_gym/database/customer2024.json
 
 class Command(BaseCommand):
@@ -30,31 +30,35 @@ class Command(BaseCommand):
             with open(file_path, 'r', encoding='utf-8') as f:
                 customers_data = json.load(f)
         except json.JSONDecodeError as e:
-            self.stdout.write(self.style.ERROR(f"Error to read JSON: {e}"))
+            self.stdout.write(self.style.ERROR(f"Error reading JSON: {e}"))
             return
 
-        self.stdout.write(f"Starting import from {len(customers_data)} customers...")
+        self.stdout.write(f"Starting import of {len(customers_data)} customers...")
+
+        id_mapping = {}
 
         with transaction.atomic():
             for item in customers_data:
                 try:
-                    customer, created = Customer.objects.get_or_create(
-                        id=item.get('id'),
-                        defaults={
-                            'name': item['name'],
-                            'frequency': item['frequency'],
-                            'start': item['start'],
-                            'plan': item['plan'],
-                            'value': item['value'],
-                            'status': item['status'],
-                            'notes': item['notes'],
-                        }
+                    customer = Customer.objects.create(
+                        name=item['name'],
+                        frequency=item['frequency'],
+                        start=item['start'],
+                        plan=item['plan'],
+                        value=item['value'],
+                        status=item['status'],
+                        notes=item['notes'],
                     )
-                    if created:
-                        self.stdout.write(self.style.SUCCESS(f"Customer '{customer.name}' created successfully!"))
-                    else:
-                        self.stdout.write(f"Customer '{customer.name}' already exists.")
-                except IntegrityError as e:
-                    self.stdout.write(self.style.ERROR(f"Error to create customer: {e}"))
+                    # Map old ID to new ID
+                    id_mapping[item['id']] = customer.id
+                    self.stdout.write(self.style.SUCCESS(f"Customer '{customer.name}' created with ID {customer.id}."))
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f"Error creating customer: {e}"))
 
-        self.stdout.write(self.style.SUCCESS("Import completed successfully."))
+        # Save the mapping to a file
+        mapping_file = "upfit_gym/database/customer_id_mapping.json"
+        with open(mapping_file, 'w', encoding='utf-8') as f:
+            json.dump(id_mapping, f, indent=4)
+        self.stdout.write(self.style.SUCCESS(f"ID mapping saved to {mapping_file}."))
+
+        self.stdout.write(self.style.SUCCESS("Customer import completed successfully."))

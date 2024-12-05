@@ -1,7 +1,7 @@
 import os
 import json
 from django.core.management.base import BaseCommand
-from django.db import transaction, IntegrityError
+from django.db import transaction
 from dental_clinic.models import Expense
 
 # Command:
@@ -38,24 +38,18 @@ class Command(BaseCommand):
         with transaction.atomic():
             for item in expenses_data:
                 try:
-                    expense, created = Expense.objects.get_or_create(
-                        id=item.get('id'),
-                        defaults={
-                            'year': item['year'],
-                            'month': item['month'],
-                            'name': item['name'],
-                            'installments': item['installments'],
-                            'date': item['date'],
-                            'value': item['value'],
-                            'is_paid': item['is_paid'],
-                            'notes': item['notes'],
-                        }
+                    Expense.objects.create(
+                        year=item['year'],
+                        month=item['month'],
+                        name=item['name'],
+                        installments=item['installments'],
+                        date=item['date'],
+                        value=item['value'],
+                        is_paid=item['is_paid'],
+                        notes=item.get('notes', ''),
                     )
-                    if created:
-                        self.stdout.write(self.style.SUCCESS(f"Expense '{expense.name}' created successfully!"))
-                    else:
-                        self.stdout.write(f"Expense '{expense.name}' already exists.")
-                except IntegrityError as e:
+                    self.stdout.write(self.style.SUCCESS(f"Expense '{item['name']}' created successfully!"))
+                except Exception as e:
                     self.stdout.write(self.style.ERROR(f"Error creating expense: {e}"))
 
         self.stdout.write(self.style.SUCCESS("Import completed successfully."))

@@ -1,7 +1,7 @@
 import os
 import json
 from django.core.management.base import BaseCommand
-from django.db import transaction, IntegrityError
+from django.db import transaction
 from dental_clinic.models import Revenue
 
 # Command:
@@ -38,27 +38,21 @@ class Command(BaseCommand):
         with transaction.atomic():
             for item in revenues_data:
                 try:
-                    revenue, created = Revenue.objects.get_or_create(
-                        id=item.get('id'),
-                        defaults={
-                            'date': item['date'],
-                            'release_date': item.get('release_date'),
-                            'name': item['name'],
-                            'cpf': item['cpf'],
-                            'nf': item['nf'],
-                            'procedure': item['procedure'],
-                            'payment': item['payment'],
-                            'installments': item['installments'],
-                            'value': item['value'],
-                            'net_value': item['net_value'],
-                            'notes': item.get('notes', ''),
-                        }
+                    Revenue.objects.create(
+                        date=item['date'],
+                        release_date=item.get('release_date'),
+                        name=item['name'],
+                        cpf=item['cpf'],
+                        nf=item['nf'],
+                        procedure=item['procedure'],
+                        payment=item['payment'],
+                        installments=item['installments'],
+                        value=item['value'],
+                        net_value=item['net_value'],
+                        notes=item.get('notes', ''),
                     )
-                    if created:
-                        self.stdout.write(self.style.SUCCESS(f"Revenue '{revenue.name}' created successfully!"))
-                    else:
-                        self.stdout.write(f"Revenue with ID {revenue.id} already exists.")
-                except IntegrityError as e:
+                    self.stdout.write(self.style.SUCCESS(f"Revenue '{item['name']}' created successfully!"))
+                except Exception as e:
                     self.stdout.write(self.style.ERROR(f"Error creating revenue: {e}"))
 
         self.stdout.write(self.style.SUCCESS("Import completed successfully."))

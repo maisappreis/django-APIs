@@ -38,23 +38,17 @@ class Command(BaseCommand):
         with transaction.atomic():
             for item in expenses_data:
                 try:
-                    expense, created = Expense.objects.get_or_create(
-                        id=item.get('id'),
-                        defaults={
-                            'name': item['name'],
-                            'year': item['year'],
-                            'month': item['month'],
-                            'date': item['date'],
-                            'installments': item.get('installments', ''),
-                            'value': item['value'],
-                            'paid': item['paid'],
-                            'notes': item.get('notes', ''),
-                        }
+                    expense = Expense.objects.create(
+                        name=item['name'],
+                        year=item['year'],
+                        month=item['month'],
+                        date=item['date'],
+                        installments=item.get('installments', ''),
+                        value=item['value'],
+                        paid=item['paid'],
+                        notes=item.get('notes', ''),
                     )
-                    if created:
-                        self.stdout.write(self.style.SUCCESS(f"Expense '{expense.name}' created successfully!"))
-                    else:
-                        self.stdout.write(f"Expense with ID {expense.id} already exists.")
+                    self.stdout.write(self.style.SUCCESS(f"Expense '{expense.name}' created successfully!"))
                 except IntegrityError as e:
                     self.stdout.write(self.style.ERROR(f"Error to create expense: {e}"))
 
