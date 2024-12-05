@@ -1,4 +1,6 @@
 from rest_framework import generics
+from datetime import timedelta
+from django.utils import timezone
 from .models import *
 from .serializers import *
 from rest_framework.permissions import AllowAny
@@ -17,8 +19,9 @@ class RevenueListView(generics.ListAPIView):
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
-    # def get_queryset(self):
-    #     return Revenue.objects.filter(user=self.request.user)
+    def get_queryset(self):
+        twelve_months_ago = timezone.now() - timedelta(days=370)
+        return Revenue.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class RevenueCreateView(generics.ListCreateAPIView):
@@ -26,26 +29,21 @@ class RevenueCreateView(generics.ListCreateAPIView):
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
-    # def get_queryset(self):
-    #     return Revenue.objects.filter(user=self.request.user)
-
-    # def perform_create(self, serializer):
-    #     serializer.save(user=self.request.user)
-
 
 class RevenueUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
-    # def get_queryset(self):
-    #     return Revenue.objects.filter(user=self.request.user)
-
 
 class ExpenseListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
+
+    def get_queryset(self):
+        twelve_months_ago = timezone.now() - timedelta(days=370)
+        return Expense.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class ExpenseCreateView(generics.ListCreateAPIView):
@@ -196,6 +194,10 @@ class RevenueTestListView(generics.ListAPIView):
     queryset = RevenueTest.objects.all()
     serializer_class = RevenueTestSerializer
 
+    def get_queryset(self):
+        twelve_months_ago = timezone.now() - timedelta(days=370)
+        return RevenueTest.objects.filter(date__gte=twelve_months_ago).order_by('-date')
+
 
 class RevenueTestCreateView(generics.ListCreateAPIView):
     permission_classes = [AllowAny]
@@ -213,6 +215,10 @@ class ExpenseTestListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     queryset = ExpenseTest.objects.all()
     serializer_class = ExpenseTestSerializer
+
+    def get_queryset(self):
+        twelve_months_ago = timezone.now() - timedelta(days=370)
+        return ExpenseTest.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class ExpenseTestCreateView(generics.ListCreateAPIView):

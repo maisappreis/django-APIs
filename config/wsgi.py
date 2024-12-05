@@ -17,8 +17,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 # To make migrations on production
-call_command('makemigrations')
-call_command('migrate')
+# call_command('makemigrations')
+# call_command('migrate')
 
 application = get_wsgi_application()
 app = application

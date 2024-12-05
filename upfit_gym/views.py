@@ -1,4 +1,6 @@
 from rest_framework import generics
+from datetime import timedelta
+from django.utils import timezone
 from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated
@@ -30,7 +32,7 @@ class RevenueListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
-
+    # TODO: incluir "date" em Revenue
 
 class RevenueCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -48,6 +50,10 @@ class ExpenseListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
+
+    def get_queryset(self):
+        twelve_months_ago = timezone.now() - timedelta(days=370)
+        return Expense.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class ExpenseCreateView(generics.ListCreateAPIView):
