@@ -11,14 +11,15 @@ import os
 import django
 from django.core.wsgi import get_wsgi_application
 from django.core.management import call_command
+from utils.env import is_development
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 django.setup()
 
-# To make migrations on production
-# call_command('makemigrations')
-# call_command('migrate')
+if not is_development():
+    call_command('makemigrations')
+    call_command('migrate')
 
 application = get_wsgi_application()
 app = application
