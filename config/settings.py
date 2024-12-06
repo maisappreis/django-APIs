@@ -13,7 +13,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
-from utils.env import is_development
+from utils.env import is_development, is_production
 
 load_dotenv()
 
@@ -26,20 +26,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
-if is_development():
-    DEBUG = True
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / "database.sqlite3",
-            'USER': os.getenv('DB_USER'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST'),
-            'PORT': os.getenv('DB_PORT'),
-        }
-    }
-    ALLOWED_HOSTS = ['*']
-else:
+
+if is_production():
     DEBUG = False
     DATABASES = {
         'default': {
@@ -59,6 +47,54 @@ else:
         '.maisappreis-projects.vercel.app',
         '.vercel.app',
     ]
+else:
+    DEBUG = True
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / "database.sqlite3",
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST'),
+            'PORT': os.getenv('DB_PORT'),
+        }
+    }
+    ALLOWED_HOSTS = ['*']
+
+
+# if is_development():
+#     DEBUG = True
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.sqlite3',
+#             'NAME': BASE_DIR / "database.sqlite3",
+#             'USER': os.getenv('DB_USER'),
+#             'PASSWORD': os.getenv('DB_PASSWORD'),
+#             'HOST': os.getenv('DB_HOST'),
+#             'PORT': os.getenv('DB_PORT'),
+#         }
+#     }
+#     ALLOWED_HOSTS = ['*']
+# else:
+#     DEBUG = False
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': os.getenv('NEON_DB_NAME'),
+#             'USER': os.getenv('NEON_DB_USER'),
+#             'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
+#             'HOST': os.getenv('NEON_DB_HOST'),
+#             'PORT': os.getenv('NEON_DB_PORT', '5432'),
+#             'OPTIONS': {
+#                 'sslmode': 'require',
+#             },
+#         }
+#     }
+#     ALLOWED_HOSTS = [
+#         'django-apis-two.vercel.app',
+#         '.maisappreis-projects.vercel.app',
+#         '.vercel.app',
+#   ]
 
 # Application definition
 

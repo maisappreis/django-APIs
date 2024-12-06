@@ -16,3 +16,10 @@ def is_development() -> bool:
     Returns true if is a development environment
     """
     return environment == "dev"
+
+
+def is_production() -> bool:
+    """
+    Returns true if is a production environment
+    """
+    return 'vercel' in environment
