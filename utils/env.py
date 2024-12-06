@@ -22,4 +22,5 @@ def is_production() -> bool:
     """
     Returns true if is a production environment
     """
-    return 'vercel' in environment
+    # return 'vercel' in environment
+    return True
