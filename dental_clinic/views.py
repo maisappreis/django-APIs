@@ -6,7 +6,8 @@ from .serializers import *
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from dental_clinic.utils import createInstallments, perform_calculations
+from dental_clinic.utils import createInstallments, perform_calculations, gross_profit_of_the_last_12_months
+from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework import status
 from .utils import *
@@ -128,11 +129,27 @@ class AgendaUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 class MonthClosingListView(generics.ListAPIView):
     '''
-    Lists all the data required for the monthly cash closing.
+    Lists monthly cash closings.
     '''
     permission_classes = [IsAuthenticated]
     queryset = MonthClosing.objects.all()
     serializer_class = MonthClosingSerializer
+
+    def get_queryset(self):
+        """
+        Returns the monthly closings for the year specified in the query param 'year'.
+        """
+        year = self.request.query_params.get('year')
+
+        if not year:
+            raise ValidationError({"detail": "O parâmetro 'ano' é obrigatório."})
+
+        try:
+            year = int(year)
+        except ValueError:
+            raise ValidationError({"detail": "O parâmetro 'ano' deve ser um número inteiro."})
+
+        return MonthClosing.objects.filter(year=year).order_by('month')
 
 
 class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.RetrieveUpdateDestroyAPIView):
@@ -171,6 +188,7 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
         """
         return Response({'detail': 'A exclusão de fechamentos mensais de caixa não é permitida.'}, status=status.HTTP_403_FORBIDDEN)
 
+
 class UpdateNetValuesView(APIView):
     '''
     Updates net revenue values.
@@ -191,6 +209,18 @@ class UpdateNetValuesView(APIView):
 
             return Response({"detail": "Net values updated successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProfitListView(APIView):
+    """
+    Returns a list of monthly gross profits for the last 12 months.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profit_data, labels = gross_profit_of_the_last_12_months(Revenue, Expense)
+
+        return Response({"profit": profit_data, "labels": labels})
     
 
 # Test views used by unauthenticated users test application, like a portfolio.
@@ -310,13 +340,27 @@ class AgendaTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 class MonthClosingTestListView(generics.ListAPIView):
     '''
-    Lists all the data required for the monthly cash closing.
+    Lists monthly cash closings.
     '''
     permission_classes = [AllowAny]
     queryset = MonthClosingTest.objects.all()
     serializer_class = MonthClosingTestSerializer
 
-    # TODO: limita a 12 meses também
+    def get_queryset(self):
+        """
+        Returns the monthly closings for the year specified in the query param 'year'.
+        """
+        year = self.request.query_params.get('year')
+
+        if not year:
+            raise ValidationError({"detail": "O parâmetro 'ano' é obrigatório."})
+
+        try:
+            year = int(year)
+        except ValueError:
+            raise ValidationError({"detail": "O parâmetro 'ano' deve ser um número inteiro."})
+
+        return MonthClosingTest.objects.filter(year=year).order_by('month')
 
 
 class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.RetrieveUpdateDestroyAPIView):
@@ -381,3 +425,15 @@ class UpdateNetValuesTestView(APIView):
 
             return Response({"detail": "Net values updated successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class ProfitTestListView(APIView):
+    """
+    Returns a list of monthly gross profits for the last 12 months.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        profit_data, labels = gross_profit_of_the_last_12_months(RevenueTest, ExpenseTest)
+
+        return Response({"profit": profit_data, "labels": labels})
