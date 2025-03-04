@@ -15,38 +15,59 @@ from .utils import *
 
 
 class RevenueListView(generics.ListAPIView):
+    """
+    List revenues.
+    """
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
     def get_queryset(self):
+        """
+        Lists all revenue from the last 12 months.
+        """
         twelve_months_ago = timezone.now() - timedelta(days=370)
         return Revenue.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class RevenueCreateView(generics.ListCreateAPIView):
+    """
+    Create a revenue.
+    """
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
 
 class RevenueUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Update and delete a revenue.
+    """
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
 
 class ExpenseListView(generics.ListAPIView):
+    """
+    Lists expenses.
+    """
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
 
     def get_queryset(self):
+        """
+        Lists all expenses from the last 12 months.
+        """
         twelve_months_ago = timezone.now() - timedelta(days=370)
         return Expense.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class ExpenseCreateView(generics.ListCreateAPIView):
+    """
+    Create a expense.
+    """
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
@@ -70,36 +91,54 @@ class ExpenseCreateView(generics.ListCreateAPIView):
 
 
 class ExpenseUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Update and delete a expense.
+    """
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
 
 
 class AgendaListView(generics.ListAPIView):
+    '''
+    List appointments.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Agenda.objects.all()
     serializer_class = AgendaSerializer
 
 
 class AgendaCreateView(generics.ListCreateAPIView):
+    '''
+    Create a appointment.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Agenda.objects.all()
     serializer_class = AgendaSerializer
 
 
 class AgendaUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Update and delete a appointment.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Agenda.objects.all()
     serializer_class = AgendaSerializer
 
 
 class MonthClosingListView(generics.ListAPIView):
+    '''
+    Lists all the data required for the monthly cash closing.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = MonthClosing.objects.all()
     serializer_class = MonthClosingSerializer
 
 
 class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Creates and updates monthly cash closing data.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = MonthClosing.objects.all()
     serializer_class = MonthClosingSerializer
@@ -121,8 +160,8 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
             next_month = month + 1
             next_year = year
 
-        gross_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='release_date')
-        net_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='release_date', value_field='net_value')
+        gross_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='date')
+        net_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='date', value_field='net_value')
         expenses = calculate_sum_values(Expense, month=next_month, year=next_year)
 
         half_expenses = expenses/2
@@ -166,8 +205,12 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # TODO: bloquear o destroy aqui.
 
 class UpdateNetValuesView(APIView):
+    '''
+    Updates net revenue values.
+    '''
     permission_classes = [IsAuthenticated]
     
     def put(self, request, *args, **kwargs):
@@ -177,7 +220,7 @@ class UpdateNetValuesView(APIView):
                 try:
                     revenue = Revenue.objects.get(id=item['id'])
                     revenue.net_value = item['net_value']
-                    revenue.release_date = item['release_date']
+                    revenue.date = item['date']
                     revenue.save()
                 except Revenue.DoesNotExist:
                     return Response({"detail": f"Revenue with id {item['id']} not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -190,38 +233,59 @@ class UpdateNetValuesView(APIView):
 
 
 class RevenueTestListView(generics.ListAPIView):
+    """
+    List revenues.
+    """
     permission_classes = [AllowAny]
     queryset = RevenueTest.objects.all()
     serializer_class = RevenueTestSerializer
 
     def get_queryset(self):
+        """
+        Lists all revenue from the last 12 months.
+        """
         twelve_months_ago = timezone.now() - timedelta(days=370)
         return RevenueTest.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class RevenueTestCreateView(generics.ListCreateAPIView):
+    """
+    Create a revenue.
+    """
     permission_classes = [AllowAny]
     queryset = RevenueTest.objects.all()
     serializer_class = RevenueTestSerializer
 
 
 class RevenueTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Update and delete a revenue.
+    """
     permission_classes = [AllowAny]
     queryset = RevenueTest.objects.all()
     serializer_class = RevenueTestSerializer
 
 
 class ExpenseTestListView(generics.ListAPIView):
+    """
+    Lists expenses.
+    """
     permission_classes = [AllowAny]
     queryset = ExpenseTest.objects.all()
     serializer_class = ExpenseTestSerializer
 
     def get_queryset(self):
+        """
+        Lists all expenses from the last 12 months.
+        """
         twelve_months_ago = timezone.now() - timedelta(days=370)
         return ExpenseTest.objects.filter(date__gte=twelve_months_ago).order_by('-date')
 
 
 class ExpenseTestCreateView(generics.ListCreateAPIView):
+    """
+    Create a expense.
+    """
     permission_classes = [AllowAny]
     queryset = ExpenseTest.objects.all()
     serializer_class = ExpenseTestSerializer
@@ -245,36 +309,54 @@ class ExpenseTestCreateView(generics.ListCreateAPIView):
 
 
 class ExpenseTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Update and delete a expense.
+    """
     permission_classes = [AllowAny]
     queryset = ExpenseTest.objects.all()
     serializer_class = ExpenseTestSerializer
 
 
 class AgendaTestListView(generics.ListAPIView):
+    '''
+    List appointments.
+    '''
     permission_classes = [AllowAny]
     queryset = AgendaTest.objects.all()
     serializer_class = AgendaTestSerializer
 
 
 class AgendaTestCreateView(generics.ListCreateAPIView):
+    '''
+    Create a appointment.
+    '''
     permission_classes = [AllowAny]
     queryset = AgendaTest.objects.all()
     serializer_class = AgendaTestSerializer
 
 
 class AgendaTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Update and delete a appointment.
+    '''
     permission_classes = [AllowAny]
     queryset = AgendaTest.objects.all()
     serializer_class = AgendaTestSerializer
 
 
 class MonthClosingTestListView(generics.ListAPIView):
+    '''
+    Lists all the data required for the monthly cash closing.
+    '''
     permission_classes = [AllowAny]
     queryset = MonthClosingTest.objects.all()
     serializer_class = MonthClosingTestSerializer
 
 
 class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Creates and updates monthly cash closing data.
+    '''
     permission_classes = [AllowAny]
     queryset = MonthClosingTest.objects.all()
     serializer_class = MonthClosingTestSerializer
@@ -296,8 +378,8 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
             next_month = month + 1
             next_year = year
 
-        gross_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='release_date')
-        net_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='release_date', value_field='net_value')
+        gross_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='date')
+        net_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='date', value_field='net_value')
         expenses = calculate_sum_values(ExpenseTest, month=next_month, year=next_year)
         
         half_expenses = expenses/2
@@ -341,8 +423,12 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # TODO: bloquear o destroy aqui.
 
 class UpdateNetValuesTestView(APIView):
+    '''
+    Updates net revenue values.
+    '''
     permission_classes = [AllowAny]
     
     def put(self, request, *args, **kwargs):
@@ -352,7 +438,7 @@ class UpdateNetValuesTestView(APIView):
                 try:
                     revenue = RevenueTest.objects.get(id=item['id'])
                     revenue.net_value = item['net_value']
-                    revenue.release_date = item['release_date']
+                    revenue.date = item['date']
                     revenue.save()
                 except Revenue.DoesNotExist:
                     return Response({"detail": f"Revenue with id {item['id']} not found."}, status=status.HTTP_404_NOT_FOUND)
