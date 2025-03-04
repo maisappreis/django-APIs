@@ -6,7 +6,7 @@ from .serializers import *
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from dental_clinic.utils import createInstallments
+from dental_clinic.utils import createInstallments, perform_calculations
 from rest_framework.views import APIView
 from rest_framework import status
 from .utils import *
@@ -143,49 +143,9 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
     queryset = MonthClosing.objects.all()
     serializer_class = MonthClosingSerializer
 
-    def perform_calculations(self, data):
-        month = data.get('month')
-        year = data.get('year')
-        bank_value = data.get('bank_value')
-        cash_value = data.get('cash_value')
-        card_value = data.get('card_value')
-        card_value_next_month = data.get('card_value_next_month')
-        expenses = data.get('expenses')
-        other_revenue = data.get('other_revenue')
-
-        if month == 12:
-            next_month = 1
-            next_year = year + 1
-        else:
-            next_month = month + 1
-            next_year = year
-
-        gross_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='date')
-        net_revenue = calculate_sum_values(Revenue, month=month, year=year, date_field='date', value_field='net_value')
-        expenses = calculate_sum_values(Expense, month=next_month, year=next_year)
-
-        half_expenses = expenses/2
-        profit = calculate_profit(net_revenue, half_expenses)
-        
-        card_value_this_month = card_value - card_value_next_month
-        balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, profit)
-
-        data['bank_value'] = bank_value
-        data['cash_value'] = cash_value
-        data['card_value'] = card_value
-        data['card_value_next_month'] = card_value_next_month
-        data['gross_revenue'] = gross_revenue
-        data['net_revenue'] = net_revenue
-        data['expenses'] = expenses
-        data['profit'] = profit
-        data['other_revenue'] = expenses/2
-        data['balance'] = balance
-
-        return data
-
     def create(self, request, *args, **kwargs):
         data = request.data
-        data = self.perform_calculations(data)
+        data = perform_calculations(Revenue, Expense, data)
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -197,7 +157,7 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
         instance = self.get_object()
         data = request.data
 
-        data = self.perform_calculations(data)
+        data = perform_calculations(Revenue, Expense, data)
 
         serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -205,7 +165,11 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # TODO: bloquear o destroy aqui.
+    def destroy(self, request, *args, **kwargs):
+        """
+        Block the deletion of monthly cash closings.
+        """
+        return Response({'detail': 'A exclusão de fechamentos mensais de caixa não é permitida.'}, status=status.HTTP_403_FORBIDDEN)
 
 class UpdateNetValuesView(APIView):
     '''
@@ -352,6 +316,8 @@ class MonthClosingTestListView(generics.ListAPIView):
     queryset = MonthClosingTest.objects.all()
     serializer_class = MonthClosingTestSerializer
 
+    # TODO: limita a 12 meses também
+
 
 class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.RetrieveUpdateDestroyAPIView):
     '''
@@ -361,49 +327,12 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
     queryset = MonthClosingTest.objects.all()
     serializer_class = MonthClosingTestSerializer
 
-    def perform_calculations(self, data):
-        month = data.get('month')
-        year = data.get('year')
-        bank_value = data.get('bank_value')
-        cash_value = data.get('cash_value')
-        card_value = data.get('card_value')
-        card_value_next_month = data.get('card_value_next_month')
-        expenses = data.get('expenses')
-        other_revenue = data.get('other_revenue')
-
-        if month == 12:
-            next_month = 1
-            next_year = year + 1
-        else:
-            next_month = month + 1
-            next_year = year
-
-        gross_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='date')
-        net_revenue = calculate_sum_values(RevenueTest, month=month, year=year, date_field='date', value_field='net_value')
-        expenses = calculate_sum_values(ExpenseTest, month=next_month, year=next_year)
-        
-        half_expenses = expenses/2
-        profit = calculate_profit(net_revenue, half_expenses)
-        
-        card_value_this_month = card_value - card_value_next_month
-        balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, profit)
-
-        data['bank_value'] = bank_value
-        data['cash_value'] = cash_value
-        data['card_value'] = card_value
-        data['card_value_next_month'] = card_value_next_month
-        data['gross_revenue'] = gross_revenue
-        data['net_revenue'] = net_revenue
-        data['expenses'] = expenses
-        data['profit'] = profit
-        data['other_revenue'] = expenses/2
-        data['balance'] = balance
-
-        return data
-
     def create(self, request, *args, **kwargs):
+        '''
+        Creates the cash closing for a specific month.
+        '''
         data = request.data
-        data = self.perform_calculations(data)
+        data = perform_calculations(RevenueTest, ExpenseTest, data)
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -412,10 +341,13 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
+        '''
+        Updates the cash closing for a specific month.
+        '''
         instance = self.get_object()
         data = request.data
 
-        data = self.perform_calculations(data)
+        data = perform_calculations(RevenueTest, ExpenseTest, data)
 
         serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -423,7 +355,11 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # TODO: bloquear o destroy aqui.
+    def destroy(self, request, *args, **kwargs):
+        """
+        Block the deletion of monthly cash closings.
+        """
+        return Response({'detail': 'A exclusão de fechamentos mensais de caixa não é permitida.'}, status=status.HTTP_403_FORBIDDEN)
 
 class UpdateNetValuesTestView(APIView):
     '''
