@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'accounts',
     'upfit_gym',
     'dental_clinic',
+    'print3d'
 ]
 
 MIDDLEWARE = [

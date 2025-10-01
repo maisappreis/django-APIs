@@ -24,4 +24,5 @@ urlpatterns = [
     path('api/accounts/', include('accounts.urls')),
     path('api/dental/', include('dental_clinic.urls')),
     path('api/upfit/', include('upfit_gym.urls')),
+    path("api/print3d/", include("print3d.urls")),
 ]
