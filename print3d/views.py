@@ -77,7 +77,7 @@ class EstimateView(APIView):
             peso_g = volume_cm3 * densidade  # g
 
             # Estimativa de preço (R$1 por g)
-            preco = peso_g * 1
+            preco = peso_g * 1.5
             preco_rounded = self.arredondar_preco(preco)
 
             return Response({
