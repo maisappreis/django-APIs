@@ -83,6 +83,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -90,7 +91,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = False
@@ -102,12 +102,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "https://maisappreis.github.io",
-    "https://maisappreis.github.io/",
-    "https://maisappreis.github.io/axis/"
-]
-
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https?://(\w+\.)?127\.0\.0\.1:5173$',
+    "https://maisappreis.github.io/axis/",
 ]
 
 CORS_ALLOW_HEADERS = [
