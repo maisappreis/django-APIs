@@ -115,7 +115,6 @@ from rest_framework.permissions import AllowAny
 from stl import mesh
 from supabase import create_client
 
-# Configurações Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -129,7 +128,6 @@ class GenerateUploadURL(APIView):
             return Response({"error": "Filename obrigatório"}, status=400)
 
         try:
-            # Apenas o caminho do arquivo
             signed_url = supabase.storage.from_("stl-files").create_signed_upload_url(path=filename)
             return Response({"upload_url": signed_url})
         except Exception as e:
@@ -141,14 +139,8 @@ class GenerateUploadURL(APIView):
 class EstimateView(APIView):
     permission_classes = [AllowAny]
     """
-#     Estimates STL file dimensions to determine 3D printing prices.
-
-#     To test:
-
-#     curl.exe -X POST http://127.0.0.1:8000/api/print3d/estimate/ `
-#     -F "file=@C:/Users/maisa/Documents/Apps/django-APIs/print3d/3d_files/Dog_support.stl" `
-#     -F "altura_cm=3"
-#     """
+    Estimates STL file dimensions to determine 3D printing prices.
+    """
 
     def arredondar_preco(self, valor):
         inteiro = math.floor(valor)

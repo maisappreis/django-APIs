@@ -189,6 +189,15 @@ class MonthClosingCreateUpdateView(generics.ListCreateAPIView, generics.Retrieve
         return Response({'detail': 'A exclusão de fechamentos mensais de caixa não é permitida.'}, status=status.HTTP_403_FORBIDDEN)
 
 
+class MonthClosingUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Update and delete a month cash closing.
+    '''
+    permission_classes = [IsAuthenticated]
+    queryset = MonthClosing.objects.all()
+    serializer_class = MonthClosingSerializer
+
+
 class UpdateNetValuesView(APIView):
     '''
     Updates net revenue values.
@@ -399,11 +408,15 @@ class MonthClosingTestCreateUpdateView(generics.ListCreateAPIView, generics.Retr
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def destroy(self, request, *args, **kwargs):
-        """
-        Block the deletion of monthly cash closings.
-        """
-        return Response({'detail': 'A exclusão de fechamentos mensais de caixa não é permitida.'}, status=status.HTTP_403_FORBIDDEN)
+
+class MonthClosingTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Update and delete a month cash closing.
+    '''
+    permission_classes = [AllowAny]
+    queryset = MonthClosingTest.objects.all()
+    serializer_class = MonthClosingTestSerializer
+
 
 class UpdateNetValuesTestView(APIView):
     '''
