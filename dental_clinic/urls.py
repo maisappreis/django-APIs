@@ -21,7 +21,7 @@ urlpatterns = [
     path('month_closing/<int:pk>/', MonthClosingUpdateDestroyView.as_view(), name='month-closing-update-destroy'),
 
     path('profit_list/', ProfitListView.as_view(), name='profit-list'),
-    path('update-net-values/', UpdateNetValuesView.as_view(), name='update-net-values'),
+    path('update_net_values/', UpdateNetValuesView.as_view(), name='update-net-values'),
     
     path('test/expense/', ExpenseTestListView.as_view(), name='expense-list'),
     path('test/expense/create/', ExpenseTestCreateView.as_view(), name='expense-create'),
@@ -41,5 +41,5 @@ urlpatterns = [
     path('test/month_closing/<int:pk>/', MonthClosingTestUpdateDestroyView.as_view(), name='month-closing-update-destroy'),
    
     path('test/profit_list/', ProfitTestListView.as_view(), name='profit-list'),
-    path('test/update-net-values/', UpdateNetValuesTestView.as_view(), name='update-net-values'),
+    path('test/update_net_values/', UpdateNetValuesTestView.as_view(), name='update-net-values')
 ]

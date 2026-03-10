@@ -5,7 +5,7 @@ from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from dental_clinic.utils import createInstallments
+from dental_clinic.utils import create_installments
 
 # Real views used by authenticated users.
 
@@ -68,7 +68,7 @@ class ExpenseCreateView(generics.ListCreateAPIView):
         if installments == "":
             return super().create(request, *args, **kwargs)
         
-        serializer, created_objects = createInstallments(
+        serializer, created_objects = create_installments(
             serializer_class=self.get_serializer_class(),
             perform_create=self.perform_create,
             installments=installments,

@@ -65,11 +65,17 @@ class MonthClosingTestSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class RevenueTestNetValueUpdateSerializer(serializers.ModelSerializer):
+class RevenueNetValueItemSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     net_value = serializers.FloatField()
     date = serializers.DateField()
 
-    class Meta:
-        model = RevenueTest
-        fields = ['id', 'net_value', 'date']
+
+class RevenueNetValueUpdateSerializer(serializers.Serializer):
+    reference = serializers.CharField()
+    revenue = RevenueNetValueItemSerializer(many=True)
+
+
+class RevenueTestNetValueUpdateSerializer(serializers.Serializer):
+    reference = serializers.CharField()
+    revenue = RevenueNetValueItemSerializer(many=True)

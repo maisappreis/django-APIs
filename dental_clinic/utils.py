@@ -3,8 +3,11 @@ from dateutil.relativedelta import relativedelta
 from babel.dates import format_date
 from django.db.models import Model, Sum
 from datetime import timedelta
+from django.db.models import Sum
+from .models import *
 
-def createInstallments(serializer_class, perform_create, installments, data):
+
+def create_installments(serializer_class, perform_create, installments, data):
     installments = int(installments)
     initial_date = datetime.strptime(data['date'], "%Y-%m-%d")
     created_objects = []
@@ -113,6 +116,7 @@ month_names = [
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ]
 
+## Charts
 
 def gross_profit_of_the_last_12_months(revenueModel: Model, expenseModel: Model):
     """
@@ -165,3 +169,117 @@ def gross_profit_of_the_last_12_months(revenueModel: Model, expenseModel: Model)
     labels.reverse()
 
     return profit_data, labels
+
+
+def update_month_closing_test(month: int, year: int, reference: str):
+    """
+    Recalculates MonthClosing values for the given month and year.
+    """
+
+    gross_revenue = (
+        RevenueTest.objects.filter(date__month=month, date__year=year)
+        .aggregate(total=Sum("value"))["total"] or 0
+    )
+
+    net_revenue = (
+        RevenueTest.objects.filter(date__month=month, date__year=year)
+        .aggregate(total=Sum("net_value"))["total"] or 0
+    )
+
+    expenses = (
+        ExpenseTest.objects.filter(date__month=month, date__year=year)
+        .aggregate(total=Sum("value"))["total"] or 0
+    )
+
+    net_profit = net_revenue - expenses
+
+    month_closing = MonthClosingTest.objects.filter(
+        month=month,
+        year=year
+    ).first()
+
+    if month_closing:
+        # UPDATE (mantém valores existentes)
+        month_closing.reference = reference
+        month_closing.gross_revenue = gross_revenue
+        month_closing.net_revenue = net_revenue
+        month_closing.expenses = expenses
+        month_closing.profit = net_profit
+        month_closing.save()
+
+    else:
+        # CREATE (precisa preencher campos NOT NULL)
+        month_closing = MonthClosingTest.objects.create(
+            reference=reference,
+            month=month,
+            year=year,
+            gross_revenue=gross_revenue,
+            net_revenue=net_revenue,
+            expenses=expenses,
+            profit=net_profit,
+            bank_value=0,
+            cash_value=0,
+            card_value=0,
+            card_value_next_month=0,
+            other_revenue=0,
+            balance=0,
+        )
+
+    return month_closing
+
+
+def update_month_closing(month: int, year: int, reference: str):
+    """
+    Recalculates MonthClosing values for the given month and year.
+    """
+
+    gross_revenue = (
+        Revenue.objects.filter(date__month=month, date__year=year)
+        .aggregate(total=Sum("value"))["total"] or 0
+    )
+
+    net_revenue = (
+        Revenue.objects.filter(date__month=month, date__year=year)
+        .aggregate(total=Sum("net_value"))["total"] or 0
+    )
+
+    expenses = (
+        Expense.objects.filter(date__month=month, date__year=year)
+        .aggregate(total=Sum("value"))["total"] or 0
+    )
+
+    net_profit = net_revenue - expenses
+
+    month_closing = MonthClosing.objects.filter(
+        month=month,
+        year=year
+    ).first()
+
+    if month_closing:
+        # UPDATE (mantém valores existentes)
+        month_closing.reference = reference
+        month_closing.gross_revenue = gross_revenue
+        month_closing.net_revenue = net_revenue
+        month_closing.expenses = expenses
+        month_closing.profit = net_profit
+        month_closing.save()
+
+    else:
+        # CREATE (precisa preencher campos NOT NULL)
+        month_closing = MonthClosing.objects.create(
+            reference=reference,
+            month=month,
+            year=year,
+            gross_revenue=gross_revenue,
+            net_revenue=net_revenue,
+            expenses=expenses,
+            profit=net_profit,
+            bank_value=0,
+            cash_value=0,
+            card_value=0,
+            card_value_next_month=0,
+            other_revenue=0,
+            balance=0,
+        )
+
+    return month_closing

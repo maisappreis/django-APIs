@@ -1,12 +1,13 @@
 from rest_framework import generics
 from datetime import timedelta
 from django.utils import timezone
+from django.db import transaction
 from .models import *
 from .serializers import *
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from dental_clinic.utils import createInstallments, perform_calculations, gross_profit_of_the_last_12_months
+from dental_clinic.utils import create_installments, perform_calculations, gross_profit_of_the_last_12_months
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework import status
@@ -80,7 +81,7 @@ class ExpenseCreateView(generics.ListCreateAPIView):
         if installments == "":
             return super().create(request, *args, **kwargs)
         
-        serializer, created_objects = createInstallments(
+        serializer, created_objects = create_installments(
             serializer_class=self.get_serializer_class(),
             perform_create=self.perform_create,
             installments=installments,
@@ -199,25 +200,55 @@ class MonthClosingUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class UpdateNetValuesView(APIView):
-    '''
-    Updates net revenue values.
-    '''
-    permission_classes = [IsAuthenticated]
-    
-    def put(self, request, *args, **kwargs):
-        serializer = RevenueNetValueUpdateSerializer(data=request.data, many=True)
-        if serializer.is_valid():
-            for item in serializer.validated_data:
-                try:
-                    revenue = Revenue.objects.get(id=item['id'])
-                    revenue.net_value = item['net_value']
-                    revenue.date = item['date']
-                    revenue.save()
-                except Revenue.DoesNotExist:
-                    return Response({"detail": f"Revenue with id {item['id']} not found."}, status=status.HTTP_404_NOT_FOUND)
+    """
+    Updates net revenue values and recalculates month closing.
+    """
 
-            return Response({"detail": "Net values updated successfully."}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, *args, **kwargs):
+
+        serializer = RevenueNetValueUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        reference = serializer.validated_data["reference"]
+        revenue_items = serializer.validated_data["revenue"]
+
+
+        months_to_update = set()
+
+        with transaction.atomic():
+
+            for item in revenue_items:
+                try:
+                    revenue = Revenue.objects.get(id=item["id"])
+
+                    revenue.net_value = item["net_value"]
+                    revenue.date = item["date"]
+                    revenue.save()
+
+                    months_to_update.add((revenue.date.month, revenue.date.year))
+
+                except Revenue.DoesNotExist:
+                    return Response(
+                        {"detail": f"Revenue with id {item['id']} not found."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+            for month, year in months_to_update:
+                update_month_closing(month, year, reference)
+
+            month_closing = MonthClosing.objects.get(month=month, year=year)
+
+        return Response(
+            {
+                "detail": "Net values updated successfully.",
+                "month_closing": MonthClosingSerializer(month_closing).data
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class ProfitListView(APIView):
@@ -300,7 +331,7 @@ class ExpenseTestCreateView(generics.ListCreateAPIView):
         if installments == "":
             return super().create(request, *args, **kwargs)
         
-        serializer, created_objects = createInstallments(
+        serializer, created_objects = create_installments(
             serializer_class=self.get_serializer_class(),
             perform_create=self.perform_create,
             installments=installments,
@@ -416,28 +447,57 @@ class MonthClosingTestUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [AllowAny]
     queryset = MonthClosingTest.objects.all()
     serializer_class = MonthClosingTestSerializer
-
+    
 
 class UpdateNetValuesTestView(APIView):
-    '''
-    Updates net revenue values.
-    '''
-    permission_classes = [AllowAny]
-    
-    def put(self, request, *args, **kwargs):
-        serializer = RevenueTestNetValueUpdateSerializer(data=request.data, many=True)
-        if serializer.is_valid():
-            for item in serializer.validated_data:
-                try:
-                    revenue = RevenueTest.objects.get(id=item['id'])
-                    revenue.net_value = item['net_value']
-                    revenue.date = item['date']
-                    revenue.save()
-                except Revenue.DoesNotExist:
-                    return Response({"detail": f"Revenue with id {item['id']} not found."}, status=status.HTTP_404_NOT_FOUND)
+    """
+    Updates net revenue values and recalculates month closing.
+    """
 
-            return Response({"detail": "Net values updated successfully."}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    permission_classes = [AllowAny]
+
+    def put(self, request, *args, **kwargs):
+
+        serializer = RevenueTestNetValueUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        reference = serializer.validated_data["reference"]
+        revenue_items = serializer.validated_data["revenue"]
+
+        months_to_update = set()
+
+        with transaction.atomic():
+
+            for item in revenue_items:
+                try:
+                    revenue = RevenueTest.objects.get(id=item["id"])
+
+                    revenue.net_value = item["net_value"]
+                    revenue.date = item["date"]
+                    revenue.save()
+
+                    months_to_update.add((revenue.date.month, revenue.date.year))
+
+                except RevenueTest.DoesNotExist:
+                    return Response(
+                        {"detail": f"Revenue with id {item['id']} not found."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+            for month, year in months_to_update:
+                update_month_closing_test(month, year, reference)
+
+            month_closing = MonthClosingTest.objects.get(month=month, year=year)
+
+        return Response(
+            {
+                "detail": "Net values updated successfully.",
+                "month_closing": MonthClosingTestSerializer(month_closing).data
+            },
+            status=status.HTTP_200_OK
+        )
     
 
 class ProfitTestListView(APIView):

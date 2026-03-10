@@ -5,7 +5,7 @@ from .models import *
 from .serializers import *
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from dental_clinic.utils import createInstallments
+from dental_clinic.utils import create_installments
 
 # Test views used by unauthenticated users test application, like a portfolio.
 
@@ -68,7 +68,7 @@ class ExpenseTestCreateView(generics.ListCreateAPIView):
         if installments == "":
             return super().create(request, *args, **kwargs)
         
-        serializer, created_objects = createInstallments(
+        serializer, created_objects = create_installments(
             serializer_class=self.get_serializer_class(),
             perform_create=self.perform_create,
             installments=installments,
