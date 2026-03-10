@@ -29,7 +29,7 @@ def create_installments(serializer_class, perform_create, installments, data):
     return serializer, created_objects
 
 
-def calculate_sum_values(model: Model, month: int, year: int, date_field: str = 'date', value_field: str = 'value') -> float:
+def calculate_sum_values(user: User, model: Model, month: int, year: int, date_field: str = 'date', value_field: str = 'value') -> float:
     """
     Calculates the total of the values ​​of a model column for the specified period.
 
@@ -44,6 +44,7 @@ def calculate_sum_values(model: Model, month: int, year: int, date_field: str = 
         float: The total sum for the specified period. Returns 0 if there are no results.
     """
     total_value = model.objects.filter(
+        user=user,
         **{
             f"{date_field}__month": month,
             f"{date_field}__year": year
@@ -57,11 +58,25 @@ def calculate_profit(revenue, expenses):
     return revenue - expenses
 
 
-def calculate_balance(bank_value, cash_value, card_value, other_revenue, expenses, profit):
-    return (bank_value + cash_value + card_value + other_revenue) - (expenses + profit)
+def calculate_balance(
+    bank_value,
+    cash_value,
+    card_value,
+    other_revenue,
+    expenses,
+    net_profit
+):
+    bank_value = bank_value or 0
+    cash_value = cash_value or 0
+    card_value = card_value or 0
+    other_revenue = other_revenue or 0
+    expenses = expenses or 0
+    net_profit = net_profit or 0
+
+    return (bank_value + cash_value + card_value + other_revenue) - (expenses + net_profit)
 
 
-def perform_calculations(revenueModel: Model, expenseModel: Model, data: dict):
+def perform_calculations(user: User, revenueModel: Model, expenseModel: Model, data: dict):
     '''
     Performs the calculations required to close a specific month.
 
@@ -87,15 +102,15 @@ def perform_calculations(revenueModel: Model, expenseModel: Model, data: dict):
         next_month = month + 1
         next_year = year
 
-    gross_revenue = calculate_sum_values(revenueModel, month=month, year=year, date_field='date')
-    net_revenue = calculate_sum_values(revenueModel, month=month, year=year, date_field='date', value_field='net_value')
-    expenses = calculate_sum_values(expenseModel, month=next_month, year=next_year)
+    gross_revenue = calculate_sum_values(user, revenueModel, month=month, year=year, date_field='date')
+    net_revenue = calculate_sum_values(user, revenueModel, month=month, year=year, date_field='date', value_field='net_value')
+    expenses = calculate_sum_values(user, expenseModel, month=next_month, year=next_year)
     
     half_expenses = expenses/2
-    profit = calculate_profit(net_revenue, half_expenses)
+    net_profit = calculate_profit(net_revenue, half_expenses)
     
     card_value_this_month = card_value - card_value_next_month
-    balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, profit)
+    balance = calculate_balance(bank_value, cash_value, card_value_this_month, other_revenue, expenses, net_profit)
 
     data['bank_value'] = bank_value
     data['cash_value'] = cash_value
@@ -104,7 +119,7 @@ def perform_calculations(revenueModel: Model, expenseModel: Model, data: dict):
     data['gross_revenue'] = gross_revenue
     data['net_revenue'] = net_revenue
     data['expenses'] = expenses
-    data['profit'] = profit
+    data['net_profit'] = net_profit
     data['other_revenue'] = expenses/2
     data['balance'] = balance
 
@@ -116,9 +131,8 @@ month_names = [
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ]
 
-## Charts
 
-def gross_profit_of_the_last_12_months(revenueModel: Model, expenseModel: Model):
+def gross_profit_of_the_last_12_months(revenueModel: Model, expenseModel: Model, user: User):
     """
     Returns a list of monthly profits for the last 12 months.
 
@@ -131,12 +145,12 @@ def gross_profit_of_the_last_12_months(revenueModel: Model, expenseModel: Model)
     monthly_profit = {}
 
     # Receita líquida por mês
-    revenues = revenueModel.objects.filter(date__gte=twelve_months_ago).values('date__year', 'date__month').annotate(
+    revenues = revenueModel.objects.filter(user=user, date__gte=twelve_months_ago).values('date__year', 'date__month').annotate(
         total_revenue=Sum('value')
     )
 
     # Despesas por mês
-    expenses = expenseModel.objects.filter(date__gte=twelve_months_ago).values('date__year', 'date__month').annotate(
+    expenses = expenseModel.objects.filter(user=user, date__gte=twelve_months_ago).values('date__year', 'date__month').annotate(
         total_expenses=Sum('value')
     )
 
@@ -171,115 +185,39 @@ def gross_profit_of_the_last_12_months(revenueModel: Model, expenseModel: Model)
     return profit_data, labels
 
 
-def update_month_closing_test(month: int, year: int, reference: str):
+def update_month_closing(user, month: int, year: int, reference: str):
     """
-    Recalculates MonthClosing values for the given month and year.
+    Recalculates MonthClosing values for the given user, month and year.
     """
 
     gross_revenue = (
-        RevenueTest.objects.filter(date__month=month, date__year=year)
+        Revenue.objects.filter(user=user, date__month=month, date__year=year)
         .aggregate(total=Sum("value"))["total"] or 0
     )
 
     net_revenue = (
-        RevenueTest.objects.filter(date__month=month, date__year=year)
+        Revenue.objects.filter(user=user, date__month=month, date__year=year)
         .aggregate(total=Sum("net_value"))["total"] or 0
     )
 
     expenses = (
-        ExpenseTest.objects.filter(date__month=month, date__year=year)
+        Expense.objects.filter(user=user, date__month=month, date__year=year)
         .aggregate(total=Sum("value"))["total"] or 0
     )
 
     net_profit = net_revenue - expenses
 
-    month_closing = MonthClosingTest.objects.filter(
+    month_closing, _ = MonthClosing.objects.update_or_create(
+        user=user,
         month=month,
-        year=year
-    ).first()
-
-    if month_closing:
-        # UPDATE (mantém valores existentes)
-        month_closing.reference = reference
-        month_closing.gross_revenue = gross_revenue
-        month_closing.net_revenue = net_revenue
-        month_closing.expenses = expenses
-        month_closing.profit = net_profit
-        month_closing.save()
-
-    else:
-        # CREATE (precisa preencher campos NOT NULL)
-        month_closing = MonthClosingTest.objects.create(
-            reference=reference,
-            month=month,
-            year=year,
-            gross_revenue=gross_revenue,
-            net_revenue=net_revenue,
-            expenses=expenses,
-            profit=net_profit,
-            bank_value=0,
-            cash_value=0,
-            card_value=0,
-            card_value_next_month=0,
-            other_revenue=0,
-            balance=0,
-        )
-
-    return month_closing
-
-
-def update_month_closing(month: int, year: int, reference: str):
-    """
-    Recalculates MonthClosing values for the given month and year.
-    """
-
-    gross_revenue = (
-        Revenue.objects.filter(date__month=month, date__year=year)
-        .aggregate(total=Sum("value"))["total"] or 0
+        year=year,
+        defaults={
+            "reference": reference,
+            "gross_revenue": gross_revenue,
+            "net_revenue": net_revenue,
+            "expenses": expenses,
+            "net_profit": net_profit,
+        },
     )
-
-    net_revenue = (
-        Revenue.objects.filter(date__month=month, date__year=year)
-        .aggregate(total=Sum("net_value"))["total"] or 0
-    )
-
-    expenses = (
-        Expense.objects.filter(date__month=month, date__year=year)
-        .aggregate(total=Sum("value"))["total"] or 0
-    )
-
-    net_profit = net_revenue - expenses
-
-    month_closing = MonthClosing.objects.filter(
-        month=month,
-        year=year
-    ).first()
-
-    if month_closing:
-        # UPDATE (mantém valores existentes)
-        month_closing.reference = reference
-        month_closing.gross_revenue = gross_revenue
-        month_closing.net_revenue = net_revenue
-        month_closing.expenses = expenses
-        month_closing.profit = net_profit
-        month_closing.save()
-
-    else:
-        # CREATE (precisa preencher campos NOT NULL)
-        month_closing = MonthClosing.objects.create(
-            reference=reference,
-            month=month,
-            year=year,
-            gross_revenue=gross_revenue,
-            net_revenue=net_revenue,
-            expenses=expenses,
-            profit=net_profit,
-            bank_value=0,
-            cash_value=0,
-            card_value=0,
-            card_value_next_month=0,
-            other_revenue=0,
-            balance=0,
-        )
 
     return month_closing
