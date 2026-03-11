@@ -8,10 +8,12 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework import generics
 
+from dental_clinic.services.month_closing import MonthClosingService
+from dental_clinic.services.dashboard import DashboardService
+from dental_clinic.services.revenue import RevenueService
+from dental_clinic.services.expense import ExpenseService
 from dental_clinic.serializers import *
-from dental_clinic.service import *
 from dental_clinic.models import *
-from dental_clinic.utils import *
 from dental_clinic.mixins import *
 
 
@@ -242,24 +244,15 @@ class UpdateNetValuesView(APIView):
         )
 
 
-'''
-Charts Views
-
-'''
-
-class ProfitListView(APIView):
+class DashboardChartsView(APIView):
     '''
-    Returns a list of monthly gross profits for the last 12 months.
+    Returns chart data for the dashboard (last 12 months).
     '''
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
 
-        profit_data, labels = gross_profit_of_the_last_12_months(
-            Revenue,
-            Expense,
-            user
-        )
+        data = DashboardService.get_charts(request.user)
 
-        return Response({'profit': profit_data, 'labels': labels})
+        return Response(data)

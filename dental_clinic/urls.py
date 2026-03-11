@@ -19,6 +19,6 @@ urlpatterns = [
     path('month_closing/create/', MonthClosingCreateView.as_view(), name='month-closing-create'),
     path('month_closing/<int:pk>/', MonthClosingUpdateDestroyView.as_view(), name='month-closing-update-destroy'),
 
-    path('profit_list/', ProfitListView.as_view(), name='profit-list'),
-    path('update_net_values/', UpdateNetValuesView.as_view(), name='update-net-values')
+    path('update_net_values/', UpdateNetValuesView.as_view(), name='update-net-values'),
+    path('dashboard_charts/', DashboardChartsView.as_view(), name='dashboard-charts-list')
 ]
