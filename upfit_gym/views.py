@@ -5,7 +5,7 @@ from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from dental_clinic.utils import create_installments
+from upfit_gym.utils import create_installments
 
 # Real views used by authenticated users.
 

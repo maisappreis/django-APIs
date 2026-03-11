@@ -5,7 +5,7 @@ from .models import *
 from .serializers import *
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from dental_clinic.utils import create_installments
+from upfit_gym.utils import create_installments
 
 # Test views used by unauthenticated users test application, like a portfolio.
 

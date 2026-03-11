@@ -6,27 +6,12 @@ from datetime import timedelta
 from django.db.models import Sum
 from .models import *
 
+# TODO: Separar utils dos Charts dos utils do MonthClosing
+# E separar os utils 'globais' do back, usados por mais de 1 app
 
-def create_installments(serializer_class, perform_create, installments, data):
-    installments = int(installments)
-    initial_date = datetime.strptime(data['date'], "%Y-%m-%d")
-    created_objects = []
+# TODO: Fazer APIs apenas para os Charts
 
-    for i in range(installments):
-        installment_data = data.copy()
-        installment_data['installments'] = f"{i+1}/{installments}"
-        date_obj = initial_date + relativedelta(months=i)
-        installment_data['date'] = date_obj.strftime("%Y-%m-%d")
-        month_name = format_date(date_obj, format='MMMM', locale='pt_BR')
-        installment_data['month'] = month_name.capitalize()
-        installment_data['year'] = date_obj.year
 
-        serializer = serializer_class(data=installment_data)
-        serializer.is_valid(raise_exception=True)
-        perform_create(serializer)
-        created_objects.append(serializer.data)
-
-    return serializer, created_objects
 
 
 def calculate_sum_values(user: User, model: Model, month: int, year: int, date_field: str = 'date', value_field: str = 'value') -> float:

@@ -1,17 +1,18 @@
-from rest_framework import generics
 from datetime import timedelta
 from django.utils import timezone
 from django.db import transaction
-from .models import *
-from .serializers import *
-from rest_framework.permissions import AllowAny
+
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from dental_clinic.utils import create_installments, perform_calculations, gross_profit_of_the_last_12_months
-from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework import status
-from .utils import *
+from rest_framework import generics
+
+from dental_clinic.service import ExpenseService
+from dental_clinic.serializers import *
+from dental_clinic.models import *
+from dental_clinic.utils import *
 
 
 class RevenueListView(generics.ListAPIView):
@@ -91,25 +92,18 @@ class ExpenseCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        data = request.data
-        installments = data.get('installments', '')
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if installments == "":
-            serializer = self.get_serializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=201, headers=headers)
-
-        serializer, created_objects = create_installments(
-            serializer_class=self.get_serializer_class(),
-            perform_create=self.perform_create,
-            installments=installments,
-            data=data
+        expenses = ExpenseService.create_expenses(
+            user=request.user,
+            validated_data=serializer.validated_data
         )
 
-        headers = self.get_success_headers(serializer.data)
-        return Response(created_objects, status=201, headers=headers)
+        return Response(
+            ExpenseSerializer(expenses, many=True).data,
+            status=status.HTTP_201_CREATED
+        )
 
 
 class ExpenseUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
