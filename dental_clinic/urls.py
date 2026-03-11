@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import *
 
+app_name = "dental"
 
 urlpatterns = [
     path('expense/', ExpenseListView.as_view(), name='expense-list'),
