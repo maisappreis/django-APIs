@@ -16,8 +16,7 @@ urlpatterns = [
     path('appointment/<int:pk>/', AppointmentUpdateDestroyView.as_view(), name='appointment-update-destroy'),
 
     path('month_closing/', MonthClosingListView.as_view(), name='month-closing-list'),
-    path('month_closing/create/', MonthClosingCreateUpdateView.as_view(), name='month-closing-create'),
-    path('month_closing/<int:pk>/', MonthClosingCreateUpdateView.as_view(), name='month-closing-create'),
+    path('month_closing/create/', MonthClosingCreateView.as_view(), name='month-closing-create'),
     path('month_closing/<int:pk>/', MonthClosingUpdateDestroyView.as_view(), name='month-closing-update-destroy'),
 
     path('profit_list/', ProfitListView.as_view(), name='profit-list'),
