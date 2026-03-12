@@ -7,8 +7,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from upfit_gym.utils import create_installments
 
-# Real views used by authenticated users.
-
 
 class CustomerListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
@@ -32,7 +30,7 @@ class RevenueListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
-    # TODO: incluir "date" em Revenue
+
 
 class RevenueCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
