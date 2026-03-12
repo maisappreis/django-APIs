@@ -1,83 +1,117 @@
-from rest_framework import generics
 from datetime import timedelta
 from django.utils import timezone
-from .models import *
-from .serializers import *
+
+from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from upfit_gym.utils import create_installments
+from rest_framework import status
+
+from upfit_gym.services import ExpenseService
+from upfit_gym.serializers import *
+from upfit_gym.models import *
+from upfit_gym.mixins import *
 
 
-class CustomerListView(generics.ListAPIView):
+class CustomerListView(UserQuerySetMixin, generics.ListAPIView):
+    '''
+    List customers.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
 
-class CustomerCreateView(generics.ListCreateAPIView):
+class CustomerCreateView(UserQuerySetMixin, generics.ListCreateAPIView):
+    '''
+    Create a customer.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
 
-class CustomerUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+class CustomerUpdateDestroyView(UserQuerySetMixin, generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Update and delete a customer.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
 
-class RevenueListView(generics.ListAPIView):
+class RevenueListView(UserQuerySetMixin, generics.ListAPIView):
+    '''
+    List revenues.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
 
-class RevenueCreateView(generics.ListCreateAPIView):
+class RevenueCreateView(UserQuerySetMixin, generics.ListCreateAPIView):
+    '''
+    Create a revenue.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
 
-class RevenueUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+class RevenueUpdateDestroyView(UserQuerySetMixin, generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Update and delete a revenue.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Revenue.objects.all()
     serializer_class = RevenueSerializer
 
 
-class ExpenseListView(generics.ListAPIView):
+class ExpenseListView(UserQuerySetMixin, generics.ListAPIView):
+    '''
+    Lists expenses.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
 
     def get_queryset(self):
+        '''
+        Lists all expenses from the last 12 months.
+        '''
         twelve_months_ago = timezone.now() - timedelta(days=370)
-        return Expense.objects.filter(date__gte=twelve_months_ago).order_by('-date')
+
+        return super().get_queryset().filter(
+            date__gte=twelve_months_ago
+        ).order_by('-date')
 
 
-class ExpenseCreateView(generics.ListCreateAPIView):
+class ExpenseCreateView(generics.CreateAPIView):
+    '''
+    Create a expense.
+    '''
     permission_classes = [IsAuthenticated]
-    queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
+    queryset = Expense.objects.all()
 
     def create(self, request, *args, **kwargs):
-        data = request.data
-        installments = data.get('installments', "")
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if installments == "":
-            return super().create(request, *args, **kwargs)
-        
-        serializer, created_objects = create_installments(
-            serializer_class=self.get_serializer_class(),
-            perform_create=self.perform_create,
-            installments=installments,
-            data=data
+        expenses = ExpenseService.create_expenses(
+            user=request.user,
+            validated_data=serializer.validated_data
         )
 
-        headers = self.get_success_headers(serializer.data)
-        return Response(created_objects, status=201, headers=headers)
+        return Response(
+            ExpenseSerializer(expenses, many=True).data,
+            status=status.HTTP_201_CREATED
+        )
 
 
-class ExpenseUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+class ExpenseUpdateDestroyView(UserQuerySetMixin, generics.RetrieveUpdateDestroyAPIView):
+    '''
+    Update and delete a expense.
+    '''
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer

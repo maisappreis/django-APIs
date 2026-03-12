@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import *
 
+app_name = "upfit"
 
 urlpatterns = [
     path('customer/', CustomerListView.as_view(), name='customer-list'),

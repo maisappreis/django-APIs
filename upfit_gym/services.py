@@ -1,4 +1,4 @@
-from dental_clinic.models import Expense
+from upfit_gym.models import Expense
 from dateutil.relativedelta import relativedelta
 from babel.dates import format_date
 
