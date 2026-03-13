@@ -1,12 +1,13 @@
-from datetime import timedelta
 from django.utils import timezone
+from datetime import timedelta
 
-from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import generics
 from rest_framework import status
 
-from upfit_gym.services import ExpenseService
+from upfit_gym.services import ExpenseService, DashboardService
 from upfit_gym.serializers import *
 from upfit_gym.models import *
 from upfit_gym.mixins import *
@@ -21,7 +22,7 @@ class CustomerListView(UserQuerySetMixin, generics.ListAPIView):
     serializer_class = CustomerSerializer
 
 
-class CustomerCreateView(UserQuerySetMixin, generics.ListCreateAPIView):
+class CustomerCreateView(UserQuerySetMixin, UserCreateMixin, generics.ListCreateAPIView):
     '''
     Create a customer.
     '''
@@ -48,7 +49,7 @@ class RevenueListView(UserQuerySetMixin, generics.ListAPIView):
     serializer_class = RevenueSerializer
 
 
-class RevenueCreateView(UserQuerySetMixin, generics.ListCreateAPIView):
+class RevenueCreateView(UserQuerySetMixin,  UserCreateMixin, generics.ListCreateAPIView):
     '''
     Create a revenue.
     '''
@@ -115,3 +116,17 @@ class ExpenseUpdateDestroyView(UserQuerySetMixin, generics.RetrieveUpdateDestroy
     permission_classes = [IsAuthenticated]
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
+
+
+class DashboardChartsView(APIView):
+    '''
+    Returns chart data for the dashboard (last 12 months).
+    '''
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        data = DashboardService.get_charts(request.user)
+
+        return Response(data)

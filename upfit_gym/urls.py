@@ -14,5 +14,7 @@ urlpatterns = [
     
     path('expense/', ExpenseListView.as_view(), name='expense-list'),
     path('expense/create/', ExpenseCreateView.as_view(), name='expense-create'),
-    path('expense/<int:pk>/', ExpenseUpdateDestroyView.as_view(), name='expense-update-destroy'),  
+    path('expense/<int:pk>/', ExpenseUpdateDestroyView.as_view(), name='expense-update-destroy'),
+
+    path('dashboard_charts/', DashboardChartsView.as_view(), name='dashboard-charts-list')
 ]
