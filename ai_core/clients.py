@@ -1,8 +1,11 @@
 import json
+import base64
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from openai import OpenAI
+from pathlib import Path
+from uuid import uuid4
 
 
 POST_CONTENT_SCHEMA = {
@@ -65,3 +68,28 @@ def generate_structured_content(prompt):
     )
 
     return json.loads(response.output_text)
+
+
+def generate_image_file(prompt):
+    client = get_openai_client()
+
+    response = client.images.generate(
+        model=settings.OPENAI_IMAGE_MODEL,
+        prompt=prompt,
+        size="1024x1024",
+        quality="medium",
+        output_format="png",
+    )
+
+    image_base64 = response.data[0].b64_json
+    image_bytes = base64.b64decode(image_base64)
+
+    relative_path = Path("generated_posts") / f"{uuid4()}.png"
+    absolute_path = Path(settings.MEDIA_ROOT) / relative_path
+    absolute_path.parent.mkdir(parents=True, exist_ok=True)
+    absolute_path.write_bytes(image_bytes)
+
+    return {
+        "image_path": str(relative_path).replace("\\", "/"),
+        "image_url": f"{settings.MEDIA_URL}{str(relative_path).replace('\\', '/')}",
+    }

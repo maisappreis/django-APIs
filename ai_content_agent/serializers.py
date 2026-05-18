@@ -15,3 +15,4 @@ class PostGenerationOutputSerializer(serializers.Serializer):
         child=serializers.CharField()
     )
     image_prompt = serializers.CharField()
+    image_url = serializers.CharField()
