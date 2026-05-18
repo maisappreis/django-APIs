@@ -88,8 +88,10 @@ def generate_image_file(prompt):
     absolute_path = Path(settings.MEDIA_ROOT) / relative_path
     absolute_path.parent.mkdir(parents=True, exist_ok=True)
     absolute_path.write_bytes(image_bytes)
+    normalized_path = str(relative_path).replace("\\", "/")
 
     return {
-        "image_path": str(relative_path).replace("\\", "/"),
-        "image_url": f"{settings.MEDIA_URL}{str(relative_path).replace('\\', '/')}",
+        "image_path": normalized_path,
+        "absolute_path": str(absolute_path),
+        "image_url": f"{settings.MEDIA_URL}{normalized_path}",
     }

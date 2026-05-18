@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,6 +12,8 @@ from .services import generate_post_content
 
 
 class GeneratePostContentAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     def post(self, request):
         input_serializer = PostGenerationInputSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
