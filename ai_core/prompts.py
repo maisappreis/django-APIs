@@ -21,4 +21,17 @@ def build_post_prompt(data):
         - A legenda deve ser clara, atrativa e alinhada ao objetivo.
         - As hashtags devem começar com #.
         - O prompt visual deve descrever a imagem de forma objetiva.
+
+        Texto sugerido para a imagem: {data.get("image_text_direction", "")}
+
+        Gere também um texto curto para aparecer sobre a imagem.
+
+        Regras do image_text:
+        - máximo de 6 palavras;
+        - tom de anúncio;
+        - modo imperativo quando fizer sentido;
+        - sem hashtags;
+        - sem emojis;
+        - sem aspas;
+        - deve funcionar como chamada visual curta.
         """

@@ -25,8 +25,12 @@ POST_CONTENT_SCHEMA = {
             "type": "string",
             "description": "Prompt visual para futura geração de imagem.",
         },
+        "image_text": {
+            "type": "string",
+            "description": "Texto curto para ser aplicado sobre a imagem do post.",
+        },
     },
-    "required": ["caption", "hashtags", "image_prompt"],
+    "required": ["caption", "hashtags", "image_prompt", "image_text"],
 }
 
 

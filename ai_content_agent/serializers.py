@@ -22,6 +22,11 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         default="bottom_right",
     )
+    image_text_direction = serializers.CharField(
+        max_length=120,
+        required=False,
+        allow_blank=True,
+    )
 
 
 class PostGenerationOutputSerializer(serializers.Serializer):
@@ -31,3 +36,5 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     )
     image_prompt = serializers.CharField()
     image_url = serializers.CharField()
+    image_text = serializers.CharField()
+    
