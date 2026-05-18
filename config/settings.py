@@ -25,7 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 
 if is_production():
     DEBUG = False
@@ -71,15 +72,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework.authtoken',
     'drf_spectacular',
     'corsheaders',
+
     'accounts',
     'upfit_gym',
     'dental_clinic',
-    'print3d'
+    'print3d',
+    'ai_core',
+    'ai_content_agent',
 ]
 
 MIDDLEWARE = [

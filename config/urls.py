@@ -22,7 +22,10 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/accounts/', include('accounts.urls')),
+
     path('api/dental/', include('dental_clinic.urls')),
     path('api/upfit/', include('upfit_gym.urls')),
-    path("api/print3d/", include("print3d.urls")),
+    path('api/print3d/', include('print3d.urls')),
+
+    path('api/content-agent/posts/generate/', include('ai_content_agent.urls')),
 ]
