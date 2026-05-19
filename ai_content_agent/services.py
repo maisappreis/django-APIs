@@ -1,6 +1,7 @@
 from ai_core.clients import generate_image_file, generate_structured_content
 from ai_content_agent.templates import (
     apply_template_bubbles,
+    apply_template_circle,
     apply_template_frame,
     apply_template_rectangle,
 )
@@ -60,12 +61,14 @@ TEMPLATE_RENDERERS = {
     "rectangle": apply_template_rectangle,
     "bubbles": apply_template_bubbles,
     "frame": apply_template_frame,
+    "circle": apply_template_circle,
 }
 
 TEMPLATE_COLOR_FIELDS = {
     "rectangle": ["primary_color", "text_color"],
     "bubbles": ["primary_color", "secondary_color", "text_color"],
     "frame": ["primary_color", "tertiary_color", "text_color"],
+    "circle": ["secondary_color", "text_color"],
 }
 
 
