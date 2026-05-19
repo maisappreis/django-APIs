@@ -2,9 +2,11 @@ from ai_core.clients import generate_image_file, generate_structured_content
 from ai_content_agent.templates import (
     apply_template_bubbles,
     apply_template_circle,
+    apply_template_corners,
     apply_template_frame,
     apply_template_rectangle,
     apply_template_triangle,
+    apply_template_vertical_rectangle,
 )
 from ai_core.prompts import build_post_prompt
 
@@ -64,6 +66,8 @@ TEMPLATE_RENDERERS = {
     "frame": apply_template_frame,
     "circle": apply_template_circle,
     "triangle": apply_template_triangle,
+    "corners": apply_template_corners,
+    "vertical_rectangle": apply_template_vertical_rectangle,
 }
 
 TEMPLATE_COLOR_FIELDS = {
@@ -72,6 +76,8 @@ TEMPLATE_COLOR_FIELDS = {
     "frame": ["primary_color", "tertiary_color", "text_color"],
     "circle": ["secondary_color", "text_color"],
     "triangle": ["secondary_color", "tertiary_color", "text_color"],
+    "corners": ["primary_color", "secondary_color", "text_color"],
+    "vertical_rectangle": ["secondary_color", "text_color"],
 }
 
 
@@ -94,6 +100,7 @@ def generate_post_content(data):
         image_path=image_data["absolute_path"],
         text=result["image_text"],
         logo_file=data.get("logo"),
+        logo_position=data["logo_position"],
         **color_kwargs,
     )
 

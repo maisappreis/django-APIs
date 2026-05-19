@@ -8,6 +8,8 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("frame", "Frame"),
         ("circle", "Circle"),
         ("triangle", "Triangle"),
+        ("corners", "Corners"),
+        ("vertical_rectangle", "Vertical rectangle"),
     ]
 
     LOGO_POSITION_CHOICES = [

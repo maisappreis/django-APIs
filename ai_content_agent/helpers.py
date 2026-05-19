@@ -1,6 +1,6 @@
 from PIL import Image
 
-from .utils import _resize_logo
+from .utils import _get_logo_coordinates, _resize_logo
 
 
 def _hex_to_rgba(hex_color, alpha=255):
@@ -14,14 +14,13 @@ def _hex_to_rgba(hex_color, alpha=255):
     )
 
 
-def _paste_logo_on_top_right(base_image, logo_file):
+def _paste_logo(base_image, logo_file, position):
     with Image.open(logo_file).convert("RGBA") as logo_image:
         logo_image = _resize_logo(logo_image, base_image.width)
-
-        margin = int(base_image.width * 0.04)
-        coordinates = (
-            base_image.width - logo_image.width - margin,
-            margin,
+        coordinates = _get_logo_coordinates(
+            base_image=base_image,
+            logo_image=logo_image,
+            position=position,
         )
 
         base_image.alpha_composite(logo_image, coordinates)
