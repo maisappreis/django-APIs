@@ -86,6 +86,18 @@ TEMPLATE_COLOR_FIELDS = {
     "layer": ["primary_color", "text_color"],
 }
 
+TEMPLATE_LOGO_POSITIONS = {
+    "layer": "bottom_center",
+    "stripes": "top_left",
+    "vertical_rectangle": "bottom_left",
+    "corners": "top_right",
+    "triangle": "top_right",
+    "circle": "top_right",
+    "frame": "bottom_center",
+    "bubbles": "top_right",
+    "rectangle": "top_right",
+}
+
 
 def generate_post_content(data):
     # prompt = build_post_prompt(data)
@@ -106,7 +118,7 @@ def generate_post_content(data):
         image_path=image_data["absolute_path"],
         text=result["image_text"],
         logo_file=data.get("logo"),
-        logo_position=data["logo_position"],
+        logo_position=TEMPLATE_LOGO_POSITIONS[template_name],
         **color_kwargs,
     )
 
