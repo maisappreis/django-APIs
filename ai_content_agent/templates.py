@@ -9,7 +9,9 @@ def apply_template_rectangle(
     image_path,
     text,
     logo_file=None,
-    primary_color="#00A86B",
+    *,
+    primary_color,
+    text_color,
 ):
     image_path = Path(image_path)
 
@@ -57,7 +59,7 @@ def apply_template_rectangle(
             (text_x, text_y),
             text_block,
             font=font,
-            fill=(255, 255, 255, 255),
+            fill=_hex_to_rgba(text_color, alpha=255),
             align="center",
             spacing=10,
         )

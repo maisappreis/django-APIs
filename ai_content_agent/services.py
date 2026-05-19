@@ -52,6 +52,11 @@ def mock_generate_image_file():
 
 # Mock ------------------------------------
 
+TEMPLATE_RENDERERS = {
+    "rectangle": apply_template_rectangle,
+}
+
+
 def generate_post_content(data):
     # prompt = build_post_prompt(data)
     # result = generate_structured_content(prompt)
@@ -60,11 +65,15 @@ def generate_post_content(data):
     # image_data = generate_image_file(result["image_prompt"])
     image_data = mock_generate_image_file() # TODO: excluir depois
 
-    apply_template_rectangle(
+    template_renderer = TEMPLATE_RENDERERS[data["template"]]
+    template_renderer(
         image_path=image_data["absolute_path"],
         text=result["image_text"],
         logo_file=data.get("logo"),
-        primary_color="#00A86B",
+        primary_color=data["primary_color"],
+        secondary_color=data["secondary_color"],
+        tertiary_color=data["tertiary_color"],
+        text_color=data["text_color"],
     )
 
     return {
