@@ -4,6 +4,7 @@ from rest_framework import serializers
 class PostGenerationInputSerializer(serializers.Serializer):
     TEMPLATE_CHOICES = [
         ("rectangle", "Rectangle"),
+        ("bubbles", "Bubbles"),
     ]
 
     LOGO_POSITION_CHOICES = [

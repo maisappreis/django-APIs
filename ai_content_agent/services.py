@@ -1,5 +1,5 @@
 from ai_core.clients import generate_image_file, generate_structured_content
-from ai_content_agent.templates import apply_template_rectangle
+from ai_content_agent.templates import apply_template_bubbles, apply_template_rectangle
 from ai_core.prompts import build_post_prompt
 
 # Mock image ------------------------------------ TODO: deletar depois
@@ -54,6 +54,12 @@ def mock_generate_image_file():
 
 TEMPLATE_RENDERERS = {
     "rectangle": apply_template_rectangle,
+    "bubbles": apply_template_bubbles,
+}
+
+TEMPLATE_COLOR_FIELDS = {
+    "rectangle": ["primary_color", "text_color"],
+    "bubbles": ["primary_color", "secondary_color", "text_color"],
 }
 
 
@@ -65,15 +71,18 @@ def generate_post_content(data):
     # image_data = generate_image_file(result["image_prompt"])
     image_data = mock_generate_image_file() # TODO: excluir depois
 
-    template_renderer = TEMPLATE_RENDERERS[data["template"]]
+    template_name = data["template"]
+    template_renderer = TEMPLATE_RENDERERS[template_name]
+    color_kwargs = {
+        field: data[field]
+        for field in TEMPLATE_COLOR_FIELDS[template_name]
+    }
+
     template_renderer(
         image_path=image_data["absolute_path"],
         text=result["image_text"],
         logo_file=data.get("logo"),
-        primary_color=data["primary_color"],
-        secondary_color=data["secondary_color"],
-        tertiary_color=data["tertiary_color"],
-        text_color=data["text_color"],
+        **color_kwargs,
     )
 
     return {
