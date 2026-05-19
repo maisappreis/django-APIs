@@ -1,5 +1,5 @@
 from ai_core.clients import generate_image_file, generate_structured_content
-from ai_content_agent.utils import apply_center_text_to_image, apply_logo_to_image
+from ai_content_agent.templates import apply_template_rectangle
 from ai_core.prompts import build_post_prompt
 
 # Mock image ------------------------------------ TODO: deletar depois
@@ -7,6 +7,27 @@ from pathlib import Path
 from shutil import copyfile
 from uuid import uuid4
 from django.conf import settings
+
+def mock_generate_structured_content(data):
+    image_text = data.get("image_text_direction") or "COMECE HOJE"
+
+    return {
+        "caption": (
+            f"Na {data['business_name']}, seu próximo treino pode ser o começo "
+            f"de uma nova fase. Venha viver a experiência."
+        ),
+        "hashtags": [
+            "#academia",
+            "#treino",
+            "#motivacao",
+            "#vidasaudavel",
+        ],
+        "image_prompt": (
+            f"X Imagem publicitária para {data['business_name']}, no nicho de "
+            f"{data['niche']}, com tema {data['theme']}, estilo moderno e motivacional."
+        ),
+        "image_text": image_text,
+    }
 
 MOCK_IMAGE_RELATIVE_PATH = Path(
     "generated_posts/28b0357f-abc4-4177-b3f4-938cbafcb5f5.png"
@@ -32,25 +53,19 @@ def mock_generate_image_file():
 # Mock ------------------------------------
 
 def generate_post_content(data):
-    prompt = build_post_prompt(data)
-
-    result = generate_structured_content(prompt)
+    # prompt = build_post_prompt(data)
+    # result = generate_structured_content(prompt)
+    result = mock_generate_structured_content(data) # TODO: excluir depois
 
     # image_data = generate_image_file(result["image_prompt"])
     image_data = mock_generate_image_file() # TODO: excluir depois
-    apply_center_text_to_image(
+
+    apply_template_rectangle(
         image_path=image_data["absolute_path"],
         text=result["image_text"],
+        logo_file=data.get("logo"),
+        primary_color="#00A86B",
     )
-
-    logo = data.get("logo")
-
-    if logo:
-        apply_logo_to_image(
-            image_path=image_data["absolute_path"],
-            logo_file=logo,
-            position=data.get("logo_position", "bottom_right"),
-        )
 
     return {
         "caption": result["caption"],
