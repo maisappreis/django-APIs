@@ -4,6 +4,7 @@ from ai_content_agent.templates import (
     apply_template_circle,
     apply_template_corners,
     apply_template_frame,
+    apply_template_layer,
     apply_template_rectangle,
     apply_template_stripes,
     apply_template_triangle,
@@ -70,6 +71,7 @@ TEMPLATE_RENDERERS = {
     "corners": apply_template_corners,
     "vertical_rectangle": apply_template_vertical_rectangle,
     "stripes": apply_template_stripes,
+    "layer": apply_template_layer,
 }
 
 TEMPLATE_COLOR_FIELDS = {
@@ -81,6 +83,7 @@ TEMPLATE_COLOR_FIELDS = {
     "corners": ["primary_color", "secondary_color", "text_color"],
     "vertical_rectangle": ["secondary_color", "text_color"],
     "stripes": ["primary_color", "secondary_color", "tertiary_color", "text_color"],
+    "layer": ["primary_color", "text_color"],
 }
 
 
