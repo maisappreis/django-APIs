@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.conf import settings
 
 from .models import PostGeneration
 from .serializers import (
@@ -50,7 +51,14 @@ class GeneratePostContentAPIView(APIView):
             post_generation.error_message = str(error)
             post_generation.save()
 
+            response_data = {
+                "detail": "Erro ao gerar conteúdo do post.",
+            }
+
+            if settings.DEBUG:
+                response_data["error"] = str(error)
+
             return Response(
-                {"detail": "Erro ao gerar conteúdo do post."},
+                response_data,
                 status=status.HTTP_502_BAD_GATEWAY,
             )
