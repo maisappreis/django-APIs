@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     'upfit_gym',
     'dental_clinic',
     'print3d',
+    'axis',
     'ai_core',
     'ai_content_agent',
 ]
