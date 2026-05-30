@@ -64,6 +64,10 @@ else:
             'PORT': os.getenv('DB_PORT'),
         }
     }
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_TEST", "")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_TEST", "")
+    STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL_TEST", "")
+    STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL_TEST", "")
     ALLOWED_HOSTS = ['*']
 
 

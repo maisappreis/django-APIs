@@ -8,7 +8,14 @@ from .models import Plan, Subscription
 class PlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = Plan
-        fields = ["id", "name", "tier", "price_brl_cents", "price_usd_cents"]
+        fields = [
+            "id",
+            "name",
+            "tier",
+            "price_brl_cents",
+            "price_usd_cents",
+            "stripe_price_id",
+        ]
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
@@ -16,7 +23,35 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subscription
-        fields = ["id", "plan", "status", "valid_until", "created_at"]
+        fields = [
+            "id",
+            "plan",
+            "status",
+            "valid_until",
+            "stripe_customer_id",
+            "stripe_subscription_id",
+            "created_at",
+        ]
+
+
+class CheckoutSessionSerializer(serializers.Serializer):
+    plan_tier = serializers.ChoiceField(
+        choices=Plan.Tier.choices,
+        default=Plan.Tier.PLUS,
+    )
+
+    def validate_plan_tier(self, value):
+        try:
+            plan = Plan.objects.get(tier=value, is_active=True)
+        except Plan.DoesNotExist as error:
+            raise serializers.ValidationError("Plano inválido ou inativo.") from error
+
+        if not plan.stripe_price_id:
+            raise serializers.ValidationError("Plano sem price_id da Stripe.")
+
+        self.plan = plan
+
+        return value
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -57,8 +92,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email = validated_data.pop("email")
         password = validated_data.pop("password")
-        plan_tier = validated_data.pop("plan_tier", Plan.Tier.FREE)
-        plan = Plan.objects.get(tier=plan_tier, is_active=True)
+        validated_data.pop("plan_tier", Plan.Tier.FREE)
+        plan = Plan.objects.get(tier=Plan.Tier.FREE, is_active=True)
 
         user = User.objects.create_user(
             username=email,
