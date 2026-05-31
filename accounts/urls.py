@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from accounts.views import (
+    CancelSubscriptionView,
     CreateCheckoutSessionView,
     CustomTokenObtainPairView,
     ProfileView,
@@ -19,6 +20,11 @@ urlpatterns = [
         'subscription/checkout/',
         CreateCheckoutSessionView.as_view(),
         name='subscription-checkout',
+    ),
+    path(
+        'subscription/cancel/',
+        CancelSubscriptionView.as_view(),
+        name='subscription-cancel',
     ),
     path('stripe/webhook/', StripeWebhookView.as_view(), name='stripe-webhook'),
 ]

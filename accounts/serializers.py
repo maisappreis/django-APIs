@@ -28,6 +28,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "plan",
             "status",
             "valid_until",
+            "cancel_at_period_end",
+            "canceled_at",
             "stripe_customer_id",
             "stripe_subscription_id",
             "created_at",

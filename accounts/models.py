@@ -43,6 +43,8 @@ class Subscription(models.Model):
         default=Status.ACTIVE,
     )
     valid_until = models.DateField(null=True, blank=True)
+    cancel_at_period_end = models.BooleanField(default=False)
+    canceled_at = models.DateTimeField(null=True, blank=True)
     stripe_customer_id = models.CharField(max_length=255, blank=True)
     stripe_subscription_id = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

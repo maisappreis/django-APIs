@@ -29,11 +29,13 @@ class SubscriptionAdmin(admin.ModelAdmin):
         "plan",
         "status",
         "valid_until",
+        "cancel_at_period_end",
+        "canceled_at",
         "stripe_customer_id",
         "stripe_subscription_id",
         "created_at",
     )
-    list_filter = ("status", "plan")
+    list_filter = ("status", "plan", "cancel_at_period_end")
     search_fields = (
         "user__username",
         "user__email",

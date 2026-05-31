@@ -13,9 +13,87 @@ from .serializers import (
     CheckoutSessionSerializer,
     CustomTokenObtainPairSerializer,
     RegisterSerializer,
+    SubscriptionSerializer,
     UserProfileSerializer,
     UserUpdateSerializer
 )
+
+
+def stripe_object_to_dict(stripe_object):
+    if isinstance(stripe_object, dict):
+        return stripe_object
+
+    if hasattr(stripe_object, "to_dict_recursive"):
+        return stripe_object.to_dict_recursive()
+
+    return stripe_object._to_dict_recursive()
+
+
+def map_stripe_subscription_status(stripe_status):
+    status_map = {
+        "active": Subscription.Status.ACTIVE,
+        "trialing": Subscription.Status.TRIALING,
+        "past_due": Subscription.Status.PAST_DUE,
+        "canceled": Subscription.Status.CANCELED,
+        "unpaid": Subscription.Status.PAST_DUE,
+        "incomplete_expired": Subscription.Status.EXPIRED,
+    }
+
+    return status_map.get(stripe_status, Subscription.Status.PAST_DUE)
+
+
+def get_current_period_end(stripe_subscription):
+    period_end = stripe_subscription.get("current_period_end")
+    if period_end:
+        return period_end
+
+    items = stripe_subscription.get("items") or {}
+    for item in items.get("data") or []:
+        period_end = item.get("current_period_end")
+        if period_end:
+            return period_end
+
+    return None
+
+
+def sync_subscription_from_stripe(subscription, stripe_subscription):
+    subscription.status = map_stripe_subscription_status(
+        stripe_subscription.get("status"),
+    )
+    subscription.stripe_customer_id = stripe_subscription.get("customer") or ""
+    subscription.stripe_subscription_id = stripe_subscription.get("id") or ""
+    subscription.cancel_at_period_end = bool(
+        stripe_subscription.get("cancel_at_period_end"),
+    )
+
+    canceled_at = stripe_subscription.get("canceled_at")
+    subscription.canceled_at = (
+        datetime.fromtimestamp(canceled_at, tz=timezone.utc)
+        if canceled_at
+        else None
+    )
+
+    period_end = get_current_period_end(stripe_subscription)
+    if period_end:
+        subscription.valid_until = datetime.fromtimestamp(
+            period_end,
+            tz=timezone.utc,
+        ).date()
+
+    subscription.save()
+
+
+def retrieve_stripe_subscription(subscription_id):
+    if not subscription_id:
+        return None
+
+    import stripe
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        return stripe_object_to_dict(stripe.Subscription.retrieve(subscription_id))
+    except stripe.error.StripeError:
+        return None
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -114,6 +192,62 @@ class CreateCheckoutSessionView(APIView):
         )
 
 
+class CancelSubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not settings.STRIPE_SECRET_KEY:
+            return Response(
+                {"detail": "STRIPE_SECRET_KEY nao configurada."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        try:
+            import stripe
+        except ImportError:
+            return Response(
+                {"detail": "Biblioteca stripe nao instalada."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        try:
+            subscription = request.user.subscription
+        except Subscription.DoesNotExist:
+            return Response(
+                {"detail": "Assinatura nao encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not subscription.stripe_subscription_id:
+            return Response(
+                {"detail": "Assinatura Stripe nao encontrada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if subscription.status == Subscription.Status.CANCELED:
+            return Response(
+                {"detail": "Assinatura ja cancelada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+
+        stripe_subscription = stripe.Subscription.modify(
+            subscription.stripe_subscription_id,
+            cancel_at_period_end=True,
+        )
+        stripe_subscription = stripe_object_to_dict(stripe_subscription)
+        sync_subscription_from_stripe(subscription, stripe_subscription)
+
+        return Response(
+            {
+                "detail": "Assinatura sera cancelada ao fim do periodo atual.",
+                "subscription": SubscriptionSerializer(subscription).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class StripeWebhookView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -147,11 +281,12 @@ class StripeWebhookView(APIView):
         except stripe.error.SignatureVerificationError:
             return HttpResponse(status=400)
 
-        stripe_object = self._stripe_object_to_dict(event["data"]["object"])
+        stripe_object = stripe_object_to_dict(event["data"]["object"])
 
         if event["type"] == "checkout.session.completed":
             self._handle_checkout_completed(stripe_object)
         elif event["type"] in {
+            "customer.subscription.created",
             "customer.subscription.updated",
             "customer.subscription.deleted",
         }:
@@ -160,15 +295,6 @@ class StripeWebhookView(APIView):
             self._handle_invoice_payment_failed(stripe_object)
 
         return HttpResponse(status=200)
-
-    def _stripe_object_to_dict(self, stripe_object):
-        if isinstance(stripe_object, dict):
-            return stripe_object
-
-        if hasattr(stripe_object, "to_dict_recursive"):
-            return stripe_object.to_dict_recursive()
-
-        return stripe_object._to_dict_recursive()
 
     def _handle_checkout_completed(self, session):
         user_id = session.get("metadata", {}).get("user_id")
@@ -187,7 +313,14 @@ class StripeWebhookView(APIView):
         subscription.status = Subscription.Status.ACTIVE
         subscription.stripe_customer_id = session.get("customer") or ""
         subscription.stripe_subscription_id = session.get("subscription") or ""
-        subscription.save()
+
+        stripe_subscription = retrieve_stripe_subscription(
+            subscription.stripe_subscription_id,
+        )
+        if stripe_subscription:
+            sync_subscription_from_stripe(subscription, stripe_subscription)
+        else:
+            subscription.save()
 
     def _handle_subscription_updated(self, stripe_subscription):
         subscription_id = stripe_subscription.get("id")
@@ -213,20 +346,7 @@ class StripeWebhookView(APIView):
             if plan:
                 subscription.plan = plan
 
-        subscription.status = self._map_stripe_subscription_status(
-            stripe_subscription.get("status"),
-        )
-        subscription.stripe_customer_id = stripe_subscription.get("customer") or ""
-        subscription.stripe_subscription_id = subscription_id or ""
-
-        period_end = stripe_subscription.get("current_period_end")
-        if period_end:
-            subscription.valid_until = datetime.fromtimestamp(
-                period_end,
-                tz=timezone.utc,
-            ).date()
-
-        subscription.save()
+        sync_subscription_from_stripe(subscription, stripe_subscription)
 
     def _handle_invoice_payment_failed(self, invoice):
         subscription_id = invoice.get("subscription")
@@ -237,15 +357,3 @@ class StripeWebhookView(APIView):
         Subscription.objects.filter(
             stripe_subscription_id=subscription_id,
         ).update(status=Subscription.Status.PAST_DUE)
-
-    def _map_stripe_subscription_status(self, stripe_status):
-        status_map = {
-            "active": Subscription.Status.ACTIVE,
-            "trialing": Subscription.Status.TRIALING,
-            "past_due": Subscription.Status.PAST_DUE,
-            "canceled": Subscription.Status.CANCELED,
-            "unpaid": Subscription.Status.PAST_DUE,
-            "incomplete_expired": Subscription.Status.EXPIRED,
-        }
-
-        return status_map.get(stripe_status, Subscription.Status.PAST_DUE)
