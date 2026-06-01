@@ -94,6 +94,12 @@ Run server:
 python manage.py runserver
 ```
 
+Run Stripe listener: (open as administrator)
+```sh
+stripe login
+stripe listen --forward-to localhost:8000/api/accounts/stripe/webhook/
+```
+
 To run migrations:
 ```sh
 python manage.py makemigrations
