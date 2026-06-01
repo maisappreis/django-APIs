@@ -1,4 +1,8 @@
-from ai_core.clients import generate_image_file, generate_structured_content
+from ai_core.clients import (
+    POST_BATCH_CONTENT_SCHEMA,
+    POST_PLAN_SCHEMA,
+    generate_structured_content,
+)
 from ai_content_agent.templates import (
     apply_template_bubbles,
     apply_template_circle,
@@ -10,34 +14,13 @@ from ai_content_agent.templates import (
     apply_template_triangle,
     apply_template_vertical_rectangle,
 )
-from ai_core.prompts import build_post_prompt
+from ai_core.prompts import build_post_plan_prompt, build_posts_from_plan_prompt
 
 # Mock image ------------------------------------ TODO: deletar depois
 from pathlib import Path
 from shutil import copyfile
 from uuid import uuid4
 from django.conf import settings
-
-def mock_generate_structured_content(data):
-    image_text = data.get("image_text_direction") or "COMECE HOJE"
-
-    return {
-        "caption": (
-            f"Na {data['business_name']}, seu próximo treino pode ser o começo "
-            f"de uma nova fase. Venha viver a experiência."
-        ),
-        "hashtags": [
-            "#academia",
-            "#treino",
-            "#motivacao",
-            "#vidasaudavel",
-        ],
-        "image_prompt": (
-            f"X Imagem publicitária para {data['business_name']}, no nicho de "
-            f"{data['niche']}, com tema {data['theme']}, estilo moderno e motivacional."
-        ),
-        "image_text": image_text,
-    }
 
 MOCK_IMAGE_RELATIVE_PATH = Path(
     "generated_posts/28b0357f-abc4-4177-b3f4-938cbafcb5f5.png"
@@ -74,6 +57,8 @@ TEMPLATE_RENDERERS = {
     "layer": apply_template_layer,
 }
 
+TEMPLATE_NAMES = tuple(TEMPLATE_RENDERERS.keys())
+
 TEMPLATE_COLOR_FIELDS = {
     "rectangle": ["primary_color", "text_color"],
     "bubbles": ["primary_color", "secondary_color", "text_color"],
@@ -99,33 +84,96 @@ TEMPLATE_LOGO_POSITIONS = {
 }
 
 
-def generate_post_content(data):
-    # prompt = build_post_prompt(data)
-    # result = generate_structured_content(prompt)
-    result = mock_generate_structured_content(data) # TODO: excluir depois
+def get_template_name_for_post(data, index):
+    if data["quantity"] == 1:
+        return data["template"]
 
-    # image_data = generate_image_file(result["image_prompt"])
-    image_data = mock_generate_image_file() # TODO: excluir depois
+    if not data["use_templates"]:
+        return "none"
 
-    template_name = data["template"]
-    template_renderer = TEMPLATE_RENDERERS[template_name]
-    color_kwargs = {
-        field: data[field]
-        for field in TEMPLATE_COLOR_FIELDS[template_name]
-    }
+    return TEMPLATE_NAMES[(index - 1) % len(TEMPLATE_NAMES)]
 
-    template_renderer(
-        image_path=image_data["absolute_path"],
-        text=result["image_text"],
-        logo_file=data.get("logo"),
-        logo_position=TEMPLATE_LOGO_POSITIONS[template_name],
-        **color_kwargs,
-    )
+
+def render_post_content(data, idea, result, index):
+    # Keep image generation mocked while validating the text workflow with AI.
+    image_data = mock_generate_image_file()
+
+    template_name = get_template_name_for_post(data, index)
+
+    if template_name != "none":
+        template_renderer = TEMPLATE_RENDERERS[template_name]
+        color_kwargs = {
+            field: data[field]
+            for field in TEMPLATE_COLOR_FIELDS[template_name]
+        }
+
+        template_renderer(
+            image_path=image_data["absolute_path"],
+            text=result["image_text"],
+            logo_file=data.get("logo"),
+            logo_position=TEMPLATE_LOGO_POSITIONS[template_name],
+            **color_kwargs,
+        )
 
     return {
+        "order": index,
+        "idea": idea,
+        "template": template_name,
         "caption": result["caption"],
         "hashtags": result["hashtags"],
         "image_prompt": result["image_prompt"],
         "image_text": result["image_text"],
         "image_url": image_data["image_url"],
+    }
+
+
+def generate_post_batch_content(data):
+    quantity = data["quantity"]
+    plan_prompt = build_post_plan_prompt(data)
+    plan = generate_structured_content(
+        plan_prompt,
+        schema=POST_PLAN_SCHEMA,
+        schema_name="post_plan",
+    )
+    ideas = plan["posts"]
+
+    if len(ideas) != quantity:
+        raise ValueError(
+            f"Expected {quantity} post ideas, received {len(ideas)}."
+        )
+
+    content_prompt = build_posts_from_plan_prompt(data, ideas)
+    content = generate_structured_content(
+        content_prompt,
+        schema=POST_BATCH_CONTENT_SCHEMA,
+        schema_name="post_batch_content",
+    )
+    content_posts = sorted(content["posts"], key=lambda post: post["order"])
+
+    if len(content_posts) != quantity:
+        raise ValueError(
+            f"Expected {quantity} generated posts, received {len(content_posts)}."
+        )
+
+    expected_orders = list(range(1, quantity + 1))
+    received_orders = [post["order"] for post in content_posts]
+    if received_orders != expected_orders:
+        raise ValueError(
+            f"Expected post orders {expected_orders}, received {received_orders}."
+        )
+
+    posts = [
+        render_post_content(
+            data=data,
+            idea=idea,
+            result=content_posts[index - 1],
+            index=index,
+        )
+        for index, idea in enumerate(ideas, start=1)
+    ]
+
+    return {
+        "quantity": quantity,
+        "strategy_summary": plan["strategy_summary"],
+        "posts": posts,
     }

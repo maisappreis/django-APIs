@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 class PostGenerationInputSerializer(serializers.Serializer):
     TEMPLATE_CHOICES = [
+        ("none", "None"),
         ("rectangle", "Rectangle"),
         ("bubbles", "Bubbles"),
         ("frame", "Frame"),
@@ -64,9 +65,21 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         default="rectangle",
     )
+    quantity = serializers.IntegerField(
+        min_value=1,
+        max_value=30,
+        required=False,
+        default=1,
+    )
+    use_templates = serializers.BooleanField(
+        required=False,
+        default=True,
+    )
 
 
 class PostGenerationOutputSerializer(serializers.Serializer):
+    id = serializers.IntegerField(required=False)
+    date = serializers.DateField()
     caption = serializers.CharField()
     hashtags = serializers.ListField(
         child=serializers.CharField()
@@ -74,4 +87,12 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     image_prompt = serializers.CharField()
     image_url = serializers.CharField()
     image_text = serializers.CharField()
+    template = serializers.CharField()
+
+
+class PostGenerationBatchOutputSerializer(serializers.Serializer):
+    batch_id = serializers.IntegerField()
+    quantity = serializers.IntegerField()
+    strategy_summary = serializers.CharField(allow_blank=True)
+    posts = PostGenerationOutputSerializer(many=True)
     

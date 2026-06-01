@@ -34,6 +34,114 @@ POST_CONTENT_SCHEMA = {
 }
 
 
+POST_IDEA_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Titulo curto da ideia do post.",
+        },
+        "theme": {
+            "type": "string",
+            "description": "Tema especifico do post.",
+        },
+        "objective": {
+            "type": "string",
+            "description": "Objetivo especifico do post.",
+        },
+        "format": {
+            "type": "string",
+            "description": "Formato editorial sugerido para o post.",
+        },
+        "angle": {
+            "type": "string",
+            "description": "Angulo criativo que diferencia este post dos demais.",
+        },
+        "visual_direction": {
+            "type": "string",
+            "description": "Direcao visual para a arte do post.",
+        },
+    },
+    "required": [
+        "title",
+        "theme",
+        "objective",
+        "format",
+        "angle",
+        "visual_direction",
+    ],
+}
+
+
+POST_PLAN_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "strategy_summary": {
+            "type": "string",
+            "description": "Resumo curto da estrategia editorial.",
+        },
+        "posts": {
+            "type": "array",
+            "items": POST_IDEA_SCHEMA,
+            "description": "Ideias distintas para posts do calendario editorial.",
+        },
+    },
+    "required": ["strategy_summary", "posts"],
+}
+
+
+POST_BATCH_CONTENT_ITEM_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "order": {
+            "type": "integer",
+            "description": "Numero sequencial do post dentro do lote.",
+        },
+        "caption": {
+            "type": "string",
+            "description": "Legenda pronta para um post de rede social.",
+        },
+        "hashtags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Lista de hashtags relevantes, comecando com #.",
+        },
+        "image_prompt": {
+            "type": "string",
+            "description": "Prompt visual para futura geracao de imagem.",
+        },
+        "image_text": {
+            "type": "string",
+            "description": "Texto curto para ser aplicado sobre a imagem do post.",
+        },
+    },
+    "required": [
+        "order",
+        "caption",
+        "hashtags",
+        "image_prompt",
+        "image_text",
+    ],
+}
+
+
+POST_BATCH_CONTENT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "posts": {
+            "type": "array",
+            "items": POST_BATCH_CONTENT_ITEM_SCHEMA,
+            "description": "Conteudos finais para todos os posts do lote.",
+        },
+    },
+    "required": ["posts"],
+}
+
+
 def get_openai_client():
     api_key = getattr(settings, "OPENAI_API_KEY", None)
 
@@ -43,7 +151,11 @@ def get_openai_client():
     return OpenAI(api_key=api_key)
 
 
-def generate_structured_content(prompt):
+def generate_structured_content(
+    prompt,
+    schema=POST_CONTENT_SCHEMA,
+    schema_name="post_content",
+):
     client = get_openai_client()
 
     response = client.responses.create(
@@ -64,9 +176,9 @@ def generate_structured_content(prompt):
         text={
             "format": {
                 "type": "json_schema",
-                "name": "post_content",
+                "name": schema_name,
                 "strict": True,
-                "schema": POST_CONTENT_SCHEMA,
+                "schema": schema,
             }
         },
     )
