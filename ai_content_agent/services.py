@@ -43,6 +43,97 @@ def mock_generate_image_file():
         "image_url": f"{settings.MEDIA_URL}{normalized_path}",
     }
 
+
+def mock_generate_post_plan(data):
+    posts = []
+
+    for index in range(1, data["quantity"] + 1):
+        posts.append(
+            {
+                "title": f"Ideia editorial {index}",
+                "theme": f"{data['theme']} - angulo {index}",
+                "objective": data["objective"],
+                "format": _mock_post_format(index),
+                "angle": f"Abordagem {index} para {data['niche']}",
+                "visual_direction": (
+                    f"Imagem publicitaria para {data['business_name']} "
+                    f"com foco em {data['niche']}."
+                ),
+            }
+        )
+
+    return {
+        "strategy_summary": (
+            f"Calendario mockado para {data['business_name']} com "
+            f"{data['quantity']} posts sobre {data['theme']}."
+        ),
+        "posts": posts,
+    }
+
+
+def mock_generate_batch_content(data, ideas):
+    posts = []
+
+    for index, idea in enumerate(ideas, start=1):
+        posts.append(
+            {
+                "order": index,
+                "caption": (
+                    f"{idea['title']}: uma mensagem pronta para {data['business_name']} "
+                    f"atrair o publico de {data['niche']} com tom {data['tone']}."
+                ),
+                "hashtags": [
+                    _mock_hashtag(data["niche"]),
+                    _mock_hashtag(data["theme"]),
+                    "#conteudomock",
+                    "#marketingdigital",
+                ],
+                "image_prompt": (
+                    f"Imagem publicitaria para {data['business_name']}, "
+                    f"tema {idea['theme']}, estilo moderno e profissional."
+                ),
+                "image_text": _mock_image_text(index),
+            }
+        )
+
+    return {"posts": posts}
+
+
+def _mock_post_format(index):
+    formats = (
+        "educativo",
+        "autoridade",
+        "prova social",
+        "engajamento",
+        "objecao",
+        "oferta",
+        "relacionamento",
+    )
+    return formats[(index - 1) % len(formats)]
+
+
+def _mock_image_text(index):
+    texts = (
+        "COMECE HOJE",
+        "AGENDE AGORA",
+        "TRANSFORME SUA ROTINA",
+        "DESCUBRA MAIS",
+        "FALE CONOSCO",
+        "VENHA CONHECER",
+        "GARANTA SUA VAGA",
+    )
+    return texts[(index - 1) % len(texts)]
+
+
+def _mock_hashtag(value):
+    clean_value = "".join(
+        character.lower()
+        for character in value
+        if character.isalnum()
+    )
+    return f"#{clean_value[:24]}" if clean_value else "#conteudo"
+
+
 # Mock ------------------------------------
 
 TEMPLATE_RENDERERS = {
@@ -112,6 +203,7 @@ def render_post_content(data, idea, result, index):
             text=result["image_text"],
             logo_file=data.get("logo"),
             logo_position=TEMPLATE_LOGO_POSITIONS[template_name],
+            text_font=data.get("text_font"),
             **color_kwargs,
         )
 
@@ -129,12 +221,13 @@ def render_post_content(data, idea, result, index):
 
 def generate_post_batch_content(data):
     quantity = data["quantity"]
-    plan_prompt = build_post_plan_prompt(data)
-    plan = generate_structured_content(
-        plan_prompt,
-        schema=POST_PLAN_SCHEMA,
-        schema_name="post_plan",
-    )
+    # plan_prompt = build_post_plan_prompt(data)
+    # plan = generate_structured_content(
+    #     plan_prompt,
+    #     schema=POST_PLAN_SCHEMA,
+    #     schema_name="post_plan",
+    # )
+    plan = mock_generate_post_plan(data)
     ideas = plan["posts"]
 
     if len(ideas) != quantity:
@@ -142,12 +235,13 @@ def generate_post_batch_content(data):
             f"Expected {quantity} post ideas, received {len(ideas)}."
         )
 
-    content_prompt = build_posts_from_plan_prompt(data, ideas)
-    content = generate_structured_content(
-        content_prompt,
-        schema=POST_BATCH_CONTENT_SCHEMA,
-        schema_name="post_batch_content",
-    )
+    # content_prompt = build_posts_from_plan_prompt(data, ideas)
+    # content = generate_structured_content(
+    #     content_prompt,
+    #     schema=POST_BATCH_CONTENT_SCHEMA,
+    #     schema_name="post_batch_content",
+    # )
+    content = mock_generate_batch_content(data, ideas)
     content_posts = sorted(content["posts"], key=lambda post: post["order"])
 
     if len(content_posts) != quantity:
