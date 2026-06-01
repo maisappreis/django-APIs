@@ -9,9 +9,24 @@ from datetime import timedelta
 from .models import GenerationStatus, PostGeneration, PostGenerationBatch
 from .serializers import (
     PostGenerationBatchOutputSerializer,
+    PostGenerationDefaultsSerializer,
     PostGenerationInputSerializer,
 )
 from .services import generate_post_batch_content
+
+
+DEFAULT_FORM_VALUES = {
+    "business_name": "",
+    "niche": "",
+    "text_color": "#FFFFFF",
+    "text_font": "",
+    "color_palette": {
+        "primary_color": "#006C44",
+        "secondary_color": "#1FD794",
+        "tertiary_color": "#98C8B6",
+    },
+    "logo_position": "bottom_right",
+}
 
 
 def get_available_post_dates(user, quantity):
@@ -36,6 +51,38 @@ def get_available_post_dates(user, quantity):
     return available_dates
 
 
+def get_defaults_from_batch(batch):
+    if not batch:
+        return DEFAULT_FORM_VALUES
+
+    return {
+        "business_name": batch.business_name,
+        "niche": batch.niche,
+        "text_color": batch.text_color,
+        "text_font": batch.text_font,
+        "color_palette": {
+            "primary_color": batch.primary_color,
+            "secondary_color": batch.secondary_color,
+            "tertiary_color": batch.tertiary_color,
+        },
+        "logo_position": batch.logo_position,
+    }
+
+
+class PostGenerationDefaultsAPIView(APIView):
+    def get(self, request):
+        latest_batch = (
+            PostGenerationBatch.objects.filter(user=request.user)
+            .order_by("-created_at")
+            .first()
+        )
+        serializer = PostGenerationDefaultsSerializer(
+            get_defaults_from_batch(latest_batch)
+        )
+
+        return Response(serializer.data)
+
+
 class GeneratePostContentAPIView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
@@ -54,6 +101,12 @@ class GeneratePostContentAPIView(APIView):
             theme=data["theme"],
             quantity=data["quantity"],
             use_templates=data["use_templates"],
+            primary_color=data["primary_color"],
+            secondary_color=data["secondary_color"],
+            tertiary_color=data["tertiary_color"],
+            text_color=data["text_color"],
+            text_font=data["text_font"],
+            logo_position=data["logo_position"],
         )
 
         try:

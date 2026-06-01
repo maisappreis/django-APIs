@@ -101,4 +101,14 @@ class PostGenerationBatchOutputSerializer(serializers.Serializer):
     quantity = serializers.IntegerField()
     strategy_summary = serializers.CharField(allow_blank=True)
     posts = PostGenerationOutputSerializer(many=True)
-    
+
+
+class PostGenerationDefaultsSerializer(serializers.Serializer):
+    business_name = serializers.CharField(allow_blank=True)
+    niche = serializers.CharField(allow_blank=True)
+    text_color = serializers.CharField()
+    text_font = serializers.CharField(allow_blank=True)
+    color_palette = serializers.DictField(
+        child=serializers.CharField()
+    )
+    logo_position = serializers.CharField()

@@ -32,7 +32,7 @@ urlpatterns = [
 
     path("api/axis/", include("axis.urls")),
 
-    path('api/content-agent/posts/generate/', include('ai_content_agent.urls')),
+    path('api/content-agent/', include('ai_content_agent.urls')),
 ]
 
 if settings.DEBUG:
