@@ -8,6 +8,31 @@ LOGO_MAX_WIDTH_RATIO = 0.11
 TEXT_MAX_WIDTH_RATIO = 0.82
 TEXT_FONT_SIZE_RATIO = 0.075
 
+FONT_PATHS_BY_NAME = {
+    "playfair": (
+        "C:/Windows/Fonts/PlayfairDisplay-Bold.ttf",
+    ),
+    "playfairdisplay": (
+        "C:/Windows/Fonts/PlayfairDisplay-Bold.ttf",
+    ),
+    "montserrat": (
+        "C:/Windows/Fonts/Montserrat-Bold.ttf",
+    ),
+    "poppins": (
+        "C:/Windows/Fonts/Poppins-Bold.ttf",
+    ),
+    "segoe": (
+        "C:/Windows/Fonts/segoeuib.ttf",
+    ),
+    "trebuchet": (
+        "C:/Windows/Fonts/trebucbd.ttf",
+    ),
+    "arial": (
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/Arial.ttf",
+    ),
+}
+
 
 def apply_logo_to_image(image_path, logo_file, position="bottom_right"):
     image_path = Path(image_path)
@@ -27,7 +52,7 @@ def apply_logo_to_image(image_path, logo_file, position="bottom_right"):
     return image_path
 
 
-def apply_center_text_to_image(image_path, text):
+def apply_center_text_to_image(image_path, text, text_font=None):
     if not text:
         return image_path
 
@@ -35,7 +60,7 @@ def apply_center_text_to_image(image_path, text):
 
     with Image.open(image_path).convert("RGBA") as base_image:
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(base_image.width)
+        font = _get_center_text_font(base_image.width, text_font)
         lines = _wrap_text(
             text=text,
             font=font,
@@ -118,10 +143,13 @@ def _get_logo_coordinates(base_image, logo_image, position):
     return positions.get(position, positions["bottom_right"])
 
 
-def _get_center_text_font(base_width):
+def _get_center_text_font(base_width, text_font=None):
     font_size = int(base_width * TEXT_FONT_SIZE_RATIO)
+    normalized_font = _normalize_font_name(text_font)
+    preferred_paths = FONT_PATHS_BY_NAME.get(normalized_font, ())
 
     for font_path in (
+        *preferred_paths,
         "C:/Windows/Fonts/PlayfairDisplay-Bold.ttf",
         "C:/Windows/Fonts/Montserrat-Bold.ttf",
         "C:/Windows/Fonts/Poppins-Bold.ttf",
@@ -136,6 +164,17 @@ def _get_center_text_font(base_width):
             continue
 
     return ImageFont.load_default()
+
+
+def _normalize_font_name(text_font):
+    if not text_font:
+        return ""
+
+    return "".join(
+        character.lower()
+        for character in str(text_font)
+        if character.isalnum()
+    )
 
 
 def _wrap_text(text, font, max_width, draw):

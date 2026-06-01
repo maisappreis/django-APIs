@@ -60,6 +60,12 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         default="#FFFFFF",
     )
+    text_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
     template = serializers.ChoiceField(
         choices=TEMPLATE_CHOICES,
         required=False,

@@ -12,6 +12,7 @@ def apply_template_rectangle(
     logo_position="bottom_right",
     primary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -33,7 +34,7 @@ def apply_template_rectangle(
         base_image = Image.alpha_composite(base_image, banner_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         lines = _wrap_text(
             text=text,
             font=font,
@@ -80,6 +81,7 @@ def apply_template_bubbles(
     primary_color=None,
     secondary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -121,7 +123,7 @@ def apply_template_bubbles(
         base_image = Image.alpha_composite(base_image, bubbles_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         lines = _wrap_text(
             text=text,
             font=font,
@@ -167,6 +169,7 @@ def apply_template_frame(
     primary_color=None,
     tertiary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -211,7 +214,7 @@ def apply_template_frame(
         base_image = Image.alpha_composite(base_image, frame_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         lines = _wrap_text(
             text=text,
             font=font,
@@ -256,6 +259,7 @@ def apply_template_circle(
     logo_position="bottom_right",
     secondary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -285,7 +289,7 @@ def apply_template_circle(
         base_image = Image.alpha_composite(base_image, overlay_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         max_text_width = int(width * 0.38)
         lines = _wrap_text(
             text=text,
@@ -334,6 +338,7 @@ def apply_template_triangle(
     secondary_color=None,
     tertiary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -372,7 +377,7 @@ def apply_template_triangle(
         base_image = Image.alpha_composite(base_image, triangle_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         lines = _wrap_text(
             text=text,
             font=font,
@@ -418,6 +423,7 @@ def apply_template_corners(
     primary_color=None,
     secondary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -453,7 +459,7 @@ def apply_template_corners(
         base_image = Image.alpha_composite(base_image, corners_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         lines = _wrap_text(
             text=text,
             font=font,
@@ -498,6 +504,7 @@ def apply_template_vertical_rectangle(
     logo_position="bottom_right",
     secondary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -528,7 +535,7 @@ def apply_template_vertical_rectangle(
         base_image = Image.alpha_composite(base_image, rectangle_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         left_margin = int(width * 0.08)
         max_text_width = int(width * 0.58)
         lines = _wrap_text(
@@ -576,6 +583,7 @@ def apply_template_stripes(
     secondary_color=None,
     tertiary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -604,7 +612,7 @@ def apply_template_stripes(
         base_image = Image.alpha_composite(base_image, stripes_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         left_margin = int(width * 0.08)
         max_text_width = int(width * 0.58)
         lines = _wrap_text(
@@ -650,6 +658,7 @@ def apply_template_layer(
     logo_position="bottom_right",
     primary_color=None,
     text_color=None,
+    text_font=None,
 ):
     image_path = Path(image_path)
 
@@ -664,7 +673,7 @@ def apply_template_layer(
         base_image = Image.alpha_composite(base_image, layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width)
+        font = _get_center_text_font(width, text_font)
         lines = _wrap_text(
             text=text,
             font=font,
