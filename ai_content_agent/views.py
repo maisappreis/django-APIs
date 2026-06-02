@@ -3,9 +3,13 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
+from pathlib import Path
+from urllib.parse import urlparse
+import httpx
 
 from .models import GenerationStatus, PostGeneration, PostGenerationBatch
 from .serializers import (
@@ -100,6 +104,12 @@ def serialize_post_generation(post_generation):
     }
 
 
+def get_download_filename(post_generation):
+    parsed_url = urlparse(post_generation.image_url)
+    extension = Path(parsed_url.path).suffix or ".png"
+    return f"post-{post_generation.id}{extension}"
+
+
 class PostGenerationDefaultsAPIView(APIView):
     def get(self, request):
         latest_batch = (
@@ -112,6 +122,30 @@ class PostGenerationDefaultsAPIView(APIView):
         )
 
         return Response(serializer.data)
+
+
+class CalendarPostsAPIView(APIView):
+    def get(self, request):
+        start_date = timezone.localdate()
+
+        posts = (
+            PostGeneration.objects.filter(
+                user=request.user,
+                scheduled_date__gte=start_date,
+            )
+            .exclude(scheduled_date__isnull=True)
+            .order_by("scheduled_date", "post_order", "created_at")
+        )
+
+        return Response(
+            {
+                "start": start_date,
+                "posts": [
+                    serialize_post_generation(post_generation)
+                    for post_generation in posts
+                ],
+            }
+        )
 
 
 class GeneratePostContentAPIView(APIView):
@@ -287,3 +321,52 @@ class RerenderPostImageAPIView(APIView):
             )
 
         return Response(serialize_post_generation(rerendered_post))
+
+
+class DownloadPostImageAPIView(APIView):
+    def get(self, request, post_id):
+        post_generation = get_object_or_404(
+            PostGeneration,
+            id=post_id,
+            user=request.user,
+        )
+        filename = get_download_filename(post_generation)
+
+        if post_generation.image_url.startswith(settings.MEDIA_URL):
+            relative_path = post_generation.image_url.removeprefix(
+                settings.MEDIA_URL
+            )
+            image_path = Path(settings.MEDIA_ROOT) / relative_path
+
+            if not image_path.exists():
+                return Response(
+                    {"detail": "Imagem do post não encontrada."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            return FileResponse(
+                image_path.open("rb"),
+                as_attachment=True,
+                filename=filename,
+                content_type="image/png",
+            )
+
+        try:
+            image_response = httpx.get(post_generation.image_url, timeout=30)
+            image_response.raise_for_status()
+        except httpx.HTTPError:
+            return Response(
+                {"detail": "Não foi possível baixar a imagem do post."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        response = HttpResponse(
+            image_response.content,
+            content_type=image_response.headers.get(
+                "content-type",
+                "image/png",
+            ),
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        return response
