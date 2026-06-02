@@ -26,6 +26,7 @@ class PostGenerationBatch(models.Model):
         null=True,
         blank=True,
     )
+    logo_url = models.CharField(max_length=500, blank=True)
     use_templates = models.BooleanField(default=True)
     primary_color = models.CharField(max_length=7, default="#006C44")
     secondary_color = models.CharField(max_length=7, default="#1FD794")

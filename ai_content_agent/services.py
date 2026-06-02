@@ -17,12 +17,18 @@ from ai_content_agent.templates import (
 )
 from ai_core.prompts import build_post_plan_prompt, build_posts_from_plan_prompt
 from ai_content_agent.utils import apply_center_text_to_image, apply_logo_to_image
+from ai_content_agent.storage import (
+    is_firebase_storage_enabled,
+    upload_generated_post_file,
+)
 
 # Mock image ------------------------------------ TODO: deletar depois
 from pathlib import Path
 from shutil import copyfile
+from urllib.parse import urlparse
 from uuid import uuid4
 from django.conf import settings
+import httpx
 
 MOCK_IMAGE_RELATIVE_PATH = Path(
     "generated_posts/28b0357f-abc4-4177-b3f4-938cbafcb5f5.png"
@@ -304,6 +310,8 @@ def render_post_content(data, idea, result, index):
         "image_text": result["image_text"],
         "base_image_url": image_data["base"]["image_url"],
         "image_url": image_data["final"]["image_url"],
+        "base_absolute_path": image_data["base"]["absolute_path"],
+        "final_absolute_path": image_data["final"]["absolute_path"],
     }
 
 
@@ -315,8 +323,28 @@ def get_local_media_path(image_url):
     return Path(settings.MEDIA_ROOT) / relative_path
 
 
+def get_remote_image_work_path(image_url):
+    parsed_url = urlparse(image_url)
+    filename = Path(parsed_url.path).name or f"base-{uuid4()}.png"
+    work_path = Path(settings.MEDIA_ROOT) / "generated_posts" / "work" / filename
+    work_path.parent.mkdir(parents=True, exist_ok=True)
+
+    response = httpx.get(image_url, timeout=30)
+    response.raise_for_status()
+    work_path.write_bytes(response.content)
+
+    return work_path
+
+
+def get_image_work_path(image_url):
+    if image_url.startswith(settings.MEDIA_URL):
+        return get_local_media_path(image_url)
+
+    return get_remote_image_work_path(image_url)
+
+
 def create_final_image_from_base(base_image_url):
-    base_path = get_local_media_path(base_image_url)
+    base_path = get_image_work_path(base_image_url)
 
     if not base_path.exists():
         raise ValueError("Base image file was not found.")
@@ -366,7 +394,17 @@ def rerender_post_image(post, visual_settings):
     post.text_color = visual_settings["text_color"]
     post.text_font = visual_settings["text_font"]
     post.logo_position = logo_position
-    post.image_url = final_image_data["image_url"]
+    image_url = final_image_data["image_url"]
+
+    if is_firebase_storage_enabled():
+        image_url = upload_generated_post_file(
+            local_path=final_image_data["absolute_path"],
+            user_id=post.user_id,
+            post_id=post.id,
+            kind="final",
+        )
+
+    post.image_url = image_url
     post.save(
         update_fields=[
             "template",

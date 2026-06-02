@@ -25,6 +25,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+CONTENT_AGENT_STORAGE_BACKEND = os.getenv(
+    "CONTENT_AGENT_STORAGE_BACKEND",
+    "local",
+)
+FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+FIREBASE_PUBLIC_BASE_URL = os.getenv("FIREBASE_PUBLIC_BASE_URL", "")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')

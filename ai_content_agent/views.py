@@ -15,6 +15,11 @@ from .serializers import (
     PostImageRenderInputSerializer,
 )
 from .services import generate_post_batch_content, rerender_post_image
+from .storage import (
+    is_firebase_storage_enabled,
+    upload_generated_post_file,
+    upload_logo_file,
+)
 
 
 DEFAULT_FORM_VALUES = {
@@ -58,7 +63,7 @@ def get_defaults_from_batch(batch):
     if not batch:
         return DEFAULT_FORM_VALUES
 
-    logo_url = batch.logo.url if batch.logo else ""
+    logo_url = batch.logo_url or (batch.logo.url if batch.logo else "")
 
     return {
         "business_name": batch.business_name,
@@ -139,6 +144,13 @@ class GeneratePostContentAPIView(APIView):
         if batch.logo:
             data["logo"] = batch.logo.path
 
+            if is_firebase_storage_enabled():
+                batch.logo_url = upload_logo_file(
+                    local_path=batch.logo.path,
+                    user_id=request.user.id,
+                )
+                batch.save(update_fields=["logo_url"])
+
         try:
             result = generate_post_batch_content(data)
             saved_posts = []
@@ -175,6 +187,27 @@ class GeneratePostContentAPIView(APIView):
                     idea=post_data["idea"],
                     status=PostGeneration.Status.COMPLETED,
                 )
+
+                if is_firebase_storage_enabled():
+                    post_generation.base_image_url = upload_generated_post_file(
+                        local_path=post_data["base_absolute_path"],
+                        user_id=request.user.id,
+                        post_id=post_generation.id,
+                        kind="base",
+                    )
+                    post_generation.image_url = upload_generated_post_file(
+                        local_path=post_data["final_absolute_path"],
+                        user_id=request.user.id,
+                        post_id=post_generation.id,
+                        kind="final",
+                    )
+                    post_generation.save(
+                        update_fields=[
+                            "base_image_url",
+                            "image_url",
+                        ]
+                    )
+
                 saved_posts.append(serialize_post_generation(post_generation))
 
             batch.strategy_summary = result["strategy_summary"]
