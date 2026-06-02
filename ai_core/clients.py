@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from openai import OpenAI
 from pathlib import Path
+from shutil import copyfile
 from uuid import uuid4
 
 
@@ -186,7 +187,18 @@ def generate_structured_content(
     return json.loads(response.output_text)
 
 
-def generate_image_file(prompt):
+def _build_generated_image_data(relative_path):
+    absolute_path = Path(settings.MEDIA_ROOT) / relative_path
+    normalized_path = str(relative_path).replace("\\", "/")
+
+    return {
+        "image_path": normalized_path,
+        "absolute_path": str(absolute_path),
+        "image_url": f"{settings.MEDIA_URL}{normalized_path}",
+    }
+
+
+def _generate_image_bytes(prompt):
     client = get_openai_client()
 
     response = client.images.generate(
@@ -198,16 +210,36 @@ def generate_image_file(prompt):
     )
 
     image_base64 = response.data[0].b64_json
-    image_bytes = base64.b64decode(image_base64)
+    return base64.b64decode(image_base64)
 
+
+def generate_image_file(prompt):
+    image_bytes = _generate_image_bytes(prompt)
     relative_path = Path("generated_posts") / f"{uuid4()}.png"
-    absolute_path = Path(settings.MEDIA_ROOT) / relative_path
+    image_data = _build_generated_image_data(relative_path)
+    absolute_path = Path(image_data["absolute_path"])
     absolute_path.parent.mkdir(parents=True, exist_ok=True)
     absolute_path.write_bytes(image_bytes)
-    normalized_path = str(relative_path).replace("\\", "/")
+
+    return image_data
+
+
+def generate_image_files(prompt):
+    image_bytes = _generate_image_bytes(prompt)
+
+    image_id = uuid4()
+    base_relative_path = Path("generated_posts") / f"base-{image_id}.png"
+    final_relative_path = Path("generated_posts") / f"final-{image_id}.png"
+    base_data = _build_generated_image_data(base_relative_path)
+    final_data = _build_generated_image_data(final_relative_path)
+    base_absolute_path = Path(base_data["absolute_path"])
+    final_absolute_path = Path(final_data["absolute_path"])
+
+    base_absolute_path.parent.mkdir(parents=True, exist_ok=True)
+    base_absolute_path.write_bytes(image_bytes)
+    copyfile(base_absolute_path, final_absolute_path)
 
     return {
-        "image_path": normalized_path,
-        "absolute_path": str(absolute_path),
-        "image_url": f"{settings.MEDIA_URL}{normalized_path}",
+        "base": base_data,
+        "final": final_data,
     }

@@ -31,6 +31,12 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+CONTENT_AGENT_USE_MOCK_CONTENT = (
+    os.getenv("CONTENT_AGENT_USE_MOCK_CONTENT", "true").lower() == "true"
+)
+CONTENT_AGENT_USE_MOCK_IMAGES = (
+    os.getenv("CONTENT_AGENT_USE_MOCK_IMAGES", "true").lower() == "true"
+)
 
 if is_production():
     DEBUG = False

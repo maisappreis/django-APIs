@@ -3,6 +3,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
 
@@ -11,13 +12,15 @@ from .serializers import (
     PostGenerationBatchOutputSerializer,
     PostGenerationDefaultsSerializer,
     PostGenerationInputSerializer,
+    PostImageRenderInputSerializer,
 )
-from .services import generate_post_batch_content
+from .services import generate_post_batch_content, rerender_post_image
 
 
 DEFAULT_FORM_VALUES = {
     "business_name": "",
     "niche": "",
+    "logo_url": "",
     "text_color": "#FFFFFF",
     "text_font": "",
     "color_palette": {
@@ -55,9 +58,12 @@ def get_defaults_from_batch(batch):
     if not batch:
         return DEFAULT_FORM_VALUES
 
+    logo_url = batch.logo.url if batch.logo else ""
+
     return {
         "business_name": batch.business_name,
         "niche": batch.niche,
+        "logo_url": logo_url,
         "text_color": batch.text_color,
         "text_font": batch.text_font,
         "color_palette": {
@@ -66,6 +72,26 @@ def get_defaults_from_batch(batch):
             "tertiary_color": batch.tertiary_color,
         },
         "logo_position": batch.logo_position,
+    }
+
+
+def serialize_post_generation(post_generation):
+    return {
+        "id": post_generation.id,
+        "date": post_generation.scheduled_date,
+        "caption": post_generation.caption,
+        "hashtags": post_generation.hashtags,
+        "image_prompt": post_generation.image_prompt,
+        "base_image_url": post_generation.base_image_url,
+        "image_text": post_generation.image_text,
+        "image_url": post_generation.image_url,
+        "template": post_generation.template,
+        "primary_color": post_generation.primary_color,
+        "secondary_color": post_generation.secondary_color,
+        "tertiary_color": post_generation.tertiary_color,
+        "text_color": post_generation.text_color,
+        "text_font": post_generation.text_font,
+        "logo_position": post_generation.logo_position,
     }
 
 
@@ -100,6 +126,7 @@ class GeneratePostContentAPIView(APIView):
             tone=data["tone"],
             theme=data["theme"],
             quantity=data["quantity"],
+            logo=data.get("logo"),
             use_templates=data["use_templates"],
             primary_color=data["primary_color"],
             secondary_color=data["secondary_color"],
@@ -108,6 +135,9 @@ class GeneratePostContentAPIView(APIView):
             text_font=data["text_font"],
             logo_position=data["logo_position"],
         )
+
+        if batch.logo:
+            data["logo"] = batch.logo.path
 
         try:
             result = generate_post_batch_content(data)
@@ -131,25 +161,21 @@ class GeneratePostContentAPIView(APIView):
                     hashtags=post_data["hashtags"],
                     image_prompt=post_data["image_prompt"],
                     image_text=post_data["image_text"],
+                    base_image_url=post_data["base_image_url"],
                     image_url=post_data["image_url"],
                     template=post_data["template"],
+                    primary_color=post_data["primary_color"],
+                    secondary_color=post_data["secondary_color"],
+                    tertiary_color=post_data["tertiary_color"],
+                    text_color=post_data["text_color"],
+                    text_font=post_data["text_font"],
+                    logo_position=post_data["logo_position"],
                     post_order=post_data["order"],
                     scheduled_date=scheduled_date,
                     idea=post_data["idea"],
                     status=PostGeneration.Status.COMPLETED,
                 )
-                saved_posts.append(
-                    {
-                        "id": post_generation.id,
-                        "date": post_generation.scheduled_date,
-                        "caption": post_generation.caption,
-                        "hashtags": post_generation.hashtags,
-                        "image_prompt": post_generation.image_prompt,
-                        "image_text": post_generation.image_text,
-                        "image_url": post_generation.image_url,
-                        "template": post_generation.template,
-                    }
-                )
+                saved_posts.append(serialize_post_generation(post_generation))
 
             batch.strategy_summary = result["strategy_summary"]
             batch.status = GenerationStatus.COMPLETED
@@ -185,3 +211,46 @@ class GeneratePostContentAPIView(APIView):
                 response_data,
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+
+class RerenderPostImageAPIView(APIView):
+    def patch(self, request, post_id):
+        post_generation = get_object_or_404(
+            PostGeneration.objects.select_related("batch"),
+            id=post_id,
+            user=request.user,
+        )
+        input_serializer = PostImageRenderInputSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        visual_settings = {
+            "image_text": post_generation.image_text,
+            "template": post_generation.template or "none",
+            "primary_color": post_generation.primary_color,
+            "secondary_color": post_generation.secondary_color,
+            "tertiary_color": post_generation.tertiary_color,
+            "text_color": post_generation.text_color,
+            "text_font": post_generation.text_font,
+            "logo_position": post_generation.logo_position,
+            **input_serializer.validated_data,
+        }
+
+        try:
+            rerendered_post = rerender_post_image(
+                post=post_generation,
+                visual_settings=visual_settings,
+            )
+        except Exception as error:
+            response_data = {
+                "detail": "Erro ao renderizar imagem do post.",
+            }
+
+            if settings.DEBUG:
+                response_data["error"] = str(error)
+
+            return Response(
+                response_data,
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(serialize_post_generation(rerendered_post))

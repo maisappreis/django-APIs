@@ -21,6 +21,11 @@ class PostGenerationBatch(models.Model):
     tone = models.CharField(max_length=80)
     theme = models.CharField(max_length=160)
     quantity = models.PositiveSmallIntegerField(default=1)
+    logo = models.ImageField(
+        upload_to="content_agent/logos/",
+        null=True,
+        blank=True,
+    )
     use_templates = models.BooleanField(default=True)
     primary_color = models.CharField(max_length=7, default="#006C44")
     secondary_color = models.CharField(max_length=7, default="#1FD794")
@@ -73,8 +78,15 @@ class PostGeneration(models.Model):
     hashtags = models.JSONField(default=list, blank=True)
     image_prompt = models.TextField(blank=True)
     image_text = models.CharField(max_length=120, blank=True)
+    base_image_url = models.CharField(max_length=500, blank=True)
     image_url = models.CharField(max_length=500, blank=True)
     template = models.CharField(max_length=40, blank=True)
+    primary_color = models.CharField(max_length=7, default="#006C44")
+    secondary_color = models.CharField(max_length=7, default="#1FD794")
+    tertiary_color = models.CharField(max_length=7, default="#98C8B6")
+    text_color = models.CharField(max_length=7, default="#FFFFFF")
+    text_font = models.CharField(max_length=80, blank=True)
+    logo_position = models.CharField(max_length=20, default="bottom_right")
     post_order = models.PositiveSmallIntegerField(default=1)
     scheduled_date = models.DateField(null=True, blank=True)
     idea = models.JSONField(default=dict, blank=True)

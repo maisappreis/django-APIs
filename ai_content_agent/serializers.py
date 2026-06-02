@@ -91,9 +91,56 @@ class PostGenerationOutputSerializer(serializers.Serializer):
         child=serializers.CharField()
     )
     image_prompt = serializers.CharField()
+    base_image_url = serializers.CharField(required=False, allow_blank=True)
     image_url = serializers.CharField()
     image_text = serializers.CharField()
     template = serializers.CharField()
+    primary_color = serializers.CharField(required=False)
+    secondary_color = serializers.CharField(required=False)
+    tertiary_color = serializers.CharField(required=False)
+    text_color = serializers.CharField(required=False)
+    text_font = serializers.CharField(required=False, allow_blank=True)
+    logo_position = serializers.CharField(required=False)
+
+
+class PostImageRenderInputSerializer(serializers.Serializer):
+    TEMPLATE_CHOICES = PostGenerationInputSerializer.TEMPLATE_CHOICES
+    LOGO_POSITION_CHOICES = PostGenerationInputSerializer.LOGO_POSITION_CHOICES
+
+    image_text = serializers.CharField(
+        max_length=120,
+        required=False,
+        allow_blank=True,
+    )
+    text_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+    )
+    template = serializers.ChoiceField(
+        choices=TEMPLATE_CHOICES,
+        required=False,
+    )
+    primary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+    )
+    secondary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+    )
+    tertiary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+    )
+    text_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+    )
+    logo_position = serializers.ChoiceField(
+        choices=LOGO_POSITION_CHOICES,
+        required=False,
+    )
 
 
 class PostGenerationBatchOutputSerializer(serializers.Serializer):
@@ -106,6 +153,7 @@ class PostGenerationBatchOutputSerializer(serializers.Serializer):
 class PostGenerationDefaultsSerializer(serializers.Serializer):
     business_name = serializers.CharField(allow_blank=True)
     niche = serializers.CharField(allow_blank=True)
+    logo_url = serializers.CharField(allow_blank=True)
     text_color = serializers.CharField()
     text_font = serializers.CharField(allow_blank=True)
     color_palette = serializers.DictField(

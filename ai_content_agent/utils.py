@@ -52,7 +52,12 @@ def apply_logo_to_image(image_path, logo_file, position="bottom_right"):
     return image_path
 
 
-def apply_center_text_to_image(image_path, text, text_font=None):
+def apply_center_text_to_image(
+    image_path,
+    text,
+    text_font=None,
+    text_color="#FFFFFF",
+):
     if not text:
         return image_path
 
@@ -85,7 +90,7 @@ def apply_center_text_to_image(image_path, text, text_font=None):
             coordinates,
             text_block,
             font=font,
-            fill=(255, 255, 255, 255),
+            fill=_hex_to_rgba(text_color),
             anchor=None,
             align="center",
             spacing=10,
@@ -108,6 +113,17 @@ def _resize_logo(logo_image, base_width):
     )
 
     return logo_image.resize(new_size, Image.LANCZOS)
+
+
+def _hex_to_rgba(hex_color, alpha=255):
+    hex_color = (hex_color or "#FFFFFF").lstrip("#")
+
+    return (
+        int(hex_color[0:2], 16),
+        int(hex_color[2:4], 16),
+        int(hex_color[4:6], 16),
+        alpha,
+    )
 
 
 def _get_logo_coordinates(base_image, logo_image, position):
