@@ -5,17 +5,16 @@ from ai_core.clients import (
     generate_image_files,
     generate_structured_content,
 )
-from ai_content_agent.templates import (
-    apply_template_bubbles,
-    apply_template_circle,
-    apply_template_corners,
-    apply_template_frame,
-    apply_template_layer,
-    apply_template_rectangle,
-    apply_template_stripes,
-    apply_template_triangle,
-    apply_template_vertical_rectangle,
-)
+from ai_content_agent.templates.rectangle import apply_template_rectangle
+from ai_content_agent.templates.bubbles import apply_template_bubbles
+from ai_content_agent.templates.frame import apply_template_frame
+from ai_content_agent.templates.circle import apply_template_circle
+from ai_content_agent.templates.triangle import apply_template_triangle
+from ai_content_agent.templates.corners import apply_template_corners
+from ai_content_agent.templates.vertical_rectangle import apply_template_vertical_rectangle
+from ai_content_agent.templates.stripes import apply_template_stripes
+from ai_content_agent.templates.layer import apply_template_layer
+
 from ai_core.prompts import build_post_plan_prompt, build_posts_from_plan_prompt
 from ai_content_agent.utils import apply_center_text_to_image, apply_logo_to_image
 from ai_content_agent.storage import (
