@@ -1,5 +1,6 @@
 import json
 import base64
+import mimetypes
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -143,6 +144,53 @@ POST_BATCH_CONTENT_SCHEMA = {
 }
 
 
+BRAND_VISUAL_IDENTITY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "visual_identity_summary": {
+            "type": "string",
+            "description": "Resumo curto da identidade visual observada.",
+        },
+        "visual_identity_prompt": {
+            "type": "string",
+            "description": (
+                "Instrucao visual reutilizavel para prompts de imagem."
+            ),
+        },
+        "primary_color": {
+            "type": "string",
+            "description": "Cor principal em hexadecimal.",
+        },
+        "secondary_color": {
+            "type": "string",
+            "description": "Cor secundaria em hexadecimal.",
+        },
+        "tertiary_color": {
+            "type": "string",
+            "description": "Cor de apoio em hexadecimal.",
+        },
+        "text_color": {
+            "type": "string",
+            "description": "Cor recomendada para texto em hexadecimal.",
+        },
+        "text_font": {
+            "type": "string",
+            "description": "Fonte sugerida ou estilo tipografico.",
+        },
+    },
+    "required": [
+        "visual_identity_summary",
+        "visual_identity_prompt",
+        "primary_color",
+        "secondary_color",
+        "tertiary_color",
+        "text_color",
+        "text_font",
+    ],
+}
+
+
 def get_openai_client():
     api_key = getattr(settings, "OPENAI_API_KEY", None)
 
@@ -187,6 +235,84 @@ def generate_structured_content(
     return json.loads(response.output_text)
 
 
+def _build_image_data_url(image_path):
+    mime_type = mimetypes.guess_type(str(image_path))[0] or "image/png"
+    with open(image_path, "rb") as image_file:
+        image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
+
+    return f"data:{mime_type};base64,{image_base64}"
+
+
+def generate_brand_visual_identity(business_name, niche, image_paths):
+    client = get_openai_client()
+    content = [
+        {
+            "type": "input_text",
+            "text": f"""
+                Analise os prints do Instagram da marca abaixo e extraia a
+                identidade visual para guiar futuras artes de posts.
+
+                Negocio: {business_name}
+                Nicho: {niche}
+
+                Foque em padroes visuais recorrentes: paleta de cores,
+                composicao, fundos, estilo de fotos ou ilustracoes, densidade
+                de texto, formas, bordas, hierarquia visual e clima geral.
+
+                Regras:
+                - Responda em portugues do Brasil.
+                - Retorne cores em hexadecimal.
+                - O visual_identity_prompt deve ser uma instrucao pratica para
+                  geracao de imagens publicitarias coerentes com a marca.
+                - Use as cores da marca como acentos, elementos graficos,
+                  fundos pontuais, detalhes de layout ou areas de composicao.
+                - Nao transforme a cor principal em uma camada, filtro,
+                  gradiente ou overlay translucido cobrindo toda a imagem.
+                - Nao sugira aplicar uma pelicula colorida uniforme sobre
+                  fotos, pessoas, produtos ou cenarios.
+                - Nao copie textos especificos dos posts.
+                - Nao recomende titulo ou manchete dentro da imagem; o backend
+                  aplica o texto principal depois.
+                """,
+        }
+    ]
+
+    for image_path in image_paths:
+        content.append(
+            {
+                "type": "input_image",
+                "image_url": _build_image_data_url(image_path),
+            }
+        )
+
+    response = client.responses.create(
+        model=settings.OPENAI_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "Voce e um diretor de arte especializado em identidade "
+                    "visual para redes sociais."
+                ),
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "brand_visual_identity",
+                "strict": True,
+                "schema": BRAND_VISUAL_IDENTITY_SCHEMA,
+            }
+        },
+    )
+
+    return json.loads(response.output_text)
+
+
 def _build_generated_image_data(relative_path):
     absolute_path = Path(settings.MEDIA_ROOT) / relative_path
     normalized_path = str(relative_path).replace("\\", "/")
@@ -200,10 +326,11 @@ def _build_generated_image_data(relative_path):
 
 def _generate_image_bytes(prompt):
     client = get_openai_client()
+    image_prompt = _build_image_generation_prompt(prompt)
 
     response = client.images.generate(
         model=settings.OPENAI_IMAGE_MODEL,
-        prompt=prompt,
+        prompt=image_prompt,
         size="1024x1024",
         quality="medium",
         output_format="png",
@@ -211,6 +338,34 @@ def _generate_image_bytes(prompt):
 
     image_base64 = response.data[0].b64_json
     return base64.b64decode(image_base64)
+
+
+def _build_image_generation_prompt(prompt):
+    return f"""
+        Gere uma imagem publicitaria quadrada para rede social a partir da
+        direcao visual abaixo.
+
+        Direcao visual:
+        {prompt}
+
+        Regras obrigatorias:
+        - Nao coloque titulo, cabecalho, manchete, slogan principal ou chamada
+          grande dentro da imagem.
+        - Nao escreva texto em ingles.
+        - Se houver texto na cena, use apenas palavras curtas em portugues do
+          Brasil e somente como parte natural do desenho, por exemplo etiquetas,
+          placas, botoes, etapas de processo, quadros ou elementos de interface.
+        - Nao inclua texto promocional sobreposto; o backend aplicara o texto
+          principal depois.
+        - Use cores da marca como acentos, blocos, detalhes, objetos, fundos
+          parciais ou elementos graficos; nao aplique uma camada colorida
+          translucida, filtro uniforme, overlay ou pelicula sobre toda a imagem.
+        - Preserve textura, luz, contraste e cores naturais de fotos, pessoas,
+          produtos e ambientes quando esses elementos aparecerem.
+        - Reserve espaco visual limpo no centro para receber texto aplicado
+          posteriormente.
+        - Priorize composicao profissional, moderna e coerente com o negocio.
+        """
 
 
 def generate_image_file(prompt):

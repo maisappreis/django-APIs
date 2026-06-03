@@ -1,5 +1,6 @@
 def build_post_plan_prompt(data):
     quantity = data["quantity"]
+    brand_visual_identity = data.get("brand_visual_identity", "")
 
     return f"""
         Crie um calendario editorial com exatamente {quantity} ideias distintas
@@ -10,6 +11,7 @@ def build_post_plan_prompt(data):
         Objetivo geral: {data["objective"]}
         Tom de voz: {data["tone"]}
         Tema/campanha principal: {data["theme"]}
+        Identidade visual da marca: {brand_visual_identity}
 
         Regras:
         - Responda em portugues do Brasil.
@@ -19,12 +21,17 @@ def build_post_plan_prompt(data):
         - Cada ideia deve ter um angulo criativo proprio.
         - O campo visual_direction deve orientar uma imagem publicitaria
           coerente com aquela ideia.
+        - Quando houver identidade visual da marca, use essa identidade como
+          referencia principal para cores, composicao, estilo e clima visual.
+        - Cores da marca devem aparecer como acentos, elementos graficos ou
+          composicao; nao use como filtro/overlay translucido em toda imagem.
         - Retorne exatamente {quantity} itens em posts.
         """
 
 
 def build_post_from_idea_prompt(data, idea, index, total):
     image_text_direction = data.get("image_text_direction", "")
+    brand_visual_identity = data.get("brand_visual_identity", "")
 
     return f"""
         Transforme a ideia editorial abaixo em um post pronto para publicacao.
@@ -34,6 +41,7 @@ def build_post_from_idea_prompt(data, idea, index, total):
         Objetivo geral: {data["objective"]}
         Tom de voz: {data["tone"]}
         Campanha principal: {data["theme"]}
+        Identidade visual da marca: {brand_visual_identity}
 
         Post {index} de {total}
         Titulo da ideia: {idea["title"]}
@@ -55,6 +63,19 @@ def build_post_from_idea_prompt(data, idea, index, total):
         - Evite repetir chamadas, frases e estruturas comuns de outros posts.
         - As hashtags devem comecar com #.
         - O prompt visual deve descrever a imagem de forma objetiva.
+        - Quando houver identidade visual da marca, o prompt visual deve
+          preservar cores, composicao, estilo e clima visual dessa identidade.
+        - O prompt visual deve usar cores da marca como acentos, elementos
+          graficos ou composicao, sem pedir filtro, pelicula ou overlay
+          translucido cobrindo toda a imagem.
+        - O prompt visual deve pedir imagem publicitaria sem titulo, cabecalho,
+          manchete ou texto principal dentro da arte.
+        - O prompt visual pode permitir palavras curtas em portugues somente
+          quando forem parte natural do desenho, como etiquetas, placas, etapas
+          de processo ou elementos de interface.
+        - O prompt visual nao deve pedir frases em ingles.
+        - O prompt visual nao deve incluir o image_text como texto dentro da
+          imagem, pois esse texto sera aplicado pelo backend depois.
         - O image_text deve ter no maximo 6 palavras.
         - O image_text deve ter tom de anuncio.
         - O image_text deve usar modo imperativo quando fizer sentido.
@@ -67,6 +88,7 @@ def build_post_from_idea_prompt(data, idea, index, total):
 def build_posts_from_plan_prompt(data, ideas):
     quantity = data["quantity"]
     image_text_direction = data.get("image_text_direction", "")
+    brand_visual_identity = data.get("brand_visual_identity", "")
     idea_lines = []
 
     for index, idea in enumerate(ideas, start=1):
@@ -95,6 +117,7 @@ def build_posts_from_plan_prompt(data, ideas):
         Objetivo geral: {data["objective"]}
         Tom de voz: {data["tone"]}
         Campanha principal: {data["theme"]}
+        Identidade visual da marca: {brand_visual_identity}
 
         Plano editorial:
         {plan_text}
@@ -113,6 +136,19 @@ def build_posts_from_plan_prompt(data, ideas):
         - Cada legenda deve ter estrutura e chamada diferentes.
         - As hashtags devem comecar com #.
         - O prompt visual deve descrever a imagem de forma objetiva.
+        - Quando houver identidade visual da marca, o prompt visual deve
+          preservar cores, composicao, estilo e clima visual dessa identidade.
+        - O prompt visual deve usar cores da marca como acentos, elementos
+          graficos ou composicao, sem pedir filtro, pelicula ou overlay
+          translucido cobrindo toda a imagem.
+        - O prompt visual deve pedir imagem publicitaria sem titulo, cabecalho,
+          manchete ou texto principal dentro da arte.
+        - O prompt visual pode permitir palavras curtas em portugues somente
+          quando forem parte natural do desenho, como etiquetas, placas, etapas
+          de processo ou elementos de interface.
+        - O prompt visual nao deve pedir frases em ingles.
+        - O prompt visual nao deve incluir o image_text como texto dentro da
+          imagem, pois esse texto sera aplicado pelo backend depois.
         - O image_text deve ter no maximo 6 palavras.
         - O image_text deve ter tom de anuncio.
         - O image_text deve usar modo imperativo quando fizer sentido.

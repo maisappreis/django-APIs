@@ -74,3 +74,17 @@ def upload_logo_file(local_path, user_id):
         object_path=object_path,
         content_type="image/png",
     )
+
+
+def upload_brand_reference_file(local_path, user_id, brand_id, index):
+    extension = Path(local_path).suffix or ".png"
+    object_path = (
+        f"users/{user_id}/brands/{brand_id}/references/"
+        f"reference-{index}{extension}"
+    )
+
+    return upload_local_file(
+        local_path=local_path,
+        object_path=object_path,
+        content_type="image/png",
+    )

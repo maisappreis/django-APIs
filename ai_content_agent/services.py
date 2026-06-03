@@ -1,6 +1,7 @@
 from ai_core.clients import (
     POST_BATCH_CONTENT_SCHEMA,
     POST_PLAN_SCHEMA,
+    generate_brand_visual_identity,
     generate_image_files,
     generate_structured_content,
 )
@@ -21,6 +22,7 @@ from ai_content_agent.storage import (
     is_firebase_storage_enabled,
     upload_generated_post_file,
 )
+import re
 
 # Mock image ------------------------------------ TODO: deletar depois
 from pathlib import Path
@@ -34,6 +36,7 @@ MOCK_IMAGE_RELATIVE_PATH = Path(
     "generated_posts/28b0357f-abc4-4177-b3f4-938cbafcb5f5.png"
 )
 
+HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 def _build_generated_image_data(relative_path):
     absolute_path = Path(settings.MEDIA_ROOT) / relative_path
     normalized_path = str(relative_path).replace("\\", "/")
@@ -69,6 +72,61 @@ def generate_post_image_files(result):
         return mock_generate_image_files()
 
     return generate_image_files(result["image_prompt"])
+
+
+def analyze_brand_visual_identity(brand):
+    image_paths = [
+        image.path
+        for image in (brand.reference_image_1, brand.reference_image_2)
+        if image
+    ]
+
+    if not image_paths:
+        raise ValueError("At least one brand reference image is required.")
+
+    result = generate_brand_visual_identity(
+        business_name=brand.business_name,
+        niche=brand.niche,
+        image_paths=image_paths,
+    )
+
+    brand.visual_identity_summary = result["visual_identity_summary"]
+    brand.visual_identity_prompt = result["visual_identity_prompt"]
+    brand.primary_color = _clean_hex_color(
+        result["primary_color"],
+        brand.primary_color,
+    )
+    brand.secondary_color = _clean_hex_color(
+        result["secondary_color"],
+        brand.secondary_color,
+    )
+    brand.tertiary_color = _clean_hex_color(
+        result["tertiary_color"],
+        brand.tertiary_color,
+    )
+    brand.text_color = _clean_hex_color(result["text_color"], brand.text_color)
+    brand.text_font = result["text_font"][:80]
+    brand.save(
+        update_fields=[
+            "visual_identity_summary",
+            "visual_identity_prompt",
+            "primary_color",
+            "secondary_color",
+            "tertiary_color",
+            "text_color",
+            "text_font",
+            "updated_at",
+        ]
+    )
+
+    return brand
+
+
+def _clean_hex_color(value, fallback):
+    if isinstance(value, str) and HEX_COLOR_PATTERN.match(value):
+        return value.upper()
+
+    return fallback
 
 
 def mock_generate_post_plan(data):

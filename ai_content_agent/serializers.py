@@ -85,6 +85,7 @@ class PostGenerationInputSerializer(serializers.Serializer):
 
 class PostGenerationOutputSerializer(serializers.Serializer):
     id = serializers.IntegerField(required=False)
+    brand_id = serializers.IntegerField(required=False, allow_null=True)
     date = serializers.DateField()
     caption = serializers.CharField()
     hashtags = serializers.ListField(
@@ -101,6 +102,30 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     text_color = serializers.CharField(required=False)
     text_font = serializers.CharField(required=False, allow_blank=True)
     logo_position = serializers.CharField(required=False)
+
+
+class BrandVisualIdentityInputSerializer(serializers.Serializer):
+    business_name = serializers.CharField(max_length=120)
+    niche = serializers.CharField(max_length=120)
+    reference_image_1 = serializers.ImageField()
+    reference_image_2 = serializers.ImageField(required=False, allow_null=True)
+
+
+class BrandVisualIdentityOutputSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    business_name = serializers.CharField()
+    niche = serializers.CharField()
+    visual_identity_summary = serializers.CharField(allow_blank=True)
+    visual_identity_prompt = serializers.CharField(allow_blank=True)
+    reference_image_1_url = serializers.CharField(allow_blank=True)
+    reference_image_2_url = serializers.CharField(allow_blank=True)
+    logo_url = serializers.CharField(allow_blank=True)
+    primary_color = serializers.CharField()
+    secondary_color = serializers.CharField()
+    tertiary_color = serializers.CharField()
+    text_color = serializers.CharField()
+    text_font = serializers.CharField(allow_blank=True)
+    logo_position = serializers.CharField()
 
 
 class PostImageRenderInputSerializer(serializers.Serializer):

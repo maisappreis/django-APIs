@@ -8,7 +8,55 @@ class GenerationStatus(models.TextChoices):
     FAILED = "failed", "Failed"
 
 
+class Brand(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="content_agent_brands",
+    )
+    business_name = models.CharField(max_length=120)
+    niche = models.CharField(max_length=120)
+    reference_image_1 = models.ImageField(
+        upload_to="content_agent/brand_references/",
+        null=True,
+        blank=True,
+    )
+    reference_image_2 = models.ImageField(
+        upload_to="content_agent/brand_references/",
+        null=True,
+        blank=True,
+    )
+    reference_image_1_url = models.CharField(max_length=500, blank=True)
+    reference_image_2_url = models.CharField(max_length=500, blank=True)
+    logo_url = models.CharField(max_length=500, blank=True)
+    visual_identity_summary = models.TextField(blank=True)
+    visual_identity_prompt = models.TextField(blank=True)
+    primary_color = models.CharField(max_length=7, default="#006C44")
+    secondary_color = models.CharField(max_length=7, default="#1FD794")
+    tertiary_color = models.CharField(max_length=7, default="#98C8B6")
+    text_color = models.CharField(max_length=7, default="#FFFFFF")
+    text_font = models.CharField(max_length=80, blank=True)
+    logo_position = models.CharField(max_length=20, default="bottom_right")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "business_name", "niche"]),
+        ]
+
+    def __str__(self):
+        return f"{self.business_name} - {self.niche}"
+
+
 class PostGenerationBatch(models.Model):
+    brand = models.ForeignKey(
+        Brand,
+        on_delete=models.SET_NULL,
+        related_name="batches",
+        null=True,
+        blank=True,
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -58,6 +106,13 @@ class PostGeneration(models.Model):
     batch = models.ForeignKey(
         PostGenerationBatch,
         on_delete=models.CASCADE,
+        related_name="posts",
+        null=True,
+        blank=True,
+    )
+    brand = models.ForeignKey(
+        Brand,
+        on_delete=models.SET_NULL,
         related_name="posts",
         null=True,
         blank=True,

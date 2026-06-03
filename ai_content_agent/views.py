@@ -11,16 +11,23 @@ from pathlib import Path
 from urllib.parse import urlparse
 import httpx
 
-from .models import GenerationStatus, PostGeneration, PostGenerationBatch
+from .models import Brand, GenerationStatus, PostGeneration, PostGenerationBatch
 from .serializers import (
+    BrandVisualIdentityInputSerializer,
+    BrandVisualIdentityOutputSerializer,
     PostGenerationBatchOutputSerializer,
     PostGenerationDefaultsSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
 )
-from .services import generate_post_batch_content, rerender_post_image
+from .services import (
+    analyze_brand_visual_identity,
+    generate_post_batch_content,
+    rerender_post_image,
+)
 from .storage import (
     is_firebase_storage_enabled,
+    upload_brand_reference_file,
     upload_generated_post_file,
     upload_logo_file,
 )
@@ -39,6 +46,71 @@ DEFAULT_FORM_VALUES = {
     },
     "logo_position": "bottom_right",
 }
+
+
+def get_or_create_brand(user, business_name, niche):
+    brand = (
+        Brand.objects.filter(
+            user=user,
+            business_name=business_name,
+            niche=niche,
+        )
+        .order_by("-updated_at")
+        .first()
+    )
+
+    if brand:
+        return brand
+
+    return Brand.objects.create(
+        user=user,
+        business_name=business_name,
+        niche=niche,
+    )
+
+
+def apply_brand_defaults(data, brand, request_data):
+    fields = [
+        "primary_color",
+        "secondary_color",
+        "tertiary_color",
+        "text_color",
+        "text_font",
+        "logo_position",
+    ]
+
+    for field in fields:
+        if field not in request_data:
+            data[field] = getattr(brand, field)
+
+    data["brand_visual_identity"] = brand.visual_identity_prompt
+
+    return data
+
+
+def serialize_brand(brand):
+    return {
+        "id": brand.id,
+        "business_name": brand.business_name,
+        "niche": brand.niche,
+        "visual_identity_summary": brand.visual_identity_summary,
+        "visual_identity_prompt": brand.visual_identity_prompt,
+        "reference_image_1_url": (
+            brand.reference_image_1_url
+            or (brand.reference_image_1.url if brand.reference_image_1 else "")
+        ),
+        "reference_image_2_url": (
+            brand.reference_image_2_url
+            or (brand.reference_image_2.url if brand.reference_image_2 else "")
+        ),
+        "logo_url": brand.logo_url,
+        "primary_color": brand.primary_color,
+        "secondary_color": brand.secondary_color,
+        "tertiary_color": brand.tertiary_color,
+        "text_color": brand.text_color,
+        "text_font": brand.text_font,
+        "logo_position": brand.logo_position,
+    }
 
 
 def get_available_post_dates(user, quantity):
@@ -84,9 +156,29 @@ def get_defaults_from_batch(batch):
     }
 
 
+def get_defaults_from_brand(brand):
+    if not brand:
+        return DEFAULT_FORM_VALUES
+
+    return {
+        "business_name": brand.business_name,
+        "niche": brand.niche,
+        "logo_url": brand.logo_url,
+        "text_color": brand.text_color,
+        "text_font": brand.text_font,
+        "color_palette": {
+            "primary_color": brand.primary_color,
+            "secondary_color": brand.secondary_color,
+            "tertiary_color": brand.tertiary_color,
+        },
+        "logo_position": brand.logo_position,
+    }
+
+
 def serialize_post_generation(post_generation):
     return {
         "id": post_generation.id,
+        "brand_id": post_generation.brand_id,
         "date": post_generation.scheduled_date,
         "caption": post_generation.caption,
         "hashtags": post_generation.hashtags,
@@ -112,6 +204,19 @@ def get_download_filename(post_generation):
 
 class PostGenerationDefaultsAPIView(APIView):
     def get(self, request):
+        latest_brand = (
+            Brand.objects.filter(user=request.user)
+            .order_by("-updated_at")
+            .first()
+        )
+
+        if latest_brand:
+            serializer = PostGenerationDefaultsSerializer(
+                get_defaults_from_brand(latest_brand)
+            )
+
+            return Response(serializer.data)
+
         latest_batch = (
             PostGenerationBatch.objects.filter(user=request.user)
             .order_by("-created_at")
@@ -122,6 +227,86 @@ class PostGenerationDefaultsAPIView(APIView):
         )
 
         return Response(serializer.data)
+
+
+class BrandListAPIView(APIView):
+    def get(self, request):
+        brands = Brand.objects.filter(user=request.user).order_by(
+            "-updated_at"
+        )
+        serializer = BrandVisualIdentityOutputSerializer(
+            [serialize_brand(brand) for brand in brands],
+            many=True,
+        )
+
+        return Response(serializer.data)
+
+
+class BrandVisualIdentityAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        input_serializer = BrandVisualIdentityInputSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        data = input_serializer.validated_data
+
+        brand = get_or_create_brand(
+            user=request.user,
+            business_name=data["business_name"],
+            niche=data["niche"],
+        )
+        brand.reference_image_1 = data["reference_image_1"]
+
+        if data.get("reference_image_2"):
+            brand.reference_image_2 = data["reference_image_2"]
+
+        brand.save()
+
+        if is_firebase_storage_enabled():
+            if brand.reference_image_1:
+                brand.reference_image_1_url = upload_brand_reference_file(
+                    local_path=brand.reference_image_1.path,
+                    user_id=request.user.id,
+                    brand_id=brand.id,
+                    index=1,
+                )
+
+            if brand.reference_image_2:
+                brand.reference_image_2_url = upload_brand_reference_file(
+                    local_path=brand.reference_image_2.path,
+                    user_id=request.user.id,
+                    brand_id=brand.id,
+                    index=2,
+                )
+
+            brand.save(
+                update_fields=[
+                    "reference_image_1_url",
+                    "reference_image_2_url",
+                    "updated_at",
+                ]
+            )
+
+        try:
+            brand = analyze_brand_visual_identity(brand)
+        except Exception as error:
+            response_data = {
+                "detail": "Erro ao captar identidade visual da marca.",
+            }
+
+            if settings.DEBUG:
+                response_data["error"] = str(error)
+
+            return Response(
+                response_data,
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        output_serializer = BrandVisualIdentityOutputSerializer(
+            serialize_brand(brand)
+        )
+
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class CalendarPostsAPIView(APIView):
@@ -156,8 +341,15 @@ class GeneratePostContentAPIView(APIView):
         input_serializer.is_valid(raise_exception=True)
 
         data = input_serializer.validated_data
+        brand = get_or_create_brand(
+            user=request.user,
+            business_name=data["business_name"],
+            niche=data["niche"],
+        )
+        data = apply_brand_defaults(data, brand, request.data)
 
         batch = PostGenerationBatch.objects.create(
+            brand=brand,
             user=request.user,
             business_name=data["business_name"],
             niche=data["niche"],
@@ -177,13 +369,17 @@ class GeneratePostContentAPIView(APIView):
 
         if batch.logo:
             data["logo"] = batch.logo.path
+            brand.logo_url = batch.logo.url
 
             if is_firebase_storage_enabled():
                 batch.logo_url = upload_logo_file(
                     local_path=batch.logo.path,
                     user_id=request.user.id,
                 )
+                brand.logo_url = batch.logo_url
                 batch.save(update_fields=["logo_url"])
+
+            brand.save(update_fields=["logo_url", "updated_at"])
 
         try:
             result = generate_post_batch_content(data)
@@ -197,6 +393,7 @@ class GeneratePostContentAPIView(APIView):
                 scheduled_date = available_dates[index]
                 post_generation = PostGeneration.objects.create(
                     batch=batch,
+                    brand=brand,
                     user=request.user,
                     business_name=data["business_name"],
                     niche=data["niche"],
