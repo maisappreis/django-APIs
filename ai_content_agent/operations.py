@@ -63,15 +63,6 @@ def get_user_brands(user):
     return Brand.objects.filter(user=user).order_by("-updated_at")
 
 
-def get_latest_batch(user):
-    return (
-        PostBatch.objects.filter(user=user)
-        .select_related("brand")
-        .order_by("-created_at")
-        .first()
-    )
-
-
 def get_future_scheduled_posts(user):
     start_date = timezone.localdate()
     posts = (

@@ -1,6 +1,14 @@
 from django.conf import settings
 from django.db import models
 
+from .defaults import (
+    DEFAULT_LOGO_POSITION,
+    DEFAULT_PRIMARY_COLOR,
+    DEFAULT_SECONDARY_COLOR,
+    DEFAULT_TERTIARY_COLOR,
+    DEFAULT_TEXT_COLOR,
+)
+
 
 class Brand(models.Model):
     user = models.ForeignKey(
@@ -30,12 +38,12 @@ class Brand(models.Model):
     logo_url = models.CharField(max_length=500, blank=True)
     visual_identity_summary = models.TextField(blank=True)
     visual_identity_prompt = models.TextField(blank=True)
-    primary_color = models.CharField(max_length=7, default="#006C44")
-    secondary_color = models.CharField(max_length=7, default="#1FD794")
-    tertiary_color = models.CharField(max_length=7, default="#98C8B6")
-    text_color = models.CharField(max_length=7, default="#FFFFFF")
+    primary_color = models.CharField(max_length=7, default=DEFAULT_PRIMARY_COLOR)
+    secondary_color = models.CharField(max_length=7, default=DEFAULT_SECONDARY_COLOR)
+    tertiary_color = models.CharField(max_length=7, default=DEFAULT_TERTIARY_COLOR)
+    text_color = models.CharField(max_length=7, default=DEFAULT_TEXT_COLOR)
     text_font = models.CharField(max_length=80, blank=True)
-    logo_position = models.CharField(max_length=20, default="bottom_right")
+    logo_position = models.CharField(max_length=20, default=DEFAULT_LOGO_POSITION)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -118,12 +126,12 @@ class Post(models.Model):
     base_image_url = models.CharField(max_length=500, blank=True)
     image_url = models.CharField(max_length=500, blank=True)
     template = models.CharField(max_length=40, blank=True)
-    primary_color = models.CharField(max_length=7, default="#006C44")
-    secondary_color = models.CharField(max_length=7, default="#1FD794")
-    tertiary_color = models.CharField(max_length=7, default="#98C8B6")
-    text_color = models.CharField(max_length=7, default="#FFFFFF")
+    primary_color = models.CharField(max_length=7, default=DEFAULT_PRIMARY_COLOR)
+    secondary_color = models.CharField(max_length=7, default=DEFAULT_SECONDARY_COLOR)
+    tertiary_color = models.CharField(max_length=7, default=DEFAULT_TERTIARY_COLOR)
+    text_color = models.CharField(max_length=7, default=DEFAULT_TEXT_COLOR)
     text_font = models.CharField(max_length=80, blank=True)
-    logo_position = models.CharField(max_length=20, default="bottom_right")
+    logo_position = models.CharField(max_length=20, default=DEFAULT_LOGO_POSITION)
     post_order = models.PositiveSmallIntegerField(default=1)
     scheduled_date = models.DateField(null=True, blank=True)
     idea = models.JSONField(default=dict, blank=True)

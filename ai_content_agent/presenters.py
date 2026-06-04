@@ -1,20 +1,7 @@
 from pathlib import Path
 from urllib.parse import urlparse
 
-
-DEFAULT_FORM_VALUES = {
-    "business_name": "",
-    "niche": "",
-    "logo_url": "",
-    "text_color": "#FFFFFF",
-    "text_font": "",
-    "color_palette": {
-        "primary_color": "#006C44",
-        "secondary_color": "#1FD794",
-        "tertiary_color": "#98C8B6",
-    },
-    "logo_position": "bottom_right",
-}
+from .defaults import DEFAULT_POST_FORM_VALUES
 
 
 def serialize_brand(brand):
@@ -63,16 +50,9 @@ def serialize_post_generation(post_generation):
     }
 
 
-def get_defaults_from_batch(batch):
-    if not batch or not batch.brand:
-        return DEFAULT_FORM_VALUES
-
-    return get_defaults_from_brand(batch.brand)
-
-
 def get_defaults_from_brand(brand):
     if not brand:
-        return DEFAULT_FORM_VALUES
+        return DEFAULT_POST_FORM_VALUES
 
     return {
         "business_name": brand.business_name,

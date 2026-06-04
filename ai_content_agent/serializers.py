@@ -1,5 +1,17 @@
 from rest_framework import serializers
 
+from .defaults import (
+    DEFAULT_LOGO_POSITION,
+    DEFAULT_PRIMARY_COLOR,
+    DEFAULT_QUANTITY,
+    DEFAULT_SECONDARY_COLOR,
+    DEFAULT_TEMPLATE,
+    DEFAULT_TERTIARY_COLOR,
+    DEFAULT_TEXT_COLOR,
+    DEFAULT_TEXT_FONT,
+    DEFAULT_USE_TEMPLATES,
+)
+
 
 class PostGenerationInputSerializer(serializers.Serializer):
     TEMPLATE_CHOICES = [
@@ -33,7 +45,7 @@ class PostGenerationInputSerializer(serializers.Serializer):
     logo_position = serializers.ChoiceField(
         choices=LOGO_POSITION_CHOICES,
         required=False,
-        default="bottom_right",
+        default=DEFAULT_LOGO_POSITION,
     )
     image_text_direction = serializers.CharField(
         max_length=120,
@@ -43,43 +55,43 @@ class PostGenerationInputSerializer(serializers.Serializer):
     primary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
-        default="#006C44",
+        default=DEFAULT_PRIMARY_COLOR,
     )
     secondary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
-        default="#1FD794",
+        default=DEFAULT_SECONDARY_COLOR,
     )
     tertiary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
-        default="#98C8B6",
+        default=DEFAULT_TERTIARY_COLOR,
     )
     text_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
-        default="#FFFFFF",
+        default=DEFAULT_TEXT_COLOR,
     )
     text_font = serializers.CharField(
         max_length=80,
         required=False,
         allow_blank=True,
-        default="",
+        default=DEFAULT_TEXT_FONT,
     )
     template = serializers.ChoiceField(
         choices=TEMPLATE_CHOICES,
         required=False,
-        default="rectangle",
+        default=DEFAULT_TEMPLATE,
     )
     quantity = serializers.IntegerField(
         min_value=1,
         max_value=30,
         required=False,
-        default=1,
+        default=DEFAULT_QUANTITY,
     )
     use_templates = serializers.BooleanField(
         required=False,
-        default=True,
+        default=DEFAULT_USE_TEMPLATES,
     )
 
 

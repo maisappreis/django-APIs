@@ -14,7 +14,6 @@ from .operations import (
     create_post_batch,
     create_posts_from_generation_result,
     get_future_scheduled_posts,
-    get_latest_batch,
     get_latest_brand,
     get_or_create_brand,
     get_user_brands,
@@ -25,7 +24,6 @@ from .operations import (
     sync_brand_logo,
 )
 from .presenters import (
-    get_defaults_from_batch,
     get_defaults_from_brand,
     serialize_brand,
     serialize_post_generation,
@@ -48,17 +46,8 @@ from .services import (
 class PostDefaultsAPIView(APIView):
     def get(self, request):
         latest_brand = get_latest_brand(request.user)
-
-        if latest_brand:
-            serializer = PostGenerationDefaultsSerializer(
-                get_defaults_from_brand(latest_brand)
-            )
-
-            return Response(serializer.data)
-
-        latest_batch = get_latest_batch(request.user)
         serializer = PostGenerationDefaultsSerializer(
-            get_defaults_from_batch(latest_batch)
+            get_defaults_from_brand(latest_brand)
         )
 
         return Response(serializer.data)
