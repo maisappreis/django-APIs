@@ -32,7 +32,7 @@ def serialize_brand(brand):
             brand.reference_image_2_url
             or (brand.reference_image_2.url if brand.reference_image_2 else "")
         ),
-        "logo_url": brand.logo_url,
+        "logo_url": brand.logo_url or (brand.logo.url if brand.logo else ""),
         "primary_color": brand.primary_color,
         "secondary_color": brand.secondary_color,
         "tertiary_color": brand.tertiary_color,
@@ -64,24 +64,10 @@ def serialize_post_generation(post_generation):
 
 
 def get_defaults_from_batch(batch):
-    if not batch:
+    if not batch or not batch.brand:
         return DEFAULT_FORM_VALUES
 
-    logo_url = batch.logo_url or (batch.logo.url if batch.logo else "")
-
-    return {
-        "business_name": batch.business_name,
-        "niche": batch.niche,
-        "logo_url": logo_url,
-        "text_color": batch.text_color,
-        "text_font": batch.text_font,
-        "color_palette": {
-            "primary_color": batch.primary_color,
-            "secondary_color": batch.secondary_color,
-            "tertiary_color": batch.tertiary_color,
-        },
-        "logo_position": batch.logo_position,
-    }
+    return get_defaults_from_brand(batch.brand)
 
 
 def get_defaults_from_brand(brand):
@@ -91,7 +77,7 @@ def get_defaults_from_brand(brand):
     return {
         "business_name": brand.business_name,
         "niche": brand.niche,
-        "logo_url": brand.logo_url,
+        "logo_url": brand.logo_url or (brand.logo.url if brand.logo else ""),
         "text_color": brand.text_color,
         "text_font": brand.text_font,
         "color_palette": {

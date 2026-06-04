@@ -306,8 +306,8 @@ def create_final_image_from_base(base_image_url):
 
 
 def get_post_logo_file(post):
-    if post.batch and post.batch.logo:
-        return post.batch.logo.path
+    if post.brand and post.brand.logo:
+        return post.brand.logo.path
 
     return None
 

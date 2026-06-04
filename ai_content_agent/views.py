@@ -7,11 +7,11 @@ from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 import httpx
 
-from .models import PostGeneration
+from .models import Post
 from .operations import (
     apply_brand_defaults,
     build_post_visual_settings,
-    create_post_generation_batch,
+    create_post_batch,
     create_posts_from_generation_result,
     get_future_scheduled_posts,
     get_latest_batch,
@@ -22,7 +22,7 @@ from .operations import (
     mark_batch_failed,
     prepare_post_download,
     save_brand_reference_images,
-    sync_batch_logo,
+    sync_brand_logo,
 )
 from .presenters import (
     get_defaults_from_batch,
@@ -33,7 +33,7 @@ from .presenters import (
 from .serializers import (
     BrandVisualIdentityInputSerializer,
     BrandVisualIdentityOutputSerializer,
-    PostGenerationBatchOutputSerializer,
+    PostBatchOutputSerializer,
     PostGenerationDefaultsSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
@@ -45,7 +45,7 @@ from .services import (
 )
 
 
-class PostGenerationDefaultsAPIView(APIView):
+class PostDefaultsAPIView(APIView):
     def get(self, request):
         latest_brand = get_latest_brand(request.user)
 
@@ -142,8 +142,8 @@ class GeneratePostContentAPIView(APIView):
         )
         data = apply_brand_defaults(data, brand, request.data)
 
-        batch = create_post_generation_batch(request.user, brand, data)
-        sync_batch_logo(batch, brand, data, request.user)
+        batch = create_post_batch(request.user, brand, data)
+        sync_brand_logo(brand, data, request.user)
 
         try:
             result = generate_post_batch_content(data)
@@ -157,7 +157,7 @@ class GeneratePostContentAPIView(APIView):
 
             mark_batch_completed(batch, result["strategy_summary"])
 
-            output_serializer = PostGenerationBatchOutputSerializer(
+            output_serializer = PostBatchOutputSerializer(
                 {
                     "batch_id": batch.id,
                     "quantity": batch.quantity,
@@ -193,7 +193,7 @@ class GeneratePostContentAPIView(APIView):
 class RerenderPostImageAPIView(APIView):
     def patch(self, request, post_id):
         post_generation = get_object_or_404(
-            PostGeneration.objects.select_related("batch"),
+            Post.objects.select_related("batch", "brand"),
             id=post_id,
             user=request.user,
         )
@@ -229,7 +229,7 @@ class RerenderPostImageAPIView(APIView):
 class DownloadPostImageAPIView(APIView):
     def get(self, request, post_id):
         post_generation = get_object_or_404(
-            PostGeneration,
+            Post,
             id=post_id,
             user=request.user,
         )

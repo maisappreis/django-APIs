@@ -6,7 +6,7 @@ from .views import (
     CalendarPostsAPIView,
     DownloadPostImageAPIView,
     GeneratePostContentAPIView,
-    PostGenerationDefaultsAPIView,
+    PostDefaultsAPIView,
     RerenderPostImageAPIView,
 )
 
@@ -28,7 +28,7 @@ urlpatterns = [
     ),
     path(
         "posts/defaults/",
-        PostGenerationDefaultsAPIView.as_view(),
+        PostDefaultsAPIView.as_view(),
         name="post-defaults",
     ),
     path(

@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Brand, PostGeneration, PostGenerationBatch
+
+from .models import Brand, Post, PostBatch
 
 
 @admin.register(Brand)
@@ -30,6 +31,7 @@ class BrandAdmin(admin.ModelAdmin):
                     "user",
                     "business_name",
                     "niche",
+                    "logo",
                     "logo_url",
                 )
             },
@@ -72,26 +74,32 @@ class BrandAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(PostGenerationBatch)
-class PostGenerationBatchAdmin(admin.ModelAdmin):
+@admin.register(PostBatch)
+class PostBatchAdmin(admin.ModelAdmin):
     list_display = (
         "user",
-        "business_name",
+        "brand",
+        "theme",
         "quantity",
         "use_templates",
-        "text_font",
         "status",
         "created_at",
     )
-    list_filter = ("status", "created_at", "user")
-    search_fields = ("business_name", "niche", "theme")
+    list_filter = ("status", "created_at", "user", "brand")
+    search_fields = (
+        "brand__business_name",
+        "brand__niche",
+        "objective",
+        "tone",
+        "theme",
+    )
 
 
-@admin.register(PostGeneration)
-class PostGenerationAdmin(admin.ModelAdmin):
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
     list_display = (
         "user",
-        "business_name",
+        "brand",
         "batch",
         "post_order",
         "scheduled_date",
@@ -99,5 +107,10 @@ class PostGenerationAdmin(admin.ModelAdmin):
         "status",
         "created_at",
     )
-    list_filter = ("status", "created_at", "user", "batch")
-    search_fields = ("business_name", "niche", "theme", "caption")
+    list_filter = ("status", "created_at", "user", "brand", "batch")
+    search_fields = (
+        "brand__business_name",
+        "brand__niche",
+        "caption",
+        "image_prompt",
+    )

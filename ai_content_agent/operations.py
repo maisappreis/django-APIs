@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 import httpx
 
-from .models import Brand, GenerationStatus, PostGeneration, PostGenerationBatch
+from .models import Brand, GenerationStatus, Post, PostBatch
 from .presenters import get_download_filename
 from .storage import (
     is_firebase_storage_enabled,
@@ -65,7 +65,8 @@ def get_user_brands(user):
 
 def get_latest_batch(user):
     return (
-        PostGenerationBatch.objects.filter(user=user)
+        PostBatch.objects.filter(user=user)
+        .select_related("brand")
         .order_by("-created_at")
         .first()
     )
@@ -74,7 +75,7 @@ def get_latest_batch(user):
 def get_future_scheduled_posts(user):
     start_date = timezone.localdate()
     posts = (
-        PostGeneration.objects.filter(
+        Post.objects.filter(
             user=user,
             scheduled_date__gte=start_date,
         )
@@ -88,7 +89,7 @@ def get_future_scheduled_posts(user):
 def get_available_post_dates(user, quantity):
     current_date = timezone.localdate()
     occupied_dates = set(
-        PostGeneration.objects.filter(
+        Post.objects.filter(
             user=user,
             scheduled_date__gte=current_date,
         )
@@ -145,41 +146,34 @@ def save_brand_reference_images(brand, data, user):
     return brand
 
 
-def create_post_generation_batch(user, brand, data):
-    return PostGenerationBatch.objects.create(
+def create_post_batch(user, brand, data):
+    return PostBatch.objects.create(
         brand=brand,
         user=user,
-        business_name=data["business_name"],
-        niche=data["niche"],
         objective=data["objective"],
         tone=data["tone"],
         theme=data["theme"],
         quantity=data["quantity"],
-        logo=data.get("logo"),
         use_templates=data["use_templates"],
-        primary_color=data["primary_color"],
-        secondary_color=data["secondary_color"],
-        tertiary_color=data["tertiary_color"],
-        text_color=data["text_color"],
-        text_font=data["text_font"],
-        logo_position=data["logo_position"],
     )
 
 
-def sync_batch_logo(batch, brand, data, user):
-    if not batch.logo:
+def sync_brand_logo(brand, data, user):
+    if not data.get("logo"):
+        if brand.logo:
+            data["logo"] = brand.logo.path
         return
 
-    data["logo"] = batch.logo.path
-    brand.logo_url = batch.logo.url
+    brand.logo = data["logo"]
+    brand.save(update_fields=["logo", "updated_at"])
+    data["logo"] = brand.logo.path
+    brand.logo_url = brand.logo.url
 
     if is_firebase_storage_enabled():
-        batch.logo_url = upload_logo_file(
-            local_path=batch.logo.path,
+        brand.logo_url = upload_logo_file(
+            local_path=brand.logo.path,
             user_id=user.id,
         )
-        brand.logo_url = batch.logo_url
-        batch.save(update_fields=["logo_url"])
 
     brand.save(update_fields=["logo_url", "updated_at"])
 
@@ -190,15 +184,10 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
 
     for index, post_data in enumerate(result["posts"]):
         scheduled_date = available_dates[index]
-        post_generation = PostGeneration.objects.create(
+        post = Post.objects.create(
             batch=batch,
             brand=brand,
             user=user,
-            business_name=data["business_name"],
-            niche=data["niche"],
-            objective=data["objective"],
-            tone=data["tone"],
-            theme=post_data["idea"]["theme"],
             caption=post_data["caption"],
             hashtags=post_data["hashtags"],
             image_prompt=post_data["image_prompt"],
@@ -219,26 +208,26 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
         )
 
         if is_firebase_storage_enabled():
-            post_generation.base_image_url = upload_generated_post_file(
+            post.base_image_url = upload_generated_post_file(
                 local_path=post_data["base_absolute_path"],
                 user_id=user.id,
-                post_id=post_generation.id,
+                post_id=post.id,
                 kind="base",
             )
-            post_generation.image_url = upload_generated_post_file(
+            post.image_url = upload_generated_post_file(
                 local_path=post_data["final_absolute_path"],
                 user_id=user.id,
-                post_id=post_generation.id,
+                post_id=post.id,
                 kind="final",
             )
-            post_generation.save(
+            post.save(
                 update_fields=[
                     "base_image_url",
                     "image_url",
                 ]
             )
 
-        saved_posts.append(post_generation)
+        saved_posts.append(post)
 
     return saved_posts
 

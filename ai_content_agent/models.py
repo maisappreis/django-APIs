@@ -1,5 +1,5 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 
 class Brand(models.Model):
@@ -22,6 +22,11 @@ class Brand(models.Model):
     )
     reference_image_1_url = models.CharField(max_length=500, blank=True)
     reference_image_2_url = models.CharField(max_length=500, blank=True)
+    logo = models.ImageField(
+        upload_to="content_agent/logos/",
+        null=True,
+        blank=True,
+    )
     logo_url = models.CharField(max_length=500, blank=True)
     visual_identity_summary = models.TextField(blank=True)
     visual_identity_prompt = models.TextField(blank=True)
@@ -41,7 +46,7 @@ class Brand(models.Model):
 
     def __str__(self):
         return f"{self.business_name} - {self.niche}"
-    
+
 
 class GenerationStatus(models.TextChoices):
     PENDING = "pending", "Pending"
@@ -49,7 +54,7 @@ class GenerationStatus(models.TextChoices):
     FAILED = "failed", "Failed"
 
 
-class PostGenerationBatch(models.Model):
+class PostBatch(models.Model):
     brand = models.ForeignKey(
         Brand,
         on_delete=models.SET_NULL,
@@ -60,28 +65,14 @@ class PostGenerationBatch(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="post_generation_batches",
+        related_name="post_batches",
     )
 
-    business_name = models.CharField(max_length=120)
-    niche = models.CharField(max_length=120)
     objective = models.CharField(max_length=160)
     tone = models.CharField(max_length=80)
     theme = models.CharField(max_length=160)
     quantity = models.PositiveSmallIntegerField(default=1)
-    logo = models.ImageField(
-        upload_to="content_agent/logos/",
-        null=True,
-        blank=True,
-    )
-    logo_url = models.CharField(max_length=500, blank=True)
     use_templates = models.BooleanField(default=True)
-    primary_color = models.CharField(max_length=7, default="#006C44")
-    secondary_color = models.CharField(max_length=7, default="#1FD794")
-    tertiary_color = models.CharField(max_length=7, default="#98C8B6")
-    text_color = models.CharField(max_length=7, default="#FFFFFF")
-    text_font = models.CharField(max_length=80, blank=True)
-    logo_position = models.CharField(max_length=20, default="bottom_right")
     strategy_summary = models.TextField(blank=True)
 
     status = models.CharField(
@@ -94,12 +85,13 @@ class PostGenerationBatch(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.business_name} - {self.quantity} posts"
+        brand_name = self.brand.business_name if self.brand else "No brand"
+        return f"{brand_name} - {self.quantity} posts"
 
 
-class PostGeneration(models.Model):
+class Post(models.Model):
     batch = models.ForeignKey(
-        PostGenerationBatch,
+        PostBatch,
         on_delete=models.CASCADE,
         related_name="posts",
         null=True,
@@ -116,14 +108,8 @@ class PostGeneration(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="post_generation",
+        related_name="posts",
     )
-
-    business_name = models.CharField(max_length=120)
-    niche = models.CharField(max_length=120)
-    objective = models.CharField(max_length=160)
-    tone = models.CharField(max_length=80)
-    theme = models.CharField(max_length=160)
 
     caption = models.TextField(blank=True)
     hashtags = models.JSONField(default=list, blank=True)
@@ -153,4 +139,5 @@ class PostGeneration(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.business_name} - {self.theme}"
+        brand_name = self.brand.business_name if self.brand else "No brand"
+        return f"{brand_name} - post {self.post_order}"

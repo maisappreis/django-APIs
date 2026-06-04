@@ -168,7 +168,7 @@ class PostImageRenderInputSerializer(serializers.Serializer):
     )
 
 
-class PostGenerationBatchOutputSerializer(serializers.Serializer):
+class PostBatchOutputSerializer(serializers.Serializer):
     batch_id = serializers.IntegerField()
     quantity = serializers.IntegerField()
     strategy_summary = serializers.CharField(allow_blank=True)
