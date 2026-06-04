@@ -38,14 +38,11 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
-CONTENT_AGENT_USE_MOCK_CONTENT = (
-    os.getenv("CONTENT_AGENT_USE_MOCK_CONTENT", "true").lower() == "true"
-)
 CONTENT_AGENT_USE_MOCK_IMAGES = (
     os.getenv("CONTENT_AGENT_USE_MOCK_IMAGES", "true").lower() == "true"
 )
 
-if is_production():
+if is_production(): 
     DEBUG = False
     DATABASES = {
         'default': {
@@ -60,6 +57,12 @@ if is_production():
             },
         }
     }
+    # TODO: pegar chaves de pagamento reais para produção
+    # STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+    # STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    # STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL", "")
+    # STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL", "")
+    CONTENT_AGENT_USE_MOCK_CONTENT = False
     ALLOWED_HOSTS = [
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
@@ -81,6 +84,9 @@ else:
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_TEST", "")
     STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL_TEST", "")
     STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL_TEST", "")
+    CONTENT_AGENT_USE_MOCK_CONTENT = (
+        os.getenv("CONTENT_AGENT_USE_MOCK_CONTENT", "true").lower() == "true"
+    )
     ALLOWED_HOSTS = ['*']
 
 

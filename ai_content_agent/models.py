@@ -2,12 +2,6 @@ from django.db import models
 from django.conf import settings
 
 
-class GenerationStatus(models.TextChoices):
-    PENDING = "pending", "Pending"
-    COMPLETED = "completed", "Completed"
-    FAILED = "failed", "Failed"
-
-
 class Brand(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -47,6 +41,12 @@ class Brand(models.Model):
 
     def __str__(self):
         return f"{self.business_name} - {self.niche}"
+    
+
+class GenerationStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    COMPLETED = "completed", "Completed"
+    FAILED = "failed", "Failed"
 
 
 class PostGenerationBatch(models.Model):
@@ -98,11 +98,6 @@ class PostGenerationBatch(models.Model):
 
 
 class PostGeneration(models.Model):
-    class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        COMPLETED = "completed", "Completed"
-        FAILED = "failed", "Failed"
-
     batch = models.ForeignKey(
         PostGenerationBatch,
         on_delete=models.CASCADE,
@@ -149,8 +144,8 @@ class PostGeneration(models.Model):
 
     status = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
+        choices=GenerationStatus.choices,
+        default=GenerationStatus.PENDING,
     )
 
     error_message = models.TextField(blank=True)

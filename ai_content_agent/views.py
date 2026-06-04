@@ -416,7 +416,7 @@ class GeneratePostContentAPIView(APIView):
                     post_order=post_data["order"],
                     scheduled_date=scheduled_date,
                     idea=post_data["idea"],
-                    status=PostGeneration.Status.COMPLETED,
+                    status=GenerationStatus.COMPLETED,
                 )
 
                 if is_firebase_storage_enabled():

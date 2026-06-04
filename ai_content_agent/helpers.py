@@ -1,5 +1,4 @@
 from PIL import Image
-
 from .utils import _get_logo_coordinates, _resize_logo
 
 
