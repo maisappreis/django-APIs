@@ -70,9 +70,12 @@ class CreateCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = CheckoutSessionSerializer(data=request.data)
+        data = request.data.copy()
+        data.update(request.query_params)
+        serializer = CheckoutSessionSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         plan = serializer.plan
+        product = serializer.product
 
         if not settings.STRIPE_SECRET_KEY:
             return Response(
@@ -86,7 +89,7 @@ class CreateCheckoutSessionView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        checkout_session = create_checkout_session(request.user, plan)
+        checkout_session = create_checkout_session(request.user, plan, product)
 
         return Response(
             {"checkout_url": checkout_session.url},

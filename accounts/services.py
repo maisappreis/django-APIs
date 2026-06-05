@@ -92,7 +92,7 @@ def retrieve_stripe_subscription(subscription_id):
         return None
 
 
-def create_checkout_session(user, plan):
+def create_checkout_session(user, plan, product):
     stripe = get_stripe_module()
     if not stripe:
         raise RuntimeError("Biblioteca stripe nao instalada.")
@@ -111,11 +111,13 @@ def create_checkout_session(user, plan):
         metadata={
             "user_id": str(user.id),
             "plan_tier": plan.tier,
+            "product": product,
         },
         subscription_data={
             "metadata": {
                 "user_id": str(user.id),
                 "plan_tier": plan.tier,
+                "product": product,
             },
         },
     )

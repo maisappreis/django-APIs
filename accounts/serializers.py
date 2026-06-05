@@ -37,23 +37,40 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 
 
 class CheckoutSessionSerializer(serializers.Serializer):
+    plan = serializers.ChoiceField(
+        choices=Plan.Tier.choices,
+        required=False,
+        write_only=True,
+    )
+    product = serializers.SlugField(
+        max_length=80,
+        write_only=True,
+    )
     plan_tier = serializers.ChoiceField(
         choices=Plan.Tier.choices,
-        default=Plan.Tier.PLUS,
+        required=False,
+        write_only=True,
     )
 
-    def validate_plan_tier(self, value):
-        try:
-            plan = Plan.objects.get(tier=value, is_active=True)
-        except Plan.DoesNotExist as error:
-            raise serializers.ValidationError("Plano inválido ou inativo.") from error
+    def validate(self, attrs):
+        attrs["plan_tier"] = (
+            attrs.get("plan") or attrs.get("plan_tier") or Plan.Tier.PLUS
+        )
+        plan = self._get_active_plan(attrs["plan_tier"])
 
         if not plan.stripe_price_id:
             raise serializers.ValidationError("Plano sem price_id da Stripe.")
 
         self.plan = plan
+        self.product = attrs["product"]
 
-        return value
+        return attrs
+
+    def _get_active_plan(self, value):
+        try:
+            return Plan.objects.get(tier=value, is_active=True)
+        except Plan.DoesNotExist as error:
+            raise serializers.ValidationError("Plano inválido ou inativo.") from error
 
 
 class RegisterSerializer(serializers.ModelSerializer):
