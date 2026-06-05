@@ -26,5 +26,6 @@ urlpatterns = [
         CancelSubscriptionView.as_view(),
         name='subscription-cancel',
     ),
+    path('stripe/', StripeWebhookView.as_view(), name='stripe-webhook-short'),
     path('stripe/webhook/', StripeWebhookView.as_view(), name='stripe-webhook'),
 ]
