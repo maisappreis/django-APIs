@@ -1,8 +1,6 @@
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .defaults import DEFAULT_POST_FORM_VALUES
-
 
 def serialize_brand(brand):
     return {
@@ -47,26 +45,6 @@ def serialize_post_generation(post_generation):
         "text_color": post_generation.text_color,
         "text_font": post_generation.text_font,
         "logo_position": post_generation.logo_position,
-    }
-
-
-def get_defaults_from_brand(brand):
-    if not brand:
-        return DEFAULT_POST_FORM_VALUES
-
-    return {
-        "brand_id": brand.id,
-        "business_name": brand.business_name,
-        "niche": brand.niche,
-        "logo_url": brand.logo_url or (brand.logo.url if brand.logo else ""),
-        "text_color": brand.text_color,
-        "text_font": brand.text_font,
-        "color_palette": {
-            "primary_color": brand.primary_color,
-            "secondary_color": brand.secondary_color,
-            "tertiary_color": brand.tertiary_color,
-        },
-        "logo_position": brand.logo_position,
     }
 
 

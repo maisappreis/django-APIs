@@ -27,14 +27,12 @@ from .operations import (
     update_brand_manual_identity,
 )
 from .presenters import (
-    get_defaults_from_brand,
     serialize_brand,
     serialize_post_generation,
 )
 from .serializers import (
     BrandInputSerializer,
     BrandOutputSerializer,
-    ContentAgentBootstrapSerializer,
     PostBatchOutputSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
@@ -44,24 +42,6 @@ from .services import (
     generate_post_batch_content,
     rerender_post_image,
 )
-
-
-class ContentAgentBootstrapAPIView(APIView):
-    def get(self, request):
-        brands = get_user_brands(request.user)
-        default_brand = brands.first()
-        brand_count = brands.count()
-        data = {
-            "brand": {
-                "has_brand": brand_count > 0,
-                "default_brand_id": default_brand.id if default_brand else None,
-                "brand_count": brand_count,
-            },
-            "defaults": get_defaults_from_brand(default_brand),
-        }
-        serializer = ContentAgentBootstrapSerializer(data)
-
-        return Response(serializer.data)
 
 
 class BrandListAPIView(APIView):

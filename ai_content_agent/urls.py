@@ -3,18 +3,12 @@ from django.urls import path
 from .views import (
     BrandListAPIView,
     CalendarPostsAPIView,
-    ContentAgentBootstrapAPIView,
     DownloadPostImageAPIView,
     GeneratePostContentAPIView,
     RerenderPostImageAPIView,
 )
 
 urlpatterns = [
-    path(
-        "bootstrap/",
-        ContentAgentBootstrapAPIView.as_view(),
-        name="content-agent-bootstrap",
-    ),
     path(
         "brands/",
         BrandListAPIView.as_view(),
