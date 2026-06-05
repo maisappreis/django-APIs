@@ -4,13 +4,18 @@ from .views import (
     BrandListAPIView,
     BrandVisualIdentityAPIView,
     CalendarPostsAPIView,
+    ContentAgentBootstrapAPIView,
     DownloadPostImageAPIView,
     GeneratePostContentAPIView,
-    PostDefaultsAPIView,
     RerenderPostImageAPIView,
 )
 
 urlpatterns = [
+    path(
+        "bootstrap/",
+        ContentAgentBootstrapAPIView.as_view(),
+        name="content-agent-bootstrap",
+    ),
     path(
         "brands/",
         BrandListAPIView.as_view(),
@@ -25,11 +30,6 @@ urlpatterns = [
         "posts/generate/",
         GeneratePostContentAPIView.as_view(),
         name="generate-post-content",
-    ),
-    path(
-        "posts/defaults/",
-        PostDefaultsAPIView.as_view(),
-        name="post-defaults",
     ),
     path(
         "posts/calendar/",

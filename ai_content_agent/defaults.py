@@ -9,6 +9,7 @@ DEFAULT_QUANTITY = 1
 DEFAULT_USE_TEMPLATES = False
 
 DEFAULT_POST_FORM_VALUES = {
+    "brand_id": None,
     "business_name": "",
     "niche": "",
     "logo_url": "",

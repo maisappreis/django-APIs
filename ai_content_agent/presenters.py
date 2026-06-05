@@ -55,6 +55,7 @@ def get_defaults_from_brand(brand):
         return DEFAULT_POST_FORM_VALUES
 
     return {
+        "brand_id": brand.id,
         "business_name": brand.business_name,
         "niche": brand.niche,
         "logo_url": brand.logo_url or (brand.logo.url if brand.logo else ""),

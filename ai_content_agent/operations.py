@@ -36,6 +36,25 @@ def get_or_create_brand(user, business_name, niche):
     )
 
 
+def get_brand_for_user(user, business_name, niche):
+    return (
+        Brand.objects.filter(
+            user=user,
+            business_name=business_name,
+            niche=niche,
+        )
+        .order_by("-updated_at")
+        .first()
+    )
+
+
+def get_brand_by_id_for_user(user, brand_id):
+    if not brand_id:
+        return None
+
+    return Brand.objects.filter(id=brand_id, user=user).first()
+
+
 def apply_brand_defaults(data, brand, request_data):
     fields = [
         "primary_color",
@@ -53,10 +72,6 @@ def apply_brand_defaults(data, brand, request_data):
     data["brand_visual_identity"] = brand.visual_identity_prompt
 
     return data
-
-
-def get_latest_brand(user):
-    return Brand.objects.filter(user=user).order_by("-updated_at").first()
 
 
 def get_user_brands(user):

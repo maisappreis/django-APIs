@@ -13,8 +13,9 @@ from .operations import (
     build_post_visual_settings,
     create_post_batch,
     create_posts_from_generation_result,
+    get_brand_by_id_for_user,
+    get_brand_for_user,
     get_future_scheduled_posts,
-    get_latest_brand,
     get_or_create_brand,
     get_user_brands,
     mark_batch_completed,
@@ -31,8 +32,8 @@ from .presenters import (
 from .serializers import (
     BrandVisualIdentityInputSerializer,
     BrandVisualIdentityOutputSerializer,
+    ContentAgentBootstrapSerializer,
     PostBatchOutputSerializer,
-    PostGenerationDefaultsSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
 )
@@ -43,12 +44,20 @@ from .services import (
 )
 
 
-class PostDefaultsAPIView(APIView):
+class ContentAgentBootstrapAPIView(APIView):
     def get(self, request):
-        latest_brand = get_latest_brand(request.user)
-        serializer = PostGenerationDefaultsSerializer(
-            get_defaults_from_brand(latest_brand)
-        )
+        brands = get_user_brands(request.user)
+        default_brand = brands.first()
+        brand_count = brands.count()
+        data = {
+            "brand": {
+                "has_brand": brand_count > 0,
+                "default_brand_id": default_brand.id if default_brand else None,
+                "brand_count": brand_count,
+            },
+            "defaults": get_defaults_from_brand(default_brand),
+        }
+        serializer = ContentAgentBootstrapSerializer(data)
 
         return Response(serializer.data)
 
@@ -124,11 +133,26 @@ class GeneratePostContentAPIView(APIView):
         input_serializer.is_valid(raise_exception=True)
 
         data = input_serializer.validated_data
-        brand = get_or_create_brand(
+        brand = get_brand_by_id_for_user(
+            request.user,
+            data.get("brand_id"),
+        ) or get_brand_for_user(
             user=request.user,
             business_name=data["business_name"],
             niche=data["niche"],
         )
+
+        if not brand:
+            return Response(
+                {
+                    "detail": (
+                        "Voce precisa cadastrar uma marca antes de gerar "
+                        "conteudo."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         data = apply_brand_defaults(data, brand, request.data)
 
         batch = create_post_batch(request.user, brand, data)

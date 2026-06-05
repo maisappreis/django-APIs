@@ -36,6 +36,7 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("bottom_center", "Bottom center"),
     ]
 
+    brand_id = serializers.IntegerField(required=False, allow_null=True)
     business_name = serializers.CharField(max_length=120)
     niche = serializers.CharField(max_length=120)
     objective = serializers.CharField(max_length=160)
@@ -140,6 +141,12 @@ class BrandVisualIdentityOutputSerializer(serializers.Serializer):
     logo_position = serializers.CharField()
 
 
+class BrandStatusSerializer(serializers.Serializer):
+    has_brand = serializers.BooleanField()
+    default_brand_id = serializers.IntegerField(allow_null=True)
+    brand_count = serializers.IntegerField()
+
+
 class PostImageRenderInputSerializer(serializers.Serializer):
     TEMPLATE_CHOICES = PostGenerationInputSerializer.TEMPLATE_CHOICES
     LOGO_POSITION_CHOICES = PostGenerationInputSerializer.LOGO_POSITION_CHOICES
@@ -188,6 +195,7 @@ class PostBatchOutputSerializer(serializers.Serializer):
 
 
 class PostGenerationDefaultsSerializer(serializers.Serializer):
+    brand_id = serializers.IntegerField(required=False, allow_null=True)
     business_name = serializers.CharField(allow_blank=True)
     niche = serializers.CharField(allow_blank=True)
     logo_url = serializers.CharField(allow_blank=True)
@@ -197,3 +205,8 @@ class PostGenerationDefaultsSerializer(serializers.Serializer):
         child=serializers.CharField()
     )
     logo_position = serializers.CharField()
+
+
+class ContentAgentBootstrapSerializer(serializers.Serializer):
+    brand = BrandStatusSerializer()
+    defaults = PostGenerationDefaultsSerializer()
