@@ -117,14 +117,53 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     logo_position = serializers.CharField(required=False)
 
 
-class BrandVisualIdentityInputSerializer(serializers.Serializer):
-    business_name = serializers.CharField(max_length=120)
-    niche = serializers.CharField(max_length=120)
-    reference_image_1 = serializers.ImageField()
-    reference_image_2 = serializers.ImageField(required=False, allow_null=True)
+class BrandInputSerializer(serializers.Serializer):
+    business_name = serializers.CharField(
+        max_length=120,
+        help_text="Nome da marca ou negocio.",
+    )
+    niche = serializers.CharField(
+        max_length=120,
+        help_text="Nicho de atuacao da marca.",
+    )
+    primary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        help_text="Cor primaria em hexadecimal. Exemplo: #006C44.",
+    )
+    secondary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        help_text="Cor secundaria em hexadecimal. Exemplo: #1FD794.",
+    )
+    tertiary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        help_text="Cor terciaria em hexadecimal. Exemplo: #98C8B6.",
+    )
+    text_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        help_text="Cor de texto em hexadecimal. Exemplo: #FFFFFF.",
+    )
+    text_font = serializers.CharField(
+        max_length=80,
+        help_text="Fonte principal da marca. Exemplo: montserrat.",
+    )
+    logo_position = serializers.ChoiceField(
+        choices=PostGenerationInputSerializer.LOGO_POSITION_CHOICES,
+        required=False,
+        help_text="Opcional. Posicao do logo quando a marca tiver logo.",
+    )
+    reference_image_1 = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Opcional. Imagem de referencia para captura por IA.",
+    )
+    reference_image_2 = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Opcional. Segunda imagem de referencia para captura por IA.",
+    )
 
 
-class BrandVisualIdentityOutputSerializer(serializers.Serializer):
+class BrandOutputSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     business_name = serializers.CharField()
     niche = serializers.CharField()

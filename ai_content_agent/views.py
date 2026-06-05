@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
@@ -23,6 +24,7 @@ from .operations import (
     prepare_post_download,
     save_brand_reference_images,
     sync_brand_logo,
+    update_brand_manual_identity,
 )
 from .presenters import (
     get_defaults_from_brand,
@@ -30,8 +32,8 @@ from .presenters import (
     serialize_post_generation,
 )
 from .serializers import (
-    BrandVisualIdentityInputSerializer,
-    BrandVisualIdentityOutputSerializer,
+    BrandInputSerializer,
+    BrandOutputSerializer,
     ContentAgentBootstrapSerializer,
     PostBatchOutputSerializer,
     PostGenerationInputSerializer,
@@ -63,21 +65,38 @@ class ContentAgentBootstrapAPIView(APIView):
 
 
 class BrandListAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     def get(self, request):
         brands = get_user_brands(request.user)
-        serializer = BrandVisualIdentityOutputSerializer(
+        serializer = BrandOutputSerializer(
             [serialize_brand(brand) for brand in brands],
             many=True,
         )
 
         return Response(serializer.data)
 
-
-class BrandVisualIdentityAPIView(APIView):
-    parser_classes = [MultiPartParser, FormParser]
-
+    @extend_schema(
+        summary="Cria uma marca",
+        description=(
+            "Cria ou reutiliza uma marca do usuario autenticado.\n\n"
+            "Campos obrigatorios: `business_name`, `niche`, "
+            "`primary_color`, `secondary_color`, `tertiary_color`, "
+            "`text_color`, `text_font`.\n\n"
+            "Campos opcionais na criacao: `reference_image_1`, "
+            "`reference_image_2`, `logo_position`.\n\n"
+            "Campos que nao devem ser enviados na criacao: "
+            "`visual_identity_summary`, `visual_identity_prompt`, "
+            "`reference_image_1_url`, `reference_image_2_url`, `logo_url`.\n\n"
+            "Quando `reference_image_1` ou `reference_image_2` forem "
+            "enviadas, a API salva as referencias e tenta capturar a "
+            "identidade visual por IA."
+        ),
+        request=BrandInputSerializer,
+        responses={status.HTTP_201_CREATED: BrandOutputSerializer},
+    )
     def post(self, request):
-        input_serializer = BrandVisualIdentityInputSerializer(data=request.data)
+        input_serializer = BrandInputSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
         data = input_serializer.validated_data
 
@@ -86,24 +105,27 @@ class BrandVisualIdentityAPIView(APIView):
             business_name=data["business_name"],
             niche=data["niche"],
         )
-        brand = save_brand_reference_images(brand, data, request.user)
+        brand = update_brand_manual_identity(brand, data)
 
-        try:
-            brand = analyze_brand_visual_identity(brand)
-        except Exception as error:
-            response_data = {
-                "detail": "Erro ao captar identidade visual da marca.",
-            }
+        if data.get("reference_image_1") or data.get("reference_image_2"):
+            brand = save_brand_reference_images(brand, data, request.user)
 
-            if settings.DEBUG:
-                response_data["error"] = str(error)
+            try:
+                brand = analyze_brand_visual_identity(brand)
+            except Exception as error:
+                response_data = {
+                    "detail": "Erro ao captar identidade visual da marca.",
+                }
 
-            return Response(
-                response_data,
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+                if settings.DEBUG:
+                    response_data["error"] = str(error)
 
-        output_serializer = BrandVisualIdentityOutputSerializer(
+                return Response(
+                    response_data,
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+        output_serializer = BrandOutputSerializer(
             serialize_brand(brand)
         )
 

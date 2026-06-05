@@ -55,6 +55,28 @@ def get_brand_by_id_for_user(user, brand_id):
     return Brand.objects.filter(id=brand_id, user=user).first()
 
 
+def update_brand_manual_identity(brand, data):
+    fields = [
+        "primary_color",
+        "secondary_color",
+        "tertiary_color",
+        "text_color",
+        "text_font",
+        "logo_position",
+    ]
+    update_fields = []
+
+    for field in fields:
+        if field in data:
+            setattr(brand, field, data[field])
+            update_fields.append(field)
+
+    if update_fields:
+        brand.save(update_fields=[*update_fields, "updated_at"])
+
+    return brand
+
+
 def apply_brand_defaults(data, brand, request_data):
     fields = [
         "primary_color",
@@ -115,7 +137,8 @@ def get_available_post_dates(user, quantity):
 
 
 def save_brand_reference_images(brand, data, user):
-    brand.reference_image_1 = data["reference_image_1"]
+    if data.get("reference_image_1"):
+        brand.reference_image_1 = data["reference_image_1"]
 
     if data.get("reference_image_2"):
         brand.reference_image_2 = data["reference_image_2"]
