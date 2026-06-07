@@ -4,6 +4,8 @@ from accounts.views import (
     CancelSubscriptionView,
     CreateCheckoutSessionView,
     CustomTokenObtainPairView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     ProfileView,
     RegisterView,
     StripeWebhookView,
@@ -15,6 +17,16 @@ urlpatterns = [
     
     path('profile/', ProfileView.as_view(), name='profile'),
     path('register/', RegisterView.as_view(), name='register'),
+    path(
+        'password-reset/',
+        PasswordResetRequestView.as_view(),
+        name='password-reset',
+    ),
+    path(
+        'password-reset/confirm/',
+        PasswordResetConfirmView.as_view(),
+        name='password-reset-confirm',
+    ),
 
     path(
         'subscription/checkout/',

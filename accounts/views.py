@@ -10,6 +10,8 @@ from .models import Subscription
 from .serializers import (
     CheckoutSessionSerializer,
     CustomTokenObtainPairSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     RegisterSerializer,
     SubscriptionSerializer,
     UserProfileSerializer,
@@ -41,6 +43,37 @@ class RegisterView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class PasswordResetRequestView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": (
+                "Se este email existir, enviaremos instruções para "
+                "redefinir sua senha."
+            )
+        })
+
+
+class PasswordResetConfirmView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": "Senha redefinida com sucesso."
+        })
 
 
 class ProfileView(APIView):

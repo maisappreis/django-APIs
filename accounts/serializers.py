@@ -1,7 +1,16 @@
+from django.conf import settings
+from django.contrib.auth import password_validation
+from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 from django.db import transaction
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from urllib.parse import urlencode
+
 from .models import Plan, Subscription
 
 
@@ -194,3 +203,66 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data["user"] = UserProfileSerializer(self.user).data
 
         return data
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+    def save(self):
+        email = self.validated_data["email"]
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+
+        if not user:
+            return
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        query = urlencode({"uid": uid, "token": token})
+        reset_url = f"{settings.PASSWORD_RESET_CONFIRM_URL}?{query}"
+
+        send_mail(
+            subject="Redefina sua senha",
+            message=(
+                "Recebemos uma solicitação para redefinir sua senha.\n\n"
+                f"Acesse o link abaixo para criar uma nova senha:\n{reset_url}\n\n"
+                "Se você não solicitou isso, ignore este email."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = User.objects.get(pk=user_id, is_active=True)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({
+                "token": ["Link de redefinição inválido ou expirado."]
+            })
+
+        if not default_token_generator.check_token(user, attrs["token"]):
+            raise serializers.ValidationError({
+                "token": ["Link de redefinição inválido ou expirado."]
+            })
+
+        password_validation.validate_password(attrs["password"], user=user)
+        attrs["user"] = user
+
+        return attrs
+
+    def save(self):
+        user = self.validated_data["user"]
+        user.set_password(self.validated_data["password"])
+        user.save(update_fields=["password"])
+
+        return user

@@ -68,6 +68,21 @@ if is_production():
         '.maisappreis-projects.vercel.app',
         '.vercel.app',
     ]
+    PASSWORD_RESET_CONFIRM_URL = os.getenv(
+        "PASSWORD_RESET_CONFIRM_URL",
+        "https://maisappreis.github.io/axis/reset-password",
+    )
+    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@axis.com")
+    EMAIL_BACKEND = os.getenv(
+        "EMAIL_BACKEND",
+        "django.core.mail.backends.smtp.EmailBackend",
+    )
+    EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "false").lower() == "true"
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
 else:
     DEBUG = True
     DATABASES = {
@@ -80,14 +95,29 @@ else:
             'PORT': os.getenv('DB_PORT'),
         }
     }
-    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_TEST", "")
-    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_TEST", "")
-    STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL_TEST", "")
-    STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL_TEST", "")
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_DEV", "")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_DEV", "")
+    STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL_DEV", "")
+    STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL_DEV", "")
     CONTENT_AGENT_USE_MOCK_CONTENT = (
         os.getenv("CONTENT_AGENT_USE_MOCK_CONTENT", "true").lower() == "true"
     )
     ALLOWED_HOSTS = ['*']
+    PASSWORD_RESET_CONFIRM_URL = os.getenv(
+        "PASSWORD_RESET_CONFIRM_URL_DEV",
+        "http://localhost:3000/axis/reset-password",
+    )
+    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL_DEV", "no-reply@axis.local")
+    EMAIL_BACKEND = os.getenv(
+        "EMAIL_BACKEND_DEV",
+        "django.core.mail.backends.console.EmailBackend",
+    )
+    EMAIL_HOST = os.getenv("EMAIL_HOST_DEV", "localhost")
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT_DEV", "25"))
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER_DEV", "")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD_DEV", "")
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS_DEV", "false").lower() == "true"
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL_DEV", "false").lower() == "true"
 
 
 # Application definition
