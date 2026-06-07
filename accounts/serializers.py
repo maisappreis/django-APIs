@@ -173,8 +173,22 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    email = serializers.EmailField(write_only=True, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[self.username_field].required = False
 
     def validate(self, attrs):
+        email = attrs.get("email") or attrs.get(self.username_field)
+
+        if not email:
+            raise serializers.ValidationError({
+                "email": ["Este campo é obrigatório."]
+            })
+
+        attrs = attrs.copy()
+        attrs[self.username_field] = email.strip().lower()
         data = super().validate(attrs)
 
         data["user"] = UserProfileSerializer(self.user).data
