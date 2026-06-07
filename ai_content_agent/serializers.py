@@ -146,6 +146,11 @@ class BrandInputSerializer(serializers.Serializer):
         max_length=80,
         help_text="Fonte principal da marca. Exemplo: montserrat.",
     )
+    logo = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Opcional. Logo da marca.",
+    )
     logo_position = serializers.ChoiceField(
         choices=PostGenerationInputSerializer.LOGO_POSITION_CHOICES,
         required=False,

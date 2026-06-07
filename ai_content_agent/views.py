@@ -65,7 +65,7 @@ class BrandListAPIView(APIView):
             "`primary_color`, `secondary_color`, `tertiary_color`, "
             "`text_color`, `text_font`.\n\n"
             "Campos opcionais na criacao: `reference_image_1`, "
-            "`reference_image_2`, `logo_position`.\n\n"
+            "`reference_image_2`, `logo`, `logo_position`.\n\n"
             "Campos que nao devem ser enviados na criacao: "
             "`visual_identity_summary`, `visual_identity_prompt`, "
             "`reference_image_1_url`, `reference_image_2_url`, `logo_url`.\n\n"
@@ -87,6 +87,7 @@ class BrandListAPIView(APIView):
             niche=data["niche"],
         )
         brand = update_brand_manual_identity(brand, data)
+        sync_brand_logo(brand, data, request.user)
 
         if data.get("reference_image_1") or data.get("reference_image_2"):
             brand = save_brand_reference_images(brand, data, request.user)
