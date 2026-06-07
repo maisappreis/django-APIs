@@ -4,11 +4,12 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
 from .models import Brand
+from .services import render_post_content
 
 
 def get_test_image(name="logo.gif"):
@@ -147,3 +148,86 @@ class BrandCreateAPITestCase(APITestCase):
         brand = Brand.objects.get(user=self.user, business_name="No Logo Brand")
         self.assertFalse(brand.logo)
         self.assertEqual(brand.logo_url, "")
+
+
+class PostImageTextTestCase(SimpleTestCase):
+    def get_base_data(self, **overrides):
+        return {
+            "quantity": 1,
+            "template": "none",
+            "use_templates": False,
+            "logo_position": "bottom_right",
+            "primary_color": "#111111",
+            "secondary_color": "#222222",
+            "tertiary_color": "#333333",
+            "text_color": "#FFFFFF",
+            "text_font": "inter",
+            **overrides,
+        }
+
+    def get_result(self):
+        return {
+            "caption": "Caption",
+            "hashtags": ["#tag"],
+            "image_prompt": "Image prompt",
+            "image_text": "AI TEXT",
+        }
+
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.generate_post_image_files")
+    def test_render_post_content_uses_blank_image_text_when_disabled(
+        self,
+        generate_post_image_files,
+        render_image_file,
+    ):
+        generate_post_image_files.return_value = {
+            "base": {
+                "image_url": "/media/base.png",
+                "absolute_path": "/tmp/base.png",
+            },
+            "final": {
+                "image_url": "/media/final.png",
+                "absolute_path": "/tmp/final.png",
+            },
+        }
+
+        post_data = render_post_content(
+            data=self.get_base_data(has_text_image=False),
+            idea={"title": "Idea"},
+            result=self.get_result(),
+            index=1,
+        )
+
+        self.assertEqual(post_data["image_text"], "")
+        self.assertEqual(render_image_file.call_args.kwargs["image_text"], "")
+
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.generate_post_image_files")
+    def test_render_post_content_uses_user_image_text_when_provided(
+        self,
+        generate_post_image_files,
+        render_image_file,
+    ):
+        generate_post_image_files.return_value = {
+            "base": {
+                "image_url": "/media/base.png",
+                "absolute_path": "/tmp/base.png",
+            },
+            "final": {
+                "image_url": "/media/final.png",
+                "absolute_path": "/tmp/final.png",
+            },
+        }
+
+        post_data = render_post_content(
+            data=self.get_base_data(image_text="USER TEXT"),
+            idea={"title": "Idea"},
+            result=self.get_result(),
+            index=1,
+        )
+
+        self.assertEqual(post_data["image_text"], "USER TEXT")
+        self.assertEqual(
+            render_image_file.call_args.kwargs["image_text"],
+            "USER TEXT",
+        )

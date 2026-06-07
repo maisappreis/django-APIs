@@ -219,10 +219,18 @@ def render_image_file(
             )
 
 
+def get_final_image_text(data, result):
+    if not data.get("has_text_image", True):
+        return ""
+
+    return data.get("image_text") or result["image_text"]
+
+
 def render_post_content(data, idea, result, index):
     image_data = generate_post_image_files(result)
 
     template_name = get_template_name_for_post(data, index)
+    image_text = get_final_image_text(data, result)
     logo_position = get_logo_position_for_template(
         template_name=template_name,
         logo_position=data["logo_position"],
@@ -231,7 +239,7 @@ def render_post_content(data, idea, result, index):
     render_image_file(
         image_path=image_data["final"]["absolute_path"],
         template_name=template_name,
-        image_text=result["image_text"],
+        image_text=image_text,
         logo_file=data.get("logo"),
         logo_position=logo_position,
         primary_color=data["primary_color"],
@@ -254,7 +262,7 @@ def render_post_content(data, idea, result, index):
         "caption": result["caption"],
         "hashtags": result["hashtags"],
         "image_prompt": result["image_prompt"],
-        "image_text": result["image_text"],
+        "image_text": image_text,
         "base_image_url": image_data["base"]["image_url"],
         "image_url": image_data["final"]["image_url"],
         "base_absolute_path": image_data["base"]["absolute_path"],

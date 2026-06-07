@@ -53,6 +53,15 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    has_text_image = serializers.BooleanField(
+        required=False,
+        default=True,
+    )
+    image_text = serializers.CharField(
+        max_length=120,
+        required=False,
+        allow_blank=True,
+    )
     primary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
