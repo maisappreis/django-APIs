@@ -33,6 +33,7 @@ from .presenters import (
 from .serializers import (
     BrandInputSerializer,
     BrandOutputSerializer,
+    BrandPatchSerializer,
     PostBatchOutputSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
@@ -110,6 +111,61 @@ class BrandListAPIView(APIView):
         )
 
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class BrandDetailAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @extend_schema(
+        summary="Edita uma marca",
+        description=(
+            "Edita parcialmente uma marca do usuario autenticado.\n\n"
+            "Campos aceitos: `business_name`, `niche`, `primary_color`, "
+            "`secondary_color`, `tertiary_color`, `text_color`, "
+            "`text_font`, `logo`, `logo_position`, `reference_image_1` e "
+            "`reference_image_2`.\n\n"
+            "Quando `reference_image_1` ou `reference_image_2` forem "
+            "enviadas, a API salva as referencias e tenta recapturar a "
+            "identidade visual por IA."
+        ),
+        request=BrandPatchSerializer,
+        responses={status.HTTP_200_OK: BrandOutputSerializer},
+    )
+    def patch(self, request, brand_id):
+        brand = get_object_or_404(
+            get_user_brands(request.user),
+            id=brand_id,
+        )
+        input_serializer = BrandPatchSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        data = input_serializer.validated_data
+
+        brand = update_brand_manual_identity(brand, data)
+        sync_brand_logo(brand, data, request.user)
+
+        if data.get("reference_image_1") or data.get("reference_image_2"):
+            brand = save_brand_reference_images(brand, data, request.user)
+
+            try:
+                brand = analyze_brand_visual_identity(brand)
+            except Exception as error:
+                response_data = {
+                    "detail": "Erro ao captar identidade visual da marca.",
+                }
+
+                if settings.DEBUG:
+                    response_data["error"] = str(error)
+
+                return Response(
+                    response_data,
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+        output_serializer = BrandOutputSerializer(
+            serialize_brand(brand)
+        )
+
+        return Response(output_serializer.data)
 
 
 class CalendarPostsAPIView(APIView):

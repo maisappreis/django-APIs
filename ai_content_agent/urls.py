@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    BrandDetailAPIView,
     BrandListAPIView,
     CalendarPostsAPIView,
     DownloadPostImageAPIView,
@@ -13,6 +14,11 @@ urlpatterns = [
         "brands/",
         BrandListAPIView.as_view(),
         name="brand-list",
+    ),
+    path(
+        "brands/<int:brand_id>/",
+        BrandDetailAPIView.as_view(),
+        name="brand-detail",
     ),
     path(
         "posts/generate/",

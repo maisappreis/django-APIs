@@ -57,6 +57,8 @@ def get_brand_by_id_for_user(user, brand_id):
 
 def update_brand_manual_identity(brand, data):
     fields = [
+        "business_name",
+        "niche",
         "primary_color",
         "secondary_color",
         "tertiary_color",

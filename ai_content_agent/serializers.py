@@ -163,6 +163,65 @@ class BrandInputSerializer(serializers.Serializer):
     )
 
 
+class BrandPatchSerializer(serializers.Serializer):
+    business_name = serializers.CharField(
+        max_length=120,
+        required=False,
+        help_text="Nome da marca ou negocio.",
+    )
+    niche = serializers.CharField(
+        max_length=120,
+        required=False,
+        help_text="Nicho de atuacao da marca.",
+    )
+    primary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+        help_text="Cor primaria em hexadecimal. Exemplo: #006C44.",
+    )
+    secondary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+        help_text="Cor secundaria em hexadecimal. Exemplo: #1FD794.",
+    )
+    tertiary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+        help_text="Cor terciaria em hexadecimal. Exemplo: #98C8B6.",
+    )
+    text_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+        help_text="Cor de texto em hexadecimal. Exemplo: #FFFFFF.",
+    )
+    text_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        help_text="Fonte principal da marca. Exemplo: montserrat.",
+    )
+    logo = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Opcional. Logo da marca.",
+    )
+    logo_position = serializers.ChoiceField(
+        choices=PostGenerationInputSerializer.LOGO_POSITION_CHOICES,
+        required=False,
+        help_text="Opcional. Posicao do logo quando a marca tiver logo.",
+    )
+    reference_image_1 = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Opcional. Imagem de referencia para captura por IA.",
+    )
+    reference_image_2 = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Opcional. Segunda imagem de referencia para captura por IA.",
+    )
+
+
 class BrandOutputSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     business_name = serializers.CharField()
@@ -225,4 +284,3 @@ class PostBatchOutputSerializer(serializers.Serializer):
     quantity = serializers.IntegerField()
     strategy_summary = serializers.CharField(allow_blank=True)
     posts = PostGenerationOutputSerializer(many=True)
-
