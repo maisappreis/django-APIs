@@ -62,6 +62,14 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    my_images_or_ai = serializers.ChoiceField(
+        choices=[
+            ("ai", "AI"),
+            ("user", "User"),
+        ],
+        required=False,
+        default="ai",
+    )
     primary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,

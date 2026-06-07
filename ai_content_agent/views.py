@@ -213,6 +213,22 @@ class GeneratePostContentAPIView(APIView):
             )
 
         data = apply_brand_defaults(data, brand, request.data)
+        data["images"] = request.FILES.getlist("images")
+
+        if data["my_images_or_ai"] == "user" and (
+            len(data["images"]) != data["quantity"]
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Envie exatamente uma imagem para cada post "
+                        "solicitado."
+                    ),
+                    "expected": data["quantity"],
+                    "received": len(data["images"]),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)

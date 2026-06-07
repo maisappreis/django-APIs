@@ -55,6 +55,40 @@ def generate_post_image_files(result):
     return generate_image_files(result["image_prompt"])
 
 
+def save_uploaded_post_image_file(uploaded_image):
+    extension = Path(uploaded_image.name).suffix or ".png"
+    base_relative_path = (
+        Path("generated_posts")
+        / "uploads"
+        / f"user-base-{uuid4()}{extension}"
+    )
+    base_data = _build_generated_image_data(base_relative_path)
+    base_path = Path(base_data["absolute_path"])
+    base_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with base_path.open("wb") as destination:
+        for chunk in uploaded_image.chunks():
+            destination.write(chunk)
+
+    final_relative_path = Path("generated_posts") / f"final-{uuid4()}.png"
+    final_data = _build_generated_image_data(final_relative_path)
+    final_path = Path(final_data["absolute_path"])
+    final_path.parent.mkdir(parents=True, exist_ok=True)
+    copyfile(base_path, final_path)
+
+    return {
+        "base": base_data,
+        "final": final_data,
+    }
+
+
+def get_post_image_files(data, result, index):
+    if data.get("my_images_or_ai") == "user":
+        return save_uploaded_post_image_file(data["images"][index - 1])
+
+    return generate_post_image_files(result)
+
+
 def analyze_brand_visual_identity(brand):
     image_paths = [
         image.path
@@ -227,7 +261,7 @@ def get_final_image_text(data, result):
 
 
 def render_post_content(data, idea, result, index):
-    image_data = generate_post_image_files(result)
+    image_data = get_post_image_files(data, result, index)
 
     template_name = get_template_name_for_post(data, index)
     image_text = get_final_image_text(data, result)

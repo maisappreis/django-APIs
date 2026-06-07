@@ -231,3 +231,100 @@ class PostImageTextTestCase(SimpleTestCase):
             render_image_file.call_args.kwargs["image_text"],
             "USER TEXT",
         )
+
+
+class PostUserImagesTestCase(SimpleTestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def get_base_data(self, **overrides):
+        return {
+            "quantity": 1,
+            "template": "none",
+            "use_templates": False,
+            "logo_position": "bottom_right",
+            "primary_color": "#111111",
+            "secondary_color": "#222222",
+            "tertiary_color": "#333333",
+            "text_color": "#FFFFFF",
+            "text_font": "inter",
+            "my_images_or_ai": "user",
+            "images": [get_test_image("post.gif")],
+            **overrides,
+        }
+
+    def get_result(self):
+        return {
+            "caption": "Caption",
+            "hashtags": ["#tag"],
+            "image_prompt": "Image prompt",
+            "image_text": "AI TEXT",
+        }
+
+    @override_settings(MEDIA_ROOT="")
+    @patch("ai_content_agent.services.render_image_file")
+    def test_render_post_content_uses_uploaded_image_as_base(
+        self,
+        render_image_file,
+    ):
+        with override_settings(MEDIA_ROOT=self.media_root):
+            post_data = render_post_content(
+                data=self.get_base_data(),
+                idea={"title": "Idea"},
+                result=self.get_result(),
+                index=1,
+            )
+
+        self.assertIn("/media/generated_posts/uploads/user-base-", post_data["base_image_url"])
+        self.assertIn("/media/generated_posts/final-", post_data["image_url"])
+        self.assertTrue(post_data["base_absolute_path"].endswith(".gif"))
+        render_image_file.assert_called_once()
+
+
+class GeneratePostContentAPITestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="post-creator",
+            password="password",
+        )
+        self.brand = Brand.objects.create(
+            user=self.user,
+            business_name="Post Brand",
+            niche="Fitness",
+            primary_color="#111111",
+            secondary_color="#222222",
+            tertiary_color="#333333",
+            text_color="#FFFFFF",
+            text_font="inter",
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_generate_posts_requires_one_user_image_per_post(self):
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "2",
+                "my_images_or_ai": "user",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "text_font": "inter",
+                "logo_position": "bottom_right",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["expected"], 2)
+        self.assertEqual(response.data["received"], 0)
