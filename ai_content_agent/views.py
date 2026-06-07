@@ -4,11 +4,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db import close_old_connections
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 import httpx
+from threading import Thread
 
-from .models import Post
+from .models import Post, PostBatch
 from .operations import (
     apply_brand_defaults,
     build_post_visual_settings,
@@ -25,6 +28,7 @@ from .operations import (
     save_brand_reference_images,
     sync_brand_logo,
     update_brand_manual_identity,
+    update_batch_progress,
 )
 from .presenters import (
     serialize_brand,
@@ -41,8 +45,40 @@ from .serializers import (
 from .services import (
     analyze_brand_visual_identity,
     generate_post_batch_content,
+    prepare_uploaded_post_image_files,
     rerender_post_image,
 )
+
+
+def run_post_generation_job(user_id, brand_id, batch_id, data):
+    close_old_connections()
+
+    try:
+        user = get_user_model().objects.get(id=user_id)
+        batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
+        brand = get_object_or_404(get_user_brands(user), id=brand_id)
+
+        update_batch_progress(batch, 10)
+        result = generate_post_batch_content(data)
+        update_batch_progress(batch, 70)
+
+        create_posts_from_generation_result(
+            user=user,
+            brand=brand,
+            batch=batch,
+            data=data,
+            result=result,
+        )
+
+        mark_batch_completed(batch, result["strategy_summary"])
+    except Exception as error:
+        try:
+            batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
+            mark_batch_failed(batch, error)
+        except PostBatch.DoesNotExist:
+            pass
+    finally:
+        close_old_connections()
 
 
 class BrandListAPIView(APIView):
@@ -233,49 +269,59 @@ class GeneratePostContentAPIView(APIView):
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)
 
-        try:
-            result = generate_post_batch_content(data)
-            saved_posts = create_posts_from_generation_result(
-                user=request.user,
-                brand=brand,
-                batch=batch,
-                data=data,
-                result=result,
+        if data["my_images_or_ai"] == "user":
+            data["image_files"] = prepare_uploaded_post_image_files(
+                data["images"]
             )
+            data["images"] = []
 
-            mark_batch_completed(batch, result["strategy_summary"])
+        update_batch_progress(batch, 5)
 
-            output_serializer = PostBatchOutputSerializer(
-                {
-                    "batch_id": batch.id,
-                    "quantity": batch.quantity,
-                    "strategy_summary": batch.strategy_summary,
-                    "posts": [
-                        serialize_post_generation(post)
-                        for post in saved_posts
-                    ],
-                }
-            )
+        Thread(
+            target=run_post_generation_job,
+            args=(request.user.id, brand.id, batch.id, data),
+            daemon=True,
+        ).start()
 
-            return Response(
-                output_serializer.data,
-                status=status.HTTP_201_CREATED,
-            )
+        return Response(
+            {
+                "job_id": batch.id,
+                "batch_id": batch.id,
+                "status": batch.status,
+                "progress": batch.progress,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
-        except Exception as error:
-            mark_batch_failed(batch, error)
 
-            response_data = {
-                "detail": "Erro ao gerar conteudo do post.",
-            }
+class PostGenerationStatusAPIView(APIView):
+    def get(self, request, batch_id):
+        batch = get_object_or_404(
+            PostBatch.objects.prefetch_related("posts"),
+            id=batch_id,
+            user=request.user,
+        )
+        response_data = {
+            "job_id": batch.id,
+            "batch_id": batch.id,
+            "status": batch.status,
+            "progress": batch.progress,
+            "error_message": batch.error_message,
+        }
 
-            if settings.DEBUG:
-                response_data["error"] = str(error)
+        if batch.status == "completed":
+            response_data["quantity"] = batch.quantity
+            response_data["strategy_summary"] = batch.strategy_summary
+            response_data["posts"] = [
+                serialize_post_generation(post)
+                for post in batch.posts.order_by(
+                    "scheduled_date",
+                    "post_order",
+                    "created_at",
+                )
+            ]
 
-            return Response(
-                response_data,
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+        return Response(response_data)
 
 
 class RerenderPostImageAPIView(APIView):

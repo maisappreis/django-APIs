@@ -189,6 +189,11 @@ def create_post_batch(user, brand, data):
     )
 
 
+def update_batch_progress(batch, progress):
+    batch.progress = max(0, min(100, int(progress)))
+    batch.save(update_fields=["progress"])
+
+
 def sync_brand_logo(brand, data, user):
     if not data.get("logo"):
         if brand.logo:
@@ -212,6 +217,7 @@ def sync_brand_logo(brand, data, user):
 def create_posts_from_generation_result(user, brand, batch, data, result):
     saved_posts = []
     available_dates = get_available_post_dates(user, len(result["posts"]))
+    total_posts = len(result["posts"])
 
     for index, post_data in enumerate(result["posts"]):
         scheduled_date = available_dates[index]
@@ -259,6 +265,10 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             )
 
         saved_posts.append(post)
+        update_batch_progress(
+            batch,
+            70 + int((index + 1) / total_posts * 25),
+        )
 
     return saved_posts
 
@@ -266,13 +276,14 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
 def mark_batch_completed(batch, strategy_summary):
     batch.strategy_summary = strategy_summary
     batch.status = GenerationStatus.COMPLETED
+    batch.progress = 100
     batch.save()
 
 
 def mark_batch_failed(batch, error):
     batch.status = GenerationStatus.FAILED
     batch.error_message = str(error)
-    batch.save()
+    batch.save(update_fields=["status", "error_message"])
 
 
 def build_post_visual_settings(post_generation, validated_data):

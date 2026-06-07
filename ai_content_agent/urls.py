@@ -6,6 +6,7 @@ from .views import (
     CalendarPostsAPIView,
     DownloadPostImageAPIView,
     GeneratePostContentAPIView,
+    PostGenerationStatusAPIView,
     RerenderPostImageAPIView,
 )
 
@@ -24,6 +25,11 @@ urlpatterns = [
         "posts/generate/",
         GeneratePostContentAPIView.as_view(),
         name="generate-post-content",
+    ),
+    path(
+        "posts/generate/<int:batch_id>/status/",
+        PostGenerationStatusAPIView.as_view(),
+        name="post-generation-status",
     ),
     path(
         "posts/calendar/",

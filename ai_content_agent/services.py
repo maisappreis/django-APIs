@@ -82,7 +82,17 @@ def save_uploaded_post_image_file(uploaded_image):
     }
 
 
+def prepare_uploaded_post_image_files(uploaded_images):
+    return [
+        save_uploaded_post_image_file(uploaded_image)
+        for uploaded_image in uploaded_images
+    ]
+
+
 def get_post_image_files(data, result, index):
+    if data.get("image_files"):
+        return data["image_files"][index - 1]
+
     if data.get("my_images_or_ai") == "user":
         return save_uploaded_post_image_file(data["images"][index - 1])
 
