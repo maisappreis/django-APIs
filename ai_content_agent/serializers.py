@@ -270,6 +270,9 @@ class PostImageRenderInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    has_text_image = serializers.BooleanField(
+        required=False,
+    )
     text_font = serializers.CharField(
         max_length=80,
         required=False,
@@ -298,6 +301,7 @@ class PostImageRenderInputSerializer(serializers.Serializer):
     logo_position = serializers.ChoiceField(
         choices=LOGO_POSITION_CHOICES,
         required=False,
+        allow_blank=True,
     )
 
 

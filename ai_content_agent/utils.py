@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from django.conf import settings
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -8,30 +9,69 @@ LOGO_MAX_WIDTH_RATIO = 0.11
 TEXT_MAX_WIDTH_RATIO = 0.82
 TEXT_FONT_SIZE_RATIO = 0.075
 
-FONT_PATHS_BY_NAME = {
-    "playfair": (
-        "C:/Windows/Fonts/PlayfairDisplay-Bold.ttf",
+FONT_FILES_BY_NAME = {
+    "dancingscript": (
+        "DancingScript-SemiBold.ttf",
     ),
-    "playfairdisplay": (
-        "C:/Windows/Fonts/PlayfairDisplay-Bold.ttf",
+    "inter": (
+        "Inter-Regular.ttf",
     ),
     "montserrat": (
-        "C:/Windows/Fonts/Montserrat-Bold.ttf",
+        "Montserrat-Medium.ttf",
+    ),
+    "playfairdisplay": (
+        "PlayfairDisplay-Medium.ttf",
     ),
     "poppins": (
-        "C:/Windows/Fonts/Poppins-Bold.ttf",
+        "Poppins-Regular.ttf",
+    ),
+
+
+    "playfair": (
+        "PlayfairDisplay-Bold.ttf",
+        "PlayfairDisplay-Regular.ttf",
+    ),
+    "roboto": (
+        "Roboto-Bold.ttf",
+        "Roboto-Regular.ttf",
+    ),
+    "opensans": (
+        "OpenSans-Bold.ttf",
+        "OpenSans-Regular.ttf",
+    ),
+    "lato": (
+        "Lato-Bold.ttf",
+        "Lato-Regular.ttf",
     ),
     "segoe": (
-        "C:/Windows/Fonts/segoeuib.ttf",
+        "segoeuib.ttf",
+        "segoeui.ttf",
     ),
     "trebuchet": (
-        "C:/Windows/Fonts/trebucbd.ttf",
+        "trebucbd.ttf",
+        "trebuc.ttf",
     ),
     "arial": (
-        "C:/Windows/Fonts/arialbd.ttf",
-        "C:/Windows/Fonts/Arial.ttf",
-    ),
+        "arialbd.ttf",
+        "arial.ttf",
+        "Arial.ttf",
+    ), 
 }
+
+FONT_SEARCH_DIRS = (
+    Path(__file__).resolve().parent / "fonts",
+    Path("C:/Windows/Fonts"),
+)
+
+FALLBACK_FONT_FILES = (
+    "arialbd.ttf",
+    "Arial.ttf",
+    "arial.ttf",
+    "segoeuib.ttf",
+    "segoeui.ttf",
+    "trebucbd.ttf",
+    "trebuc.ttf",
+)
 
 
 def apply_logo_to_image(image_path, logo_file, position="bottom_right"):
@@ -161,34 +201,65 @@ def _get_logo_coordinates(base_image, logo_image, position):
 
 def _get_center_text_font(base_width, text_font=None):
     font_size = int(base_width * TEXT_FONT_SIZE_RATIO)
-    normalized_font = _normalize_font_name(text_font)
-    preferred_paths = FONT_PATHS_BY_NAME.get(normalized_font, ())
+    font_key = _get_font_key(text_font)
 
-    for font_path in (
-        *preferred_paths,
-        "C:/Windows/Fonts/PlayfairDisplay-Bold.ttf",
-        "C:/Windows/Fonts/Montserrat-Bold.ttf",
-        "C:/Windows/Fonts/Poppins-Bold.ttf",
-        "C:/Windows/Fonts/segoeuib.ttf",
-        "C:/Windows/Fonts/trebucbd.ttf",
-        "C:/Windows/Fonts/arialbd.ttf",
-        "C:/Windows/Fonts/Arial.ttf",
-    ):
+    for font_path in _get_font_candidate_paths(font_key):
         try:
-            return ImageFont.truetype(font_path, font_size)
+            return ImageFont.truetype(str(font_path), font_size)
         except OSError:
             continue
 
     return ImageFont.load_default()
 
 
+def _get_font_candidate_paths(font_key):
+    font_files = (
+        *FONT_FILES_BY_NAME.get(font_key, ()),
+        *FALLBACK_FONT_FILES,
+    )
+
+    for font_file in font_files:
+        font_path = Path(font_file)
+
+        if font_path.is_absolute():
+            yield font_path
+            continue
+
+        for font_dir in _get_font_search_dirs():
+            yield font_dir / font_file
+
+
+def _get_font_search_dirs():
+    configured_dir = getattr(settings, "CONTENT_AGENT_FONT_DIR", "")
+
+    if configured_dir:
+        yield Path(configured_dir)
+
+    yield from FONT_SEARCH_DIRS
+
+
+def _get_font_key(text_font):
+    normalized_font = _normalize_font_name(text_font)
+
+    if normalized_font in FONT_FILES_BY_NAME:
+        return normalized_font
+
+    for font_key in FONT_FILES_BY_NAME:
+        if font_key in normalized_font:
+            return font_key
+
+    return normalized_font
+
+
 def _normalize_font_name(text_font):
     if not text_font:
         return ""
 
+    font_name = str(text_font).split(",")[0].strip().strip("'\"")
+
     return "".join(
         character.lower()
-        for character in str(text_font)
+        for character in font_name
         if character.isalnum()
     )
 

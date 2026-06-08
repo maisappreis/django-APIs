@@ -287,8 +287,16 @@ def mark_batch_failed(batch, error):
 
 
 def build_post_visual_settings(post_generation, validated_data):
+    image_text = validated_data.pop(
+        "image_text",
+        post_generation.image_text,
+    )
+
+    if validated_data.pop("has_text_image", True) is False:
+        image_text = ""
+
     return {
-        "image_text": post_generation.image_text,
+        "image_text": image_text,
         "template": post_generation.template or "none",
         "primary_color": post_generation.primary_color,
         "secondary_color": post_generation.secondary_color,

@@ -4,12 +4,14 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
-from .models import Brand
-from .services import render_post_content
+from .models import Brand, Post
+from .serializers import PostImageRenderInputSerializer
+from .services import render_post_content, rerender_post_image
+from .utils import _get_font_key, _get_font_candidate_paths
 
 
 def get_test_image(name="logo.gif"):
@@ -231,6 +233,95 @@ class PostImageTextTestCase(SimpleTestCase):
             render_image_file.call_args.kwargs["image_text"],
             "USER TEXT",
         )
+
+
+class TextFontResolutionTestCase(SimpleTestCase):
+    def test_resolves_frontend_font_values_to_backend_keys(self):
+        self.assertEqual(_get_font_key("montserrat"), "montserrat")
+        self.assertEqual(_get_font_key("Montserrat, sans-serif"), "montserrat")
+        self.assertEqual(_get_font_key("Montserrat Bold"), "montserrat")
+        self.assertEqual(_get_font_key("Playfair Display"), "playfairdisplay")
+        self.assertEqual(_get_font_key("Poppins"), "poppins")
+
+    @override_settings(CONTENT_AGENT_FONT_DIR="/app/fonts")
+    def test_prefers_configured_font_directory(self):
+        candidates = list(_get_font_candidate_paths("montserrat"))
+
+        self.assertEqual(
+            str(candidates[0]).replace("\\", "/"),
+            "/app/fonts/Montserrat-Bold.ttf",
+        )
+
+
+class PostImageRenderInputSerializerTestCase(SimpleTestCase):
+    def test_accepts_has_text_image_and_blank_logo_position(self):
+        serializer = PostImageRenderInputSerializer(data={
+            "has_text_image": "no",
+            "image_text": "",
+            "template": "none",
+            "text_font": "inter",
+            "text_color": "#FFFFFF",
+            "primary_color": "#111111",
+            "secondary_color": "#222222",
+            "tertiary_color": "#333333",
+            "logo_position": "",
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertFalse(serializer.validated_data["has_text_image"])
+        self.assertEqual(serializer.validated_data["logo_position"], "")
+
+
+class RerenderPostImageTestCase(TestCase):
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.create_final_image_from_base")
+    def test_blank_logo_position_removes_brand_logo_from_post(
+        self,
+        create_final_image_from_base,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="post-editor",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Logo Brand",
+            niche="Fitness",
+            logo="content_agent/logos/logo.png",
+        )
+        post = Post.objects.create(
+            brand=brand,
+            user=user,
+            base_image_url="/media/base.png",
+            image_url="/media/final.png",
+            image_text="Old text",
+            template="none",
+            logo_position="bottom_right",
+        )
+        create_final_image_from_base.return_value = {
+            "absolute_path": "/tmp/new-final.png",
+            "image_url": "/media/new-final.png",
+        }
+
+        rerendered_post = rerender_post_image(
+            post,
+            {
+                "image_text": "",
+                "template": "none",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "text_font": "inter",
+                "logo_position": "",
+            },
+        )
+
+        self.assertEqual(rerendered_post.image_text, "")
+        self.assertEqual(rerendered_post.logo_position, "")
+        self.assertEqual(render_image_file.call_args.kwargs["logo_file"], None)
 
 
 class PostUserImagesTestCase(SimpleTestCase):

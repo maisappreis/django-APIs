@@ -194,6 +194,9 @@ TEMPLATE_LOGO_POSITIONS = {
 
 
 def get_logo_position_for_template(template_name, logo_position):
+    if not logo_position:
+        return ""
+
     if template_name != "none":
         return TEMPLATE_LOGO_POSITIONS[template_name]
 
@@ -229,6 +232,8 @@ def render_image_file(
     text_color="#FFFFFF",
     text_font="",
 ):
+    logo_file = logo_file if logo_position else None
+
     if template_name != "none":
         template_renderer = TEMPLATE_RENDERERS[template_name]
         visual_settings = {
@@ -376,7 +381,7 @@ def rerender_post_image(post, visual_settings):
         image_path=final_image_data["absolute_path"],
         template_name=template_name,
         image_text=visual_settings["image_text"],
-        logo_file=get_post_logo_file(post),
+        logo_file=get_post_logo_file(post) if logo_position else None,
         logo_position=logo_position,
         primary_color=visual_settings["primary_color"],
         secondary_color=visual_settings["secondary_color"],
