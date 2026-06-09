@@ -5,6 +5,7 @@ from .views import (
     BrandListAPIView,
     ApprovePostPromptsAPIView,
     CalendarPostsAPIView,
+    ContentAgentUsageAPIView,
     DownloadPostImageAPIView,
     GeneratePostContentAPIView,
     PendingReviewPostBatchAPIView,
@@ -47,6 +48,11 @@ urlpatterns = [
         "posts/calendar/",
         CalendarPostsAPIView.as_view(),
         name="calendar-posts",
+    ),
+    path(
+        "usage/",
+        ContentAgentUsageAPIView.as_view(),
+        name="content-agent-usage",
     ),
     path(
         "posts/<int:post_id>/render/",

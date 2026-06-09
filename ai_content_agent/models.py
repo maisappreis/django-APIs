@@ -82,6 +82,7 @@ class PostBatch(models.Model):
     theme = models.CharField(max_length=160)
     quantity = models.PositiveSmallIntegerField(default=1)
     use_templates = models.BooleanField(default=True)
+    image_source = models.CharField(max_length=20, default="ai")
     strategy_summary = models.TextField(blank=True)
 
     status = models.CharField(
@@ -151,3 +152,32 @@ class Post(models.Model):
     def __str__(self):
         brand_name = self.brand.business_name if self.brand else "No brand"
         return f"{brand_name} - post {self.post_order}"
+
+
+class UsageEvent(models.Model):
+    class Kind(models.TextChoices):
+        AI_POST_IMAGE = "ai_post_image", "AI post image"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="content_agent_usage_events",
+    )
+    batch = models.ForeignKey(
+        PostBatch,
+        on_delete=models.SET_NULL,
+        related_name="usage_events",
+        null=True,
+        blank=True,
+    )
+    kind = models.CharField(max_length=40, choices=Kind.choices)
+    quantity = models.PositiveSmallIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "kind", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.kind} - {self.quantity}"

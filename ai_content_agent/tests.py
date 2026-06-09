@@ -8,7 +8,9 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
-from .models import Brand, GenerationStatus, Post, PostBatch
+from accounts.models import Plan, Subscription
+
+from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
 from .operations import create_post_drafts_from_generation_result
 from .serializers import PostImageRenderInputSerializer
 from .services import (
@@ -90,6 +92,20 @@ class BrandPatchAPITestCase(APITestCase):
         self.brand.refresh_from_db()
         self.assertEqual(self.brand.business_name, "Old Brand")
 
+    def test_free_plan_blocks_visual_identity_capture_on_patch(self):
+        url = reverse("brand-detail", kwargs={"brand_id": self.brand.id})
+
+        response = self.client.patch(
+            url,
+            {
+                "reference_image_1": get_test_image("reference.gif"),
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("identidade visual", response.data["detail"])
+
 
 class BrandCreateAPITestCase(APITestCase):
     def setUp(self):
@@ -103,6 +119,18 @@ class BrandCreateAPITestCase(APITestCase):
 
     def tearDown(self):
         shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def create_subscription(self, tier):
+        plan = Plan.objects.create(
+            name=tier.title(),
+            tier=tier,
+            is_active=True,
+        )
+        return Subscription.objects.create(
+            user=self.user,
+            plan=plan,
+            status=Subscription.Status.ACTIVE,
+        )
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
     @patch("ai_content_agent.operations.upload_logo_file")
@@ -156,6 +184,76 @@ class BrandCreateAPITestCase(APITestCase):
         brand = Brand.objects.get(user=self.user, business_name="No Logo Brand")
         self.assertFalse(brand.logo)
         self.assertEqual(brand.logo_url, "")
+
+    def test_free_plan_blocks_second_brand(self):
+        Brand.objects.create(
+            user=self.user,
+            business_name="Existing Brand",
+            niche="Fitness",
+        )
+
+        response = self.client.post(
+            reverse("brand-list"),
+            {
+                "business_name": "Second Brand",
+                "niche": "Food",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "text_font": "inter",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("Limite de marcas", response.data["detail"])
+
+    def test_free_plan_blocks_visual_identity_capture_on_create(self):
+        response = self.client.post(
+            reverse("brand-list"),
+            {
+                "business_name": "Reference Brand",
+                "niche": "Fitness",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "text_font": "inter",
+                "reference_image_1": get_test_image("reference.gif"),
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("identidade visual", response.data["detail"])
+
+    def test_pro_plan_allows_three_brands_and_blocks_fourth(self):
+        self.create_subscription(Plan.Tier.PRO)
+
+        for index in range(3):
+            Brand.objects.create(
+                user=self.user,
+                business_name=f"Brand {index}",
+                niche="Fitness",
+            )
+
+        response = self.client.post(
+            reverse("brand-list"),
+            {
+                "business_name": "Fourth Brand",
+                "niche": "Food",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "text_font": "inter",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("3 marca(s)", response.data["detail"])
 
 
 class PostImageTextTestCase(SimpleTestCase):
@@ -584,6 +682,51 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["expected"], 2)
         self.assertEqual(response.data["received"], 0)
+
+    def test_usage_endpoint_returns_monthly_ai_image_usage(self):
+        UsageEvent.objects.create(
+            user=self.user,
+            kind=UsageEvent.Kind.AI_POST_IMAGE,
+            quantity=1,
+        )
+
+        response = self.client.get(reverse("content-agent-usage"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["ai_images"]["used"], 1)
+        self.assertEqual(response.data["ai_images"]["limit"], 2)
+        self.assertEqual(response.data["ai_images"]["remaining"], 1)
+
+    def test_generate_posts_blocks_ai_images_when_monthly_quota_is_exceeded(self):
+        UsageEvent.objects.create(
+            user=self.user,
+            kind=UsageEvent.Kind.AI_POST_IMAGE,
+            quantity=1,
+        )
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "2",
+                "my_images_or_ai": "ai",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "text_font": "inter",
+                "logo_position": "bottom_right",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("Limite mensal", response.data["detail"])
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
     @patch("ai_content_agent.views.Thread")

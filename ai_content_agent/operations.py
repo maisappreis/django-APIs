@@ -2,11 +2,14 @@ from datetime import timedelta
 from pathlib import Path
 
 from django.conf import settings
+from django.db.models import Sum
 from django.utils import timezone
 import httpx
 
-from .models import Brand, GenerationStatus, Post, PostBatch
+from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
 from .presenters import get_download_filename
+from .rules import get_ai_image_monthly_limit, get_current_month_range
+from .rules import can_capture_visual_identity, get_max_brands
 from .storage import (
     is_firebase_storage_enabled,
     upload_brand_reference_file,
@@ -53,6 +56,34 @@ def get_brand_by_id_for_user(user, brand_id):
         return None
 
     return Brand.objects.filter(id=brand_id, user=user).first()
+
+
+def ensure_brand_quota(user, business_name=None, niche=None):
+    if business_name and niche:
+        existing_brand = get_brand_for_user(user, business_name, niche)
+
+        if existing_brand:
+            return existing_brand
+
+    max_brands = get_max_brands(user)
+    current_count = Brand.objects.filter(user=user).count()
+
+    if current_count >= max_brands:
+        raise ValueError(
+            "Limite de marcas do plano excedido. "
+            f"Seu plano permite {max_brands} marca(s)."
+        )
+
+    return None
+
+
+def ensure_visual_identity_capture_allowed(user):
+    if can_capture_visual_identity(user):
+        return
+
+    raise ValueError(
+        "Seu plano nao permite capturar identidade visual por IA."
+    )
 
 
 def update_brand_manual_identity(brand, data):
@@ -186,6 +217,53 @@ def create_post_batch(user, brand, data):
         theme=data["theme"],
         quantity=data["quantity"],
         use_templates=data["use_templates"],
+        image_source=data.get("my_images_or_ai", "ai"),
+    )
+
+
+def get_monthly_ai_image_usage(user):
+    start, end = get_current_month_range()
+    used = (
+        UsageEvent.objects.filter(
+            user=user,
+            kind=UsageEvent.Kind.AI_POST_IMAGE,
+            created_at__gte=start,
+            created_at__lt=end,
+        )
+        .aggregate(total=Sum("quantity"))
+        .get("total")
+        or 0
+    )
+    limit = get_ai_image_monthly_limit(user)
+
+    return {
+        "used": used,
+        "limit": limit,
+        "remaining": max(0, limit - used),
+    }
+
+
+def ensure_ai_image_quota(user, requested_quantity):
+    usage = get_monthly_ai_image_usage(user)
+
+    if requested_quantity > usage["remaining"]:
+        raise ValueError(
+            "Limite mensal de imagens com IA excedido. "
+            f"Você ainda pode gerar {usage['remaining']} imagem(ns) este mês."
+        )
+
+    return usage
+
+
+def record_ai_image_usage(user, quantity=1, batch=None):
+    if quantity <= 0:
+        return None
+
+    return UsageEvent.objects.create(
+        user=user,
+        batch=batch,
+        kind=UsageEvent.Kind.AI_POST_IMAGE,
+        quantity=quantity,
     )
 
 

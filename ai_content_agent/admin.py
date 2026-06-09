@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Brand, Post, PostBatch
+from .models import Brand, Post, PostBatch, UsageEvent
 
 
 @admin.register(Brand)
@@ -81,11 +81,12 @@ class PostBatchAdmin(admin.ModelAdmin):
         "brand",
         "theme",
         "quantity",
+        "image_source",
         "use_templates",
         "status",
         "created_at",
     )
-    list_filter = ("status", "created_at", "user", "brand")
+    list_filter = ("status", "image_source", "created_at", "user", "brand")
     search_fields = (
         "brand__business_name",
         "brand__niche",
@@ -114,3 +115,16 @@ class PostAdmin(admin.ModelAdmin):
         "caption",
         "image_prompt",
     )
+
+
+@admin.register(UsageEvent)
+class UsageEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "kind",
+        "quantity",
+        "batch",
+        "created_at",
+    )
+    list_filter = ("kind", "created_at", "user")
+    search_fields = ("user__username", "user__email", "batch__theme")

@@ -4,29 +4,27 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.db import close_old_connections
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 import httpx
 from threading import Thread
 
+from .jobs import run_post_generation_job, run_post_image_generation_job
 from .models import Post, PostBatch
 from .operations import (
     apply_brand_defaults,
     build_post_visual_settings,
-    create_post_drafts_from_generation_result,
     create_post_batch,
+    ensure_brand_quota,
+    ensure_ai_image_quota,
+    ensure_visual_identity_capture_allowed,
     get_brand_by_id_for_user,
     get_brand_for_user,
     get_future_scheduled_posts,
+    get_monthly_ai_image_usage,
     get_or_create_brand,
     get_user_brands,
-    mark_batch_completed,
-    mark_batch_failed,
     mark_batch_pending,
-    mark_batch_pending_review,
-    mark_post_completed,
     prepare_post_download,
     save_brand_reference_images,
     sync_brand_logo,
@@ -50,76 +48,8 @@ from .serializers import (
 )
 from .services import (
     analyze_brand_visual_identity,
-    generate_post_batch_draft_content,
-    render_approved_post_image,
     rerender_post_image,
 )
-
-
-def run_post_generation_job(user_id, brand_id, batch_id, data):
-    close_old_connections()
-
-    try:
-        user = get_user_model().objects.get(id=user_id)
-        batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
-        brand = get_object_or_404(get_user_brands(user), id=brand_id)
-
-        update_batch_progress(batch, 10)
-        result = generate_post_batch_draft_content(data)
-        update_batch_progress(batch, 70)
-
-        create_post_drafts_from_generation_result(
-            user=user,
-            brand=brand,
-            batch=batch,
-            result=result,
-        )
-
-        mark_batch_pending_review(batch, result["strategy_summary"])
-    except Exception as error:
-        try:
-            batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
-            mark_batch_failed(batch, error)
-        except PostBatch.DoesNotExist:
-            pass
-    finally:
-        close_old_connections()
-
-
-def run_post_image_generation_job(user_id, batch_id):
-    close_old_connections()
-
-    try:
-        batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
-        posts = list(
-            batch.posts.select_related("brand")
-            .filter(user_id=user_id)
-            .order_by("scheduled_date", "post_order", "created_at")
-        )
-        total_posts = len(posts)
-
-        update_batch_progress(batch, 5)
-
-        if total_posts == 0:
-            raise ValueError("No posts found for image generation.")
-
-        for index, post in enumerate(posts):
-            render_approved_post_image(post)
-            mark_post_completed(post)
-            update_batch_progress(
-                batch,
-                5 + int((index + 1) / total_posts * 90),
-            )
-
-        mark_batch_completed(batch, batch.strategy_summary)
-    except Exception as error:
-        try:
-            batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
-            mark_batch_failed(batch, error)
-        except PostBatch.DoesNotExist:
-            pass
-    finally:
-        close_old_connections()
 
 
 class BrandListAPIView(APIView):
@@ -158,6 +88,27 @@ class BrandListAPIView(APIView):
         input_serializer.is_valid(raise_exception=True)
         data = input_serializer.validated_data
 
+        try:
+            ensure_brand_quota(
+                user=request.user,
+                business_name=data["business_name"],
+                niche=data["niche"],
+            )
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if data.get("reference_image_1") or data.get("reference_image_2"):
+            try:
+                ensure_visual_identity_capture_allowed(request.user)
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         brand = get_or_create_brand(
             user=request.user,
             business_name=data["business_name"],
@@ -167,6 +118,14 @@ class BrandListAPIView(APIView):
         sync_brand_logo(brand, data, request.user)
 
         if data.get("reference_image_1") or data.get("reference_image_2"):
+            try:
+                ensure_visual_identity_capture_allowed(request.user)
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             brand = save_brand_reference_images(brand, data, request.user)
 
             try:
@@ -222,6 +181,14 @@ class BrandDetailAPIView(APIView):
         sync_brand_logo(brand, data, request.user)
 
         if data.get("reference_image_1") or data.get("reference_image_2"):
+            try:
+                ensure_visual_identity_capture_allowed(request.user)
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             brand = save_brand_reference_images(brand, data, request.user)
 
             try:
@@ -307,6 +274,15 @@ class GeneratePostContentAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if data["my_images_or_ai"] == "ai":
+            try:
+                ensure_ai_image_quota(request.user, data["quantity"])
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)
 
@@ -383,6 +359,16 @@ class ApprovePostPromptsAPIView(APIView):
             batch,
             input_serializer.validated_data["posts"],
         )
+
+        if batch.image_source == "ai":
+            try:
+                ensure_ai_image_quota(request.user, batch.quantity)
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         mark_batch_pending(batch)
 
         Thread(
@@ -399,6 +385,15 @@ class ApprovePostPromptsAPIView(APIView):
                 "progress": batch.progress,
             },
             status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class ContentAgentUsageAPIView(APIView):
+    def get(self, request):
+        return Response(
+            {
+                "ai_images": get_monthly_ai_image_usage(request.user),
+            }
         )
 
 
