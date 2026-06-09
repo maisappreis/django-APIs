@@ -15,8 +15,8 @@ from .models import Post, PostBatch
 from .operations import (
     apply_brand_defaults,
     build_post_visual_settings,
+    create_post_drafts_from_generation_result,
     create_post_batch,
-    create_posts_from_generation_result,
     get_brand_by_id_for_user,
     get_brand_for_user,
     get_future_scheduled_posts,
@@ -24,14 +24,19 @@ from .operations import (
     get_user_brands,
     mark_batch_completed,
     mark_batch_failed,
+    mark_batch_pending,
+    mark_batch_pending_review,
+    mark_post_completed,
     prepare_post_download,
     save_brand_reference_images,
     sync_brand_logo,
+    update_post_draft_prompts,
     update_brand_manual_identity,
     update_batch_progress,
 )
 from .presenters import (
     serialize_brand,
+    serialize_post_batch,
     serialize_post_generation,
 )
 from .serializers import (
@@ -41,11 +46,12 @@ from .serializers import (
     PostBatchOutputSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
+    PostPromptApprovalSerializer,
 )
 from .services import (
     analyze_brand_visual_identity,
-    generate_post_batch_content,
-    prepare_uploaded_post_image_files,
+    generate_post_batch_draft_content,
+    render_approved_post_image,
     rerender_post_image,
 )
 
@@ -59,18 +65,53 @@ def run_post_generation_job(user_id, brand_id, batch_id, data):
         brand = get_object_or_404(get_user_brands(user), id=brand_id)
 
         update_batch_progress(batch, 10)
-        result = generate_post_batch_content(data)
+        result = generate_post_batch_draft_content(data)
         update_batch_progress(batch, 70)
 
-        create_posts_from_generation_result(
+        create_post_drafts_from_generation_result(
             user=user,
             brand=brand,
             batch=batch,
-            data=data,
             result=result,
         )
 
-        mark_batch_completed(batch, result["strategy_summary"])
+        mark_batch_pending_review(batch, result["strategy_summary"])
+    except Exception as error:
+        try:
+            batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
+            mark_batch_failed(batch, error)
+        except PostBatch.DoesNotExist:
+            pass
+    finally:
+        close_old_connections()
+
+
+def run_post_image_generation_job(user_id, batch_id):
+    close_old_connections()
+
+    try:
+        batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
+        posts = list(
+            batch.posts.select_related("brand")
+            .filter(user_id=user_id)
+            .order_by("scheduled_date", "post_order", "created_at")
+        )
+        total_posts = len(posts)
+
+        update_batch_progress(batch, 5)
+
+        if total_posts == 0:
+            raise ValueError("No posts found for image generation.")
+
+        for index, post in enumerate(posts):
+            render_approved_post_image(post)
+            mark_post_completed(post)
+            update_batch_progress(
+                batch,
+                5 + int((index + 1) / total_posts * 90),
+            )
+
+        mark_batch_completed(batch, batch.strategy_summary)
     except Exception as error:
         try:
             batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
@@ -269,12 +310,6 @@ class GeneratePostContentAPIView(APIView):
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)
 
-        if data["my_images_or_ai"] == "user":
-            data["image_files"] = prepare_uploaded_post_image_files(
-                data["images"]
-            )
-            data["images"] = []
-
         update_batch_progress(batch, 5)
 
         Thread(
@@ -309,19 +344,62 @@ class PostGenerationStatusAPIView(APIView):
             "error_message": batch.error_message,
         }
 
-        if batch.status == "completed":
-            response_data["quantity"] = batch.quantity
-            response_data["strategy_summary"] = batch.strategy_summary
-            response_data["posts"] = [
-                serialize_post_generation(post)
-                for post in batch.posts.order_by(
-                    "scheduled_date",
-                    "post_order",
-                    "created_at",
-                )
-            ]
+        if batch.status in {"completed", "pending_review"}:
+            response_data.update(serialize_post_batch(batch))
 
         return Response(response_data)
+
+
+class PendingReviewPostBatchAPIView(APIView):
+    def get(self, request):
+        batch = (
+            PostBatch.objects.prefetch_related("posts")
+            .filter(
+                user=request.user,
+                status="pending_review",
+            )
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not batch:
+            return Response({"batch": None})
+
+        return Response({"batch": serialize_post_batch(batch)})
+
+
+class ApprovePostPromptsAPIView(APIView):
+    def post(self, request, batch_id):
+        batch = get_object_or_404(
+            PostBatch.objects.prefetch_related("posts"),
+            id=batch_id,
+            user=request.user,
+            status="pending_review",
+        )
+        input_serializer = PostPromptApprovalSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        update_post_draft_prompts(
+            batch,
+            input_serializer.validated_data["posts"],
+        )
+        mark_batch_pending(batch)
+
+        Thread(
+            target=run_post_image_generation_job,
+            args=(request.user.id, batch.id),
+            daemon=True,
+        ).start()
+
+        return Response(
+            {
+                "job_id": batch.id,
+                "batch_id": batch.id,
+                "status": batch.status,
+                "progress": batch.progress,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
 
 class RerenderPostImageAPIView(APIView):

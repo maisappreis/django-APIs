@@ -306,6 +306,15 @@ class PostImageRenderInputSerializer(serializers.Serializer):
     )
 
 
+class PostPromptApprovalItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    image_prompt = serializers.CharField(allow_blank=False)
+
+
+class PostPromptApprovalSerializer(serializers.Serializer):
+    posts = PostPromptApprovalItemSerializer(many=True)
+
+
 class PostBatchOutputSerializer(serializers.Serializer):
     batch_id = serializers.IntegerField()
     quantity = serializers.IntegerField()

@@ -58,6 +58,7 @@ class Brand(models.Model):
 
 class GenerationStatus(models.TextChoices):
     PENDING = "pending", "Pending"
+    PENDING_REVIEW = "pending_review", "Pending review"
     COMPLETED = "completed", "Completed"
     FAILED = "failed", "Failed"
 

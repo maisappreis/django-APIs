@@ -3,9 +3,11 @@ from django.urls import path
 from .views import (
     BrandDetailAPIView,
     BrandListAPIView,
+    ApprovePostPromptsAPIView,
     CalendarPostsAPIView,
     DownloadPostImageAPIView,
     GeneratePostContentAPIView,
+    PendingReviewPostBatchAPIView,
     PostGenerationStatusAPIView,
     RerenderPostImageAPIView,
 )
@@ -30,6 +32,16 @@ urlpatterns = [
         "posts/generate/<int:batch_id>/status/",
         PostGenerationStatusAPIView.as_view(),
         name="post-generation-status",
+    ),
+    path(
+        "posts/generate/<int:batch_id>/approve/",
+        ApprovePostPromptsAPIView.as_view(),
+        name="approve-post-prompts",
+    ),
+    path(
+        "posts/review/",
+        PendingReviewPostBatchAPIView.as_view(),
+        name="pending-review-post-batch",
     ),
     path(
         "posts/calendar/",

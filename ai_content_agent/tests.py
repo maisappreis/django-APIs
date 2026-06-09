@@ -8,9 +8,15 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
-from .models import Brand, Post
+from .models import Brand, GenerationStatus, Post, PostBatch
+from .operations import create_post_drafts_from_generation_result
 from .serializers import PostImageRenderInputSerializer
-from .services import render_post_content, rerender_post_image
+from .services import (
+    generate_post_batch_draft_content,
+    render_approved_post_image,
+    render_post_content,
+    rerender_post_image,
+)
 from .utils import _get_font_key, _get_font_candidate_paths
 
 
@@ -235,6 +241,95 @@ class PostImageTextTestCase(SimpleTestCase):
         )
 
 
+class PostDraftGenerationTestCase(SimpleTestCase):
+    def get_base_data(self):
+        return {
+            "quantity": 1,
+            "business_name": "Draft Brand",
+            "niche": "Fitness",
+            "objective": "Attract leads",
+            "tone": "Friendly",
+            "theme": "Summer",
+            "template": "none",
+            "use_templates": False,
+            "logo_position": "bottom_right",
+            "primary_color": "#111111",
+            "secondary_color": "#222222",
+            "tertiary_color": "#333333",
+            "text_color": "#FFFFFF",
+            "text_font": "inter",
+        }
+
+    @override_settings(CONTENT_AGENT_USE_MOCK_CONTENT=True)
+    @patch("ai_content_agent.services.render_post_content")
+    @patch("ai_content_agent.services.generate_post_image_files")
+    def test_draft_generation_does_not_render_or_generate_images(
+        self,
+        generate_post_image_files,
+        render_post_content_mock,
+    ):
+        result = generate_post_batch_draft_content(self.get_base_data())
+
+        self.assertEqual(result["quantity"], 1)
+        self.assertEqual(result["posts"][0]["image_url"], "")
+        self.assertEqual(result["posts"][0]["base_image_url"], "")
+        self.assertTrue(result["posts"][0]["image_prompt"])
+        generate_post_image_files.assert_not_called()
+        render_post_content_mock.assert_not_called()
+
+
+class PostDraftOperationTestCase(TestCase):
+    def test_create_post_drafts_marks_posts_as_pending_review(self):
+        user = User.objects.create_user(
+            username="draft-owner",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Draft Brand",
+            niche="Fitness",
+        )
+        batch = PostBatch.objects.create(
+            user=user,
+            brand=brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Summer",
+            quantity=1,
+        )
+        result = {
+            "posts": [
+                {
+                    "order": 1,
+                    "idea": {"title": "Idea"},
+                    "template": "none",
+                    "primary_color": "#111111",
+                    "secondary_color": "#222222",
+                    "tertiary_color": "#333333",
+                    "text_color": "#FFFFFF",
+                    "text_font": "inter",
+                    "logo_position": "",
+                    "caption": "Caption",
+                    "hashtags": ["#tag"],
+                    "image_prompt": "Prompt to review",
+                    "image_text": "TEXT",
+                }
+            ],
+        }
+
+        posts = create_post_drafts_from_generation_result(
+            user=user,
+            brand=brand,
+            batch=batch,
+            result=result,
+        )
+
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(posts[0].status, GenerationStatus.PENDING_REVIEW)
+        self.assertEqual(posts[0].image_url, "")
+        self.assertEqual(posts[0].image_prompt, "Prompt to review")
+
+
 class TextFontResolutionTestCase(SimpleTestCase):
     def test_resolves_frontend_font_values_to_backend_keys(self):
         self.assertEqual(_get_font_key("montserrat"), "montserrat")
@@ -341,6 +436,59 @@ class RerenderPostImageTestCase(TestCase):
         self.assertEqual(render_image_file.call_args.kwargs["logo_file"], None)
 
 
+class ApprovedPostImageRenderTestCase(TestCase):
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.generate_post_image_files")
+    def test_render_approved_post_image_uses_reviewed_prompt(
+        self,
+        generate_post_image_files,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="image-owner",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Image Brand",
+            niche="Fitness",
+        )
+        post = Post.objects.create(
+            brand=brand,
+            user=user,
+            image_prompt="Reviewed prompt",
+            image_text="TEXT",
+            template="none",
+            primary_color="#111111",
+            secondary_color="#222222",
+            tertiary_color="#333333",
+            text_color="#FFFFFF",
+            text_font="inter",
+            logo_position="",
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        generate_post_image_files.return_value = {
+            "base": {
+                "image_url": "/media/base.png",
+                "absolute_path": "/tmp/base.png",
+            },
+            "final": {
+                "image_url": "/media/final.png",
+                "absolute_path": "/tmp/final.png",
+            },
+        }
+
+        rendered_post = render_approved_post_image(post)
+
+        generate_post_image_files.assert_called_once_with({
+            "image_prompt": "Reviewed prompt",
+        })
+        render_image_file.assert_called_once()
+        self.assertEqual(rendered_post.base_image_url, "/media/base.png")
+        self.assertEqual(rendered_post.image_url, "/media/final.png")
+
+
 class PostUserImagesTestCase(SimpleTestCase):
     def setUp(self):
         self.media_root = tempfile.mkdtemp()
@@ -436,3 +584,96 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["expected"], 2)
         self.assertEqual(response.data["received"], 0)
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.views.Thread")
+    def test_approve_post_prompts_updates_prompts_and_starts_image_job(
+        self,
+        thread_class,
+    ):
+        batch = PostBatch.objects.create(
+            user=self.user,
+            brand=self.brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Summer",
+            quantity=1,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+        )
+        post = Post.objects.create(
+            batch=batch,
+            brand=self.brand,
+            user=self.user,
+            caption="Caption",
+            hashtags=["#tag"],
+            image_prompt="Old prompt",
+            image_text="TEXT",
+            template="none",
+            primary_color="#111111",
+            secondary_color="#222222",
+            tertiary_color="#333333",
+            text_color="#FFFFFF",
+            text_font="inter",
+            logo_position="",
+            status=GenerationStatus.PENDING_REVIEW,
+            scheduled_date="2026-06-09",
+        )
+        thread_instance = thread_class.return_value
+
+        response = self.client.post(
+            reverse("approve-post-prompts", kwargs={"batch_id": batch.id}),
+            {
+                "posts": [
+                    {
+                        "id": post.id,
+                        "image_prompt": "Reviewed prompt",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        post.refresh_from_db()
+        batch.refresh_from_db()
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.data["status"], GenerationStatus.PENDING)
+        self.assertEqual(post.image_prompt, "Reviewed prompt")
+        self.assertEqual(batch.status, GenerationStatus.PENDING)
+        thread_instance.start.assert_called_once()
+
+    def test_pending_review_endpoint_returns_latest_review_batch(self):
+        batch = PostBatch.objects.create(
+            user=self.user,
+            brand=self.brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Summer",
+            quantity=1,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+            strategy_summary="Review this batch",
+        )
+        post = Post.objects.create(
+            batch=batch,
+            brand=self.brand,
+            user=self.user,
+            caption="Caption",
+            hashtags=["#tag"],
+            image_prompt="Prompt to review",
+            image_text="TEXT",
+            template="none",
+            status=GenerationStatus.PENDING_REVIEW,
+            scheduled_date="2026-06-09",
+        )
+
+        response = self.client.get(reverse("pending-review-post-batch"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["batch"]["batch_id"], batch.id)
+        self.assertEqual(response.data["batch"]["posts"][0]["id"], post.id)
+        self.assertEqual(
+            response.data["batch"]["posts"][0]["image_prompt"],
+            "Prompt to review",
+        )

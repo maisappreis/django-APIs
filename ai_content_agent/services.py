@@ -319,6 +319,33 @@ def render_post_content(data, idea, result, index):
     }
 
 
+def build_post_draft_content(data, idea, result, index):
+    template_name = get_template_name_for_post(data, index)
+    image_text = get_final_image_text(data, result)
+    logo_position = get_logo_position_for_template(
+        template_name=template_name,
+        logo_position=data["logo_position"],
+    )
+
+    return {
+        "order": index,
+        "idea": idea,
+        "template": template_name,
+        "primary_color": data["primary_color"],
+        "secondary_color": data["secondary_color"],
+        "tertiary_color": data["tertiary_color"],
+        "text_color": data["text_color"],
+        "text_font": data.get("text_font", ""),
+        "logo_position": logo_position,
+        "caption": result["caption"],
+        "hashtags": result["hashtags"],
+        "image_prompt": result["image_prompt"],
+        "image_text": image_text,
+        "base_image_url": "",
+        "image_url": "",
+    }
+
+
 def get_local_media_path(image_url):
     if not image_url.startswith(settings.MEDIA_URL):
         raise ValueError("Only local media images can be rendered.")
@@ -367,6 +394,57 @@ def get_post_logo_file(post):
         return post.brand.logo.path
 
     return None
+
+
+def render_approved_post_image(post):
+    image_data = generate_post_image_files({
+        "image_prompt": post.image_prompt,
+    })
+    logo_position = get_logo_position_for_template(
+        template_name=post.template or "none",
+        logo_position=post.logo_position,
+    )
+
+    render_image_file(
+        image_path=image_data["final"]["absolute_path"],
+        template_name=post.template or "none",
+        image_text=post.image_text,
+        logo_file=get_post_logo_file(post) if logo_position else None,
+        logo_position=logo_position,
+        primary_color=post.primary_color,
+        secondary_color=post.secondary_color,
+        tertiary_color=post.tertiary_color,
+        text_color=post.text_color,
+        text_font=post.text_font,
+    )
+
+    post.base_image_url = image_data["base"]["image_url"]
+    post.image_url = image_data["final"]["image_url"]
+    post.logo_position = logo_position
+
+    if is_firebase_storage_enabled():
+        post.base_image_url = upload_generated_post_file(
+            local_path=image_data["base"]["absolute_path"],
+            user_id=post.user_id,
+            post_id=post.id,
+            kind="base",
+        )
+        post.image_url = upload_generated_post_file(
+            local_path=image_data["final"]["absolute_path"],
+            user_id=post.user_id,
+            post_id=post.id,
+            kind="final",
+        )
+
+    post.save(
+        update_fields=[
+            "base_image_url",
+            "image_url",
+            "logo_position",
+        ]
+    )
+
+    return post
 
 
 def rerender_post_image(post, visual_settings):
@@ -427,6 +505,25 @@ def rerender_post_image(post, visual_settings):
 
 
 def generate_post_batch_content(data):
+    result = generate_post_batch_draft_content(data)
+
+    posts = [
+        render_post_content(
+            data=data,
+            idea=post_data["idea"],
+            result=post_data,
+            index=post_data["order"],
+        )
+        for post_data in result["posts"]
+    ]
+
+    return {
+        **result,
+        "posts": posts,
+    }
+
+
+def generate_post_batch_draft_content(data):
     quantity = data["quantity"]
     if getattr(settings, "CONTENT_AGENT_USE_MOCK_CONTENT", True):
         plan = mock_generate_post_plan(data)
@@ -470,7 +567,7 @@ def generate_post_batch_content(data):
         )
 
     posts = [
-        render_post_content(
+        build_post_draft_content(
             data=data,
             idea=idea,
             result=content_posts[index - 1],

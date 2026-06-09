@@ -48,6 +48,22 @@ def serialize_post_generation(post_generation):
     }
 
 
+def serialize_post_batch(batch):
+    return {
+        "batch_id": batch.id,
+        "quantity": batch.quantity,
+        "strategy_summary": batch.strategy_summary,
+        "posts": [
+            serialize_post_generation(post)
+            for post in batch.posts.order_by(
+                "scheduled_date",
+                "post_order",
+                "created_at",
+            )
+        ],
+    }
+
+
 def get_download_filename(post_generation):
     parsed_url = urlparse(post_generation.image_url)
     extension = Path(parsed_url.path).suffix or ".png"

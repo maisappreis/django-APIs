@@ -194,6 +194,13 @@ def update_batch_progress(batch, progress):
     batch.save(update_fields=["progress"])
 
 
+def mark_batch_pending(batch):
+    batch.status = GenerationStatus.PENDING
+    batch.progress = 0
+    batch.error_message = ""
+    batch.save(update_fields=["status", "progress", "error_message"])
+
+
 def sync_brand_logo(brand, data, user):
     if not data.get("logo"):
         if brand.logo:
@@ -273,9 +280,77 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
     return saved_posts
 
 
+def create_post_drafts_from_generation_result(user, brand, batch, result):
+    saved_posts = []
+    available_dates = get_available_post_dates(user, len(result["posts"]))
+    total_posts = len(result["posts"])
+
+    for index, post_data in enumerate(result["posts"]):
+        scheduled_date = available_dates[index]
+        post = Post.objects.create(
+            batch=batch,
+            brand=brand,
+            user=user,
+            caption=post_data["caption"],
+            hashtags=post_data["hashtags"],
+            image_prompt=post_data["image_prompt"],
+            image_text=post_data["image_text"],
+            base_image_url="",
+            image_url="",
+            template=post_data["template"],
+            primary_color=post_data["primary_color"],
+            secondary_color=post_data["secondary_color"],
+            tertiary_color=post_data["tertiary_color"],
+            text_color=post_data["text_color"],
+            text_font=post_data["text_font"],
+            logo_position=post_data["logo_position"],
+            post_order=post_data["order"],
+            scheduled_date=scheduled_date,
+            idea=post_data["idea"],
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+
+        saved_posts.append(post)
+        update_batch_progress(
+            batch,
+            70 + int((index + 1) / total_posts * 25),
+        )
+
+    return saved_posts
+
+
+def update_post_draft_prompts(batch, prompt_items):
+    posts_by_id = {
+        post.id: post
+        for post in batch.posts.filter(status=GenerationStatus.PENDING_REVIEW)
+    }
+
+    for item in prompt_items:
+        post = posts_by_id.get(item["id"])
+
+        if not post:
+            continue
+
+        post.image_prompt = item["image_prompt"]
+        post.save(update_fields=["image_prompt"])
+
+
+def mark_post_completed(post):
+    post.status = GenerationStatus.COMPLETED
+    post.error_message = ""
+    post.save(update_fields=["status", "error_message"])
+
+
 def mark_batch_completed(batch, strategy_summary):
     batch.strategy_summary = strategy_summary
     batch.status = GenerationStatus.COMPLETED
+    batch.progress = 100
+    batch.save()
+
+
+def mark_batch_pending_review(batch, strategy_summary):
+    batch.strategy_summary = strategy_summary
+    batch.status = GenerationStatus.PENDING_REVIEW
     batch.progress = 100
     batch.save()
 
