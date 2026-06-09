@@ -348,6 +348,22 @@ def _build_image_generation_prompt(prompt):
         Direcao visual:
         {prompt}
 
+        Prioridade visual:
+        - Siga com alta fidelidade o tema, o subtema e os detalhes concretos
+          descritos na direcao visual.
+        - Crie uma cena especifica, nao uma imagem generica de banco de imagens.
+        - A imagem deve ter sujeito principal claro, ambiente definido, acao ou
+          objeto focal, composicao intencional e clima visual coerente com o
+          objetivo do post.
+        - Evite repetir a formula visual padrao de retrato frontal, pessoa
+          sorrindo, fundo neutro e elementos graficos genericos, a menos que a
+          direcao visual peca isso explicitamente.
+        - Prefira detalhes visuais relevantes ao tema: objetos, contexto,
+          materiais, gestos, textura, luz, perspectiva e situacao de uso.
+        - Use variedade de enquadramento quando a direcao permitir: close-up,
+          plano medio, cena ampla, perspectiva superior, detalhe de maos,
+          ambiente em uso, bastidor ou composicao de objetos.
+
         Regras obrigatorias:
         - Nao coloque titulo, cabecalho, manchete, slogan principal ou chamada
           grande dentro da imagem.

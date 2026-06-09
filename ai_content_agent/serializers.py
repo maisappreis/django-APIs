@@ -46,6 +46,7 @@ class PostGenerationInputSerializer(serializers.Serializer):
     logo_position = serializers.ChoiceField(
         choices=LOGO_POSITION_CHOICES,
         required=False,
+        allow_blank=True,
         default=DEFAULT_LOGO_POSITION,
     )
     image_text_direction = serializers.CharField(

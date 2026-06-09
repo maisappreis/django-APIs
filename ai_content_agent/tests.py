@@ -249,7 +249,7 @@ class TextFontResolutionTestCase(SimpleTestCase):
 
         self.assertEqual(
             str(candidates[0]).replace("\\", "/"),
-            "/app/fonts/Montserrat-Bold.ttf",
+            "/app/fonts/Montserrat-Medium.ttf",
         )
 
 
@@ -269,6 +269,23 @@ class PostImageRenderInputSerializerTestCase(SimpleTestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertFalse(serializer.validated_data["has_text_image"])
+        self.assertEqual(serializer.validated_data["logo_position"], "")
+
+
+class PostGenerationInputSerializerTestCase(SimpleTestCase):
+    def test_accepts_blank_logo_position_to_generate_post_without_logo(self):
+        from .serializers import PostGenerationInputSerializer
+
+        serializer = PostGenerationInputSerializer(data={
+            "business_name": "Brand",
+            "niche": "Fitness",
+            "objective": "Attract leads",
+            "tone": "Friendly",
+            "theme": "Summer",
+            "logo_position": "",
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["logo_position"], "")
 
 
