@@ -10,6 +10,22 @@ from shutil import copyfile
 from uuid import uuid4
 
 
+IMAGE_FORMATS = {
+    "square": {
+        "size": "1024x1024",
+        "prompt_label": "quadrada",
+    },
+    "portrait": {
+        "size": "1024x1536",
+        "prompt_label": "vertical em formato retrato",
+    },
+    "landscape": {
+        "size": "1536x1024",
+        "prompt_label": "horizontal em formato paisagem",
+    },
+}
+
+
 POST_CONTENT_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -324,14 +340,22 @@ def _build_generated_image_data(relative_path):
     }
 
 
-def _generate_image_bytes(prompt):
+def _get_image_format_config(image_format):
+    return IMAGE_FORMATS.get(image_format, IMAGE_FORMATS["square"])
+
+
+def _generate_image_bytes(prompt, image_format="square"):
     client = get_openai_client()
-    image_prompt = _build_image_generation_prompt(prompt)
+    format_config = _get_image_format_config(image_format)
+    image_prompt = _build_image_generation_prompt(
+        prompt,
+        image_format=image_format,
+    )
 
     response = client.images.generate(
         model=settings.OPENAI_IMAGE_MODEL,
         prompt=image_prompt,
-        size="1024x1024",
+        size=format_config["size"],
         quality="medium",
         output_format="png",
     )
@@ -340,10 +364,12 @@ def _generate_image_bytes(prompt):
     return base64.b64decode(image_base64)
 
 
-def _build_image_generation_prompt(prompt):
+def _build_image_generation_prompt(prompt, image_format="square"):
+    format_config = _get_image_format_config(image_format)
+
     return f"""
-        Gere uma imagem publicitaria quadrada para rede social a partir da
-        direcao visual abaixo.
+        Gere uma imagem publicitaria {format_config["prompt_label"]} para rede
+        social a partir da direcao visual abaixo.
 
         Direcao visual:
         {prompt}
@@ -384,8 +410,8 @@ def _build_image_generation_prompt(prompt):
         """
 
 
-def generate_image_file(prompt):
-    image_bytes = _generate_image_bytes(prompt)
+def generate_image_file(prompt, image_format="square"):
+    image_bytes = _generate_image_bytes(prompt, image_format=image_format)
     relative_path = Path("generated_posts") / f"{uuid4()}.png"
     image_data = _build_generated_image_data(relative_path)
     absolute_path = Path(image_data["absolute_path"])
@@ -395,8 +421,8 @@ def generate_image_file(prompt):
     return image_data
 
 
-def generate_image_files(prompt):
-    image_bytes = _generate_image_bytes(prompt)
+def generate_image_files(prompt, image_format="square"):
+    image_bytes = _generate_image_bytes(prompt, image_format=image_format)
 
     image_id = uuid4()
     base_relative_path = Path("generated_posts") / f"base-{image_id}.png"

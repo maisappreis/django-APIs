@@ -45,6 +45,7 @@ def serialize_post_generation(post_generation):
         "text_color": post_generation.text_color,
         "text_font": post_generation.text_font,
         "logo_position": post_generation.logo_position,
+        "image_format": post_generation.image_format,
     }
 
 
@@ -52,6 +53,7 @@ def serialize_post_batch(batch):
     return {
         "batch_id": batch.id,
         "quantity": batch.quantity,
+        "image_format": batch.image_format,
         "strategy_summary": batch.strategy_summary,
         "posts": [
             serialize_post_generation(post)

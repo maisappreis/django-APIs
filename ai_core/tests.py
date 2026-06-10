@@ -58,3 +58,11 @@ class PromptQualityTestCase(SimpleTestCase):
         self.assertIn("nao uma imagem generica de banco de imagens", prompt)
         self.assertIn("Evite repetir a formula visual padrao", prompt)
         self.assertIn("detalhes visuais relevantes ao tema", prompt)
+
+    def test_image_generation_prompt_can_request_portrait_format(self):
+        prompt = _build_image_generation_prompt(
+            "Aluno amarrando tenis antes do treino matinal",
+            image_format="portrait",
+        )
+
+        self.assertIn("vertical em formato retrato", prompt)

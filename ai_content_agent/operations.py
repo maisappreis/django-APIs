@@ -218,6 +218,7 @@ def create_post_batch(user, brand, data):
         quantity=data["quantity"],
         use_templates=data["use_templates"],
         image_source=data.get("my_images_or_ai", "ai"),
+        image_format=data.get("image_format", "square"),
     )
 
 
@@ -323,6 +324,7 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             text_color=post_data["text_color"],
             text_font=post_data["text_font"],
             logo_position=post_data["logo_position"],
+            image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
             scheduled_date=scheduled_date,
             idea=post_data["idea"],
@@ -382,6 +384,7 @@ def create_post_drafts_from_generation_result(user, brand, batch, result):
             text_color=post_data["text_color"],
             text_font=post_data["text_font"],
             logo_position=post_data["logo_position"],
+            image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
             scheduled_date=scheduled_date,
             idea=post_data["idea"],

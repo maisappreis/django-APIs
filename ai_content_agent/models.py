@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from .defaults import (
+    DEFAULT_IMAGE_FORMAT,
     DEFAULT_LOGO_POSITION,
     DEFAULT_PRIMARY_COLOR,
     DEFAULT_SECONDARY_COLOR,
@@ -83,6 +84,7 @@ class PostBatch(models.Model):
     quantity = models.PositiveSmallIntegerField(default=1)
     use_templates = models.BooleanField(default=True)
     image_source = models.CharField(max_length=20, default="ai")
+    image_format = models.CharField(max_length=20, default=DEFAULT_IMAGE_FORMAT)
     strategy_summary = models.TextField(blank=True)
 
     status = models.CharField(
@@ -135,6 +137,7 @@ class Post(models.Model):
     text_color = models.CharField(max_length=7, default=DEFAULT_TEXT_COLOR)
     text_font = models.CharField(max_length=80, blank=True)
     logo_position = models.CharField(max_length=20, default=DEFAULT_LOGO_POSITION)
+    image_format = models.CharField(max_length=20, default=DEFAULT_IMAGE_FORMAT)
     post_order = models.PositiveSmallIntegerField(default=1)
     scheduled_date = models.DateField(null=True, blank=True)
     idea = models.JSONField(default=dict, blank=True)

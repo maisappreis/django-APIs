@@ -476,10 +476,12 @@ class PostGenerationInputSerializerTestCase(SimpleTestCase):
             "tone": "Friendly",
             "theme": "Summer",
             "logo_position": "",
+            "image_format": "portrait",
         })
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["logo_position"], "")
+        self.assertEqual(serializer.validated_data["image_format"], "portrait")
 
 
 class RerenderPostImageTestCase(TestCase):
@@ -564,6 +566,7 @@ class ApprovedPostImageRenderTestCase(TestCase):
             text_color="#FFFFFF",
             text_font="inter",
             logo_position="",
+            image_format="portrait",
             status=GenerationStatus.PENDING_REVIEW,
         )
         generate_post_image_files.return_value = {
@@ -581,7 +584,7 @@ class ApprovedPostImageRenderTestCase(TestCase):
 
         generate_post_image_files.assert_called_once_with({
             "image_prompt": "Reviewed prompt",
-        })
+        }, image_format="portrait")
         render_image_file.assert_called_once()
         self.assertEqual(rendered_post.base_image_url, "/media/base.png")
         self.assertEqual(rendered_post.image_url, "/media/final.png")

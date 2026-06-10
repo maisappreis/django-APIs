@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .defaults import (
+    DEFAULT_IMAGE_FORMAT,
     DEFAULT_LOGO_POSITION,
     DEFAULT_PRIMARY_COLOR,
     DEFAULT_QUANTITY,
@@ -34,6 +35,12 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("bottom_right", "Bottom right"),
         ("top_center", "Top center"),
         ("bottom_center", "Bottom center"),
+    ]
+
+    IMAGE_FORMAT_CHOICES = [
+        ("square", "Square"),
+        ("portrait", "Portrait"),
+        ("landscape", "Landscape"),
     ]
 
     brand_id = serializers.IntegerField(required=False, allow_null=True)
@@ -70,6 +77,11 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ],
         required=False,
         default="ai",
+    )
+    image_format = serializers.ChoiceField(
+        choices=IMAGE_FORMAT_CHOICES,
+        required=False,
+        default=DEFAULT_IMAGE_FORMAT,
     )
     primary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
@@ -133,6 +145,7 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     text_color = serializers.CharField(required=False)
     text_font = serializers.CharField(required=False, allow_blank=True)
     logo_position = serializers.CharField(required=False)
+    image_format = serializers.CharField(required=False)
 
 
 class BrandInputSerializer(serializers.Serializer):
@@ -318,5 +331,6 @@ class PostPromptApprovalSerializer(serializers.Serializer):
 class PostBatchOutputSerializer(serializers.Serializer):
     batch_id = serializers.IntegerField()
     quantity = serializers.IntegerField()
+    image_format = serializers.CharField(required=False)
     strategy_summary = serializers.CharField(allow_blank=True)
     posts = PostGenerationOutputSerializer(many=True)

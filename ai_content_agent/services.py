@@ -48,11 +48,14 @@ def _build_generated_image_data(relative_path):
     }
 
 
-def generate_post_image_files(result):
+def generate_post_image_files(result, image_format="square"):
     if getattr(settings, "CONTENT_AGENT_USE_MOCK_IMAGES", True):
         return mock_generate_image_files()
 
-    return generate_image_files(result["image_prompt"])
+    return generate_image_files(
+        result["image_prompt"],
+        image_format=image_format,
+    )
 
 
 def save_uploaded_post_image_file(uploaded_image):
@@ -96,7 +99,10 @@ def get_post_image_files(data, result, index):
     if data.get("my_images_or_ai") == "user":
         return save_uploaded_post_image_file(data["images"][index - 1])
 
-    return generate_post_image_files(result)
+    return generate_post_image_files(
+        result,
+        image_format=data.get("image_format", "square"),
+    )
 
 
 def analyze_brand_visual_identity(brand):
@@ -308,6 +314,7 @@ def render_post_content(data, idea, result, index):
         "text_color": data["text_color"],
         "text_font": data.get("text_font", ""),
         "logo_position": logo_position,
+        "image_format": data.get("image_format", "square"),
         "caption": result["caption"],
         "hashtags": result["hashtags"],
         "image_prompt": result["image_prompt"],
@@ -337,6 +344,7 @@ def build_post_draft_content(data, idea, result, index):
         "text_color": data["text_color"],
         "text_font": data.get("text_font", ""),
         "logo_position": logo_position,
+        "image_format": data.get("image_format", "square"),
         "caption": result["caption"],
         "hashtags": result["hashtags"],
         "image_prompt": result["image_prompt"],
@@ -399,7 +407,7 @@ def get_post_logo_file(post):
 def render_approved_post_image(post):
     image_data = generate_post_image_files({
         "image_prompt": post.image_prompt,
-    })
+    }, image_format=post.image_format)
     logo_position = get_logo_position_for_template(
         template_name=post.template or "none",
         logo_position=post.logo_position,
