@@ -67,7 +67,7 @@ def apply_template_text_overlay(
             else []
         )
         line_gap = max(6, int(height * 0.012))
-        section_gap = max(10, int(height * 0.02))
+        section_gap = max(15, int(height * 0.03))
         block = _measure_text_block(
             draw=draw,
             title_lines=title_lines,

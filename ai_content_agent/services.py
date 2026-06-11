@@ -18,6 +18,7 @@ from ai_content_agent.templates.text_overlay import (
     TEXT_OVERLAY_PRESETS,
     apply_template_text_overlay,
 )
+from ai_content_agent.defaults import DEFAULT_TEXT_FONT
 
 from ai_core.prompts import build_post_plan_prompt, build_posts_from_plan_prompt
 from ai_content_agent.mocks import (
@@ -276,6 +277,8 @@ def render_image_file(
     subtitle_font="",
 ):
     logo_file = logo_file if logo_position else None
+    title_font = title_font or DEFAULT_TEXT_FONT
+    subtitle_font = subtitle_font or DEFAULT_TEXT_FONT
     combined_text = "\n".join(
         text for text in (image_title, image_subtitle) if text
     )
@@ -339,11 +342,11 @@ def get_final_image_subtitle(data, result):
 
 
 def get_title_font(data):
-    return data.get("title_font", "")
+    return data.get("title_font", "") or DEFAULT_TEXT_FONT
 
 
 def get_subtitle_font(data):
-    return data.get("subtitle_font", "")
+    return data.get("subtitle_font", "") or DEFAULT_TEXT_FONT
 
 
 def render_post_content(data, idea, result, index):
@@ -550,8 +553,10 @@ def rerender_post_image(post, visual_settings):
     template_name = visual_settings["template"]
     image_title = visual_settings.get("image_title", "")
     image_subtitle = visual_settings.get("image_subtitle", "")
-    title_font = visual_settings.get("title_font", "")
-    subtitle_font = visual_settings.get("subtitle_font", "")
+    title_font = visual_settings.get("title_font", "") or DEFAULT_TEXT_FONT
+    subtitle_font = (
+        visual_settings.get("subtitle_font", "") or DEFAULT_TEXT_FONT
+    )
     logo_position = get_logo_position_for_template(
         template_name=template_name,
         logo_position=visual_settings["logo_position"],

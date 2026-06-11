@@ -6,11 +6,13 @@ from django.db.models import Sum
 from django.utils import timezone
 import httpx
 
+from .defaults import DEFAULT_TEXT_FONT
 from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
 from .presenters import get_download_filename
 from .rules import get_ai_image_monthly_limit, get_current_month_range
 from .rules import can_capture_visual_identity, get_max_brands
 from .storage import (
+    delete_public_file,
     is_firebase_storage_enabled,
     upload_brand_reference_file,
     upload_generated_post_file,
@@ -143,6 +145,7 @@ def get_future_scheduled_posts(user):
         Post.objects.filter(
             user=user,
             scheduled_date__gte=start_date,
+            status=GenerationStatus.COMPLETED,
         )
         .exclude(scheduled_date__isnull=True)
         .order_by("scheduled_date", "post_order", "created_at")
@@ -157,6 +160,7 @@ def get_available_post_dates(user, quantity):
         Post.objects.filter(
             user=user,
             scheduled_date__gte=current_date,
+            status=GenerationStatus.COMPLETED,
         )
         .exclude(scheduled_date__isnull=True)
         .values_list("scheduled_date", flat=True)
@@ -327,8 +331,10 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             secondary_color=post_data["secondary_color"],
             tertiary_color=post_data["tertiary_color"],
             text_color=post_data["text_color"],
-            title_font=post_data.get("title_font", ""),
-            subtitle_font=post_data.get("subtitle_font", ""),
+            title_font=post_data.get("title_font", "") or DEFAULT_TEXT_FONT,
+            subtitle_font=(
+                post_data.get("subtitle_font", "") or DEFAULT_TEXT_FONT
+            ),
             logo_position=post_data["logo_position"],
             image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
@@ -393,8 +399,10 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
             secondary_color=post_data["secondary_color"],
             tertiary_color=post_data["tertiary_color"],
             text_color=post_data["text_color"],
-            title_font=post_data.get("title_font", ""),
-            subtitle_font=post_data.get("subtitle_font", ""),
+            title_font=post_data.get("title_font", "") or DEFAULT_TEXT_FONT,
+            subtitle_font=(
+                post_data.get("subtitle_font", "") or DEFAULT_TEXT_FONT
+            ),
             logo_position=post_data["logo_position"],
             image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
@@ -485,8 +493,8 @@ def build_post_visual_settings(post_generation, validated_data):
         "secondary_color": post_generation.secondary_color,
         "tertiary_color": post_generation.tertiary_color,
         "text_color": post_generation.text_color,
-        "title_font": post_generation.title_font,
-        "subtitle_font": post_generation.subtitle_font,
+        "title_font": post_generation.title_font or DEFAULT_TEXT_FONT,
+        "subtitle_font": post_generation.subtitle_font or DEFAULT_TEXT_FONT,
         "logo_position": post_generation.logo_position,
         **validated_data,
     }
@@ -523,3 +531,25 @@ def prepare_post_download(post_generation):
             "image/png",
         ),
     }
+
+
+def delete_post_generation(post_generation):
+    image_urls = {
+        post_generation.base_image_url,
+        post_generation.image_url,
+    }
+    storage_errors = []
+
+    if is_firebase_storage_enabled():
+        for image_url in image_urls:
+            if not image_url:
+                continue
+
+            try:
+                delete_public_file(image_url)
+            except Exception as error:
+                storage_errors.append(error)
+
+    post_generation.delete()
+
+    return storage_errors

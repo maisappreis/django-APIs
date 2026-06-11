@@ -47,7 +47,7 @@ def draw_title_subtitle_block(
         else []
     )
     line_gap = max(6, int(height * 0.012))
-    section_gap = max(10, int(height * 0.018))
+    section_gap = max(15, int(height * 0.03))
     block = _measure_text_block(
         draw=draw,
         title_lines=title_lines,

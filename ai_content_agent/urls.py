@@ -6,6 +6,7 @@ from .views import (
     ApprovePostPromptsAPIView,
     CalendarPostsAPIView,
     ContentAgentUsageAPIView,
+    DeletePostAPIView,
     DownloadPostImageAPIView,
     GeneratePostContentAPIView,
     PendingReviewPostBatchAPIView,
@@ -58,6 +59,11 @@ urlpatterns = [
         "posts/<int:post_id>/render/",
         RerenderPostImageAPIView.as_view(),
         name="rerender-post-image",
+    ),
+    path(
+        "posts/<int:post_id>/",
+        DeletePostAPIView.as_view(),
+        name="delete-post",
     ),
     path(
         "posts/<int:post_id>/download/",

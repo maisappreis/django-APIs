@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
 from django.conf import settings
 
@@ -87,3 +88,39 @@ def upload_brand_reference_file(local_path, user_id, brand_id, index):
         object_path=object_path,
         content_type="image/png",
     )
+
+
+def get_object_path_from_public_url(public_url):
+    if not public_url:
+        return ""
+
+    parsed_url = urlparse(public_url)
+    parsed_path = unquote(parsed_url.path).lstrip("/")
+    public_base_url = getattr(settings, "FIREBASE_PUBLIC_BASE_URL", "").rstrip("/")
+
+    if public_base_url and public_url.startswith(f"{public_base_url}/"):
+        return unquote(public_url.removeprefix(f"{public_base_url}/"))
+
+    bucket_name = getattr(settings, "FIREBASE_STORAGE_BUCKET", "")
+    storage_prefix = f"{bucket_name}/"
+
+    if parsed_path.startswith(storage_prefix):
+        return parsed_path.removeprefix(storage_prefix)
+
+    return parsed_path
+
+
+def delete_public_file(public_url):
+    if not is_firebase_storage_enabled() or not public_url:
+        return False
+
+    object_path = get_object_path_from_public_url(public_url)
+
+    if not object_path:
+        return False
+
+    bucket = get_firebase_bucket()
+    blob = bucket.blob(object_path)
+    blob.delete()
+
+    return True

@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from datetime import date
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -11,7 +12,11 @@ from rest_framework.test import APIClient, APITestCase
 from accounts.models import Plan, Subscription
 
 from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
-from .operations import create_post_drafts_from_generation_result
+from .operations import (
+    create_post_drafts_from_generation_result,
+    delete_post_generation,
+    get_available_post_dates,
+)
 from .serializers import PostImageRenderInputSerializer
 from .services import (
     generate_post_batch_draft_content,
@@ -20,6 +25,9 @@ from .services import (
     rerender_post_image,
 )
 from .utils import _get_font_key, _get_font_candidate_paths
+
+
+TODAY = "2026-06-11"
 
 
 def get_test_image(name="logo.gif"):
@@ -510,6 +518,66 @@ class PostDraftOperationTestCase(TestCase):
         self.assertEqual(posts[0].image_url, "")
 
 
+class PostSchedulingTestCase(TestCase):
+    @patch("ai_content_agent.operations.timezone.localdate")
+    def test_pending_review_posts_do_not_block_available_dates(
+        self,
+        localdate,
+    ):
+        localdate.return_value = date(2026, 6, 11)
+        user = User.objects.create_user(
+            username="schedule-owner",
+            password="password",
+        )
+        Post.objects.create(
+            user=user,
+            scheduled_date=date(2026, 6, 11),
+            status=GenerationStatus.COMPLETED,
+        )
+        Post.objects.create(
+            user=user,
+            scheduled_date=date(2026, 6, 12),
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        Post.objects.create(
+            user=user,
+            scheduled_date=date(2026, 6, 13),
+            status=GenerationStatus.PENDING,
+        )
+
+        self.assertEqual(
+            get_available_post_dates(user, 3),
+            [
+                date(2026, 6, 12),
+                date(2026, 6, 13),
+                date(2026, 6, 14),
+            ],
+        )
+
+    @patch("ai_content_agent.operations.timezone.localdate")
+    def test_deleted_completed_post_date_becomes_available(self, localdate):
+        localdate.return_value = date(2026, 6, 11)
+        user = User.objects.create_user(
+            username="delete-schedule-owner",
+            password="password",
+        )
+        post = Post.objects.create(
+            user=user,
+            scheduled_date=date(2026, 6, 11),
+            status=GenerationStatus.COMPLETED,
+        )
+
+        delete_post_generation(post)
+
+        self.assertEqual(
+            get_available_post_dates(user, 2),
+            [
+                date(2026, 6, 11),
+                date(2026, 6, 12),
+            ],
+        )
+
+
 class TextFontResolutionTestCase(SimpleTestCase):
     def test_resolves_frontend_font_values_to_backend_keys(self):
         self.assertEqual(_get_font_key("montserrat"), "montserrat")
@@ -976,5 +1044,65 @@ class GeneratePostContentAPITestCase(APITestCase):
             response.data["batch"]["posts"][0]["image_prompt"],
             "Prompt to review",
         )
+
+
+class DeletePostAPITestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="delete-owner",
+            password="password",
+        )
+        self.other_user = User.objects.create_user(
+            username="delete-other",
+            password="password",
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_delete_post_removes_only_users_post(self):
+        post = Post.objects.create(
+            user=self.user,
+            caption="Post to delete",
+            image_url="/media/final.png",
+        )
+
+        response = self.client.delete(
+            reverse("delete-post", kwargs={"post_id": post.id})
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Post.objects.filter(id=post.id).exists())
+
+    def test_delete_post_does_not_remove_other_users_post(self):
+        post = Post.objects.create(
+            user=self.other_user,
+            caption="Other user post",
+            image_url="/media/final.png",
+        )
+
+        response = self.client.delete(
+            reverse("delete-post", kwargs={"post_id": post.id})
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Post.objects.filter(id=post.id).exists())
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.operations.delete_public_file")
+    def test_delete_post_removes_firebase_images(self, delete_public_file):
+        post = Post.objects.create(
+            user=self.user,
+            caption="Firebase post",
+            base_image_url="https://storage.googleapis.com/bucket/users/1/posts/1/base.png",
+            image_url="https://storage.googleapis.com/bucket/users/1/posts/1/final.png",
+        )
+
+        response = self.client.delete(
+            reverse("delete-post", kwargs={"post_id": post.id})
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Post.objects.filter(id=post.id).exists())
+        self.assertEqual(delete_public_file.call_count, 2)
 
 

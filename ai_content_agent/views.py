@@ -15,6 +15,7 @@ from .operations import (
     apply_brand_defaults,
     build_post_visual_settings,
     create_post_batch,
+    delete_post_generation,
     ensure_brand_quota,
     ensure_ai_image_quota,
     ensure_visual_identity_capture_allowed,
@@ -436,6 +437,19 @@ class RerenderPostImageAPIView(APIView):
             )
 
         return Response(serialize_post_generation(rerendered_post))
+
+
+class DeletePostAPIView(APIView):
+    def delete(self, request, post_id):
+        post_generation = get_object_or_404(
+            Post,
+            id=post_id,
+            user=request.user,
+        )
+
+        delete_post_generation(post_generation)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DownloadPostImageAPIView(APIView):
