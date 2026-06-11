@@ -20,6 +20,23 @@ from .services import (
 )
 
 
+def generate_post_review_batch(user, brand, batch, data):
+    update_batch_progress(batch, 10)
+    result = generate_post_batch_draft_content(data)
+    update_batch_progress(batch, 70)
+
+    create_post_drafts_from_generation_result(
+        user=user,
+        brand=brand,
+        batch=batch,
+        data=data,
+        result=result,
+    )
+
+    mark_batch_pending_review(batch, result["strategy_summary"])
+    return batch
+
+
 def run_post_generation_job(user_id, brand_id, batch_id, data):
     close_old_connections()
 
@@ -28,19 +45,7 @@ def run_post_generation_job(user_id, brand_id, batch_id, data):
         batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
         brand = get_object_or_404(get_user_brands(user), id=brand_id)
 
-        update_batch_progress(batch, 10)
-        result = generate_post_batch_draft_content(data)
-        update_batch_progress(batch, 70)
-
-        create_post_drafts_from_generation_result(
-            user=user,
-            brand=brand,
-            batch=batch,
-            data=data,
-            result=result,
-        )
-
-        mark_batch_pending_review(batch, result["strategy_summary"])
+        generate_post_review_batch(user, brand, batch, data)
     except Exception as error:
         try:
             batch = PostBatch.objects.get(id=batch_id, user_id=user_id)

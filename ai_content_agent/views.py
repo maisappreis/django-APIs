@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 import httpx
 from threading import Thread
 
-from .jobs import run_post_generation_job, run_post_image_generation_job
+from .jobs import generate_post_review_batch, run_post_image_generation_job
 from .models import Post, PostBatch
 from .operations import (
     apply_brand_defaults,
@@ -26,12 +26,12 @@ from .operations import (
     get_or_create_brand,
     get_user_brands,
     mark_batch_pending,
+    mark_batch_failed,
     prepare_post_download,
     save_brand_reference_images,
     sync_brand_logo,
     update_post_draft_prompts,
     update_brand_manual_identity,
-    update_batch_progress,
 )
 from .presenters import (
     serialize_brand,
@@ -292,22 +292,35 @@ class GeneratePostContentAPIView(APIView):
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)
 
-        update_batch_progress(batch, 5)
+        try:
+            batch = generate_post_review_batch(
+                user=request.user,
+                brand=brand,
+                batch=batch,
+                data=data,
+            )
+        except Exception as error:
+            mark_batch_failed(batch, error)
+            response_data = {
+                "detail": "Erro ao gerar conteudo para revisao.",
+            }
 
-        Thread(
-            target=run_post_generation_job,
-            args=(request.user.id, brand.id, batch.id, data),
-            daemon=True,
-        ).start()
+            if settings.DEBUG:
+                response_data["error"] = str(error)
+
+            return Response(
+                response_data,
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         return Response(
             {
                 "job_id": batch.id,
-                "batch_id": batch.id,
                 "status": batch.status,
                 "progress": batch.progress,
+                **serialize_post_batch(batch),
             },
-            status=status.HTTP_202_ACCEPTED,
+            status=status.HTTP_201_CREATED,
         )
 
 

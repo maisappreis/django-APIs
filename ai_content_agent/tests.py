@@ -951,6 +951,42 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertEqual(response.status_code, 403)
         self.assertIn("Limite mensal", response.data["detail"])
 
+    @override_settings(CONTENT_AGENT_USE_MOCK_CONTENT=True)
+    @patch("ai_content_agent.views.Thread")
+    def test_generate_posts_returns_review_batch_without_starting_job(
+        self,
+        thread_class,
+    ):
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "1",
+                "my_images_or_ai": "ai",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "bottom_right",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], GenerationStatus.PENDING_REVIEW)
+        self.assertEqual(response.data["progress"], 100)
+        self.assertEqual(response.data["quantity"], 1)
+        self.assertEqual(len(response.data["posts"]), 1)
+        self.assertTrue(response.data["posts"][0]["image_prompt"])
+        thread_class.assert_not_called()
+
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
     @patch("ai_content_agent.views.Thread")
     def test_approve_post_prompts_updates_prompts_and_starts_image_job(
