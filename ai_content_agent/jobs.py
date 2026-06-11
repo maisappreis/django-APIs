@@ -36,6 +36,7 @@ def run_post_generation_job(user_id, brand_id, batch_id, data):
             user=user,
             brand=brand,
             batch=batch,
+            data=data,
             result=result,
         )
 
@@ -72,7 +73,10 @@ def run_post_image_generation_job(user_id, batch_id):
             if batch.image_source == "ai":
                 ensure_ai_image_quota(user, 1)
 
-            render_approved_post_image(post)
+            render_approved_post_image(
+                post,
+                use_existing_base=batch.image_source == "user",
+            )
             mark_post_completed(post)
 
             if batch.image_source == "ai":

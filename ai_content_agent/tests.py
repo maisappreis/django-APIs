@@ -427,6 +427,73 @@ class PostDraftOperationTestCase(TestCase):
         self.assertEqual(posts[0].image_url, "")
         self.assertEqual(posts[0].image_prompt, "Prompt to review")
 
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    def test_create_post_drafts_stores_uploaded_base_image(self):
+        user = User.objects.create_user(
+            username="draft-image-owner",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Draft Brand",
+            niche="Fitness",
+        )
+        batch = PostBatch.objects.create(
+            user=user,
+            brand=brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Summer",
+            quantity=1,
+            image_source="user",
+        )
+        result = {
+            "posts": [
+                {
+                    "order": 1,
+                    "idea": {"title": "Idea"},
+                    "template": "none",
+                    "primary_color": "#111111",
+                    "secondary_color": "#222222",
+                    "tertiary_color": "#333333",
+                    "text_color": "#FFFFFF",
+                    "text_font": "inter",
+                    "logo_position": "",
+                    "caption": "Caption",
+                    "hashtags": ["#tag"],
+                    "image_prompt": "Prompt to review",
+                    "image_text": "TEXT",
+                }
+            ],
+        }
+
+        posts = create_post_drafts_from_generation_result(
+            user=user,
+            brand=brand,
+            batch=batch,
+            result=result,
+            data={
+                "image_files": [
+                    {
+                        "base": {
+                            "image_url": "/media/generated_posts/uploads/user-base.png",
+                            "absolute_path": "/tmp/user-base.png",
+                        },
+                        "final": {
+                            "image_url": "/media/generated_posts/final.png",
+                            "absolute_path": "/tmp/final.png",
+                        },
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(
+            posts[0].base_image_url,
+            "/media/generated_posts/uploads/user-base.png",
+        )
+        self.assertEqual(posts[0].image_url, "")
+
 
 class TextFontResolutionTestCase(SimpleTestCase):
     def test_resolves_frontend_font_values_to_backend_keys(self):
@@ -588,6 +655,65 @@ class ApprovedPostImageRenderTestCase(TestCase):
         render_image_file.assert_called_once()
         self.assertEqual(rendered_post.base_image_url, "/media/base.png")
         self.assertEqual(rendered_post.image_url, "/media/final.png")
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.create_final_image_from_base")
+    @patch("ai_content_agent.services.generate_post_image_files")
+    def test_render_approved_post_image_uses_uploaded_base_without_generation(
+        self,
+        generate_post_image_files,
+        create_final_image_from_base,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="uploaded-image-owner",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Image Brand",
+            niche="Fitness",
+        )
+        post = Post.objects.create(
+            brand=brand,
+            user=user,
+            base_image_url="/media/generated_posts/uploads/user-base.png",
+            image_prompt="Reviewed prompt",
+            image_text="TEXT",
+            template="none",
+            primary_color="#111111",
+            secondary_color="#222222",
+            tertiary_color="#333333",
+            text_color="#FFFFFF",
+            text_font="inter",
+            logo_position="",
+            image_format="portrait",
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        create_final_image_from_base.return_value = {
+            "absolute_path": "/tmp/final.png",
+            "image_url": "/media/generated_posts/final.png",
+        }
+
+        rendered_post = render_approved_post_image(
+            post,
+            use_existing_base=True,
+        )
+
+        generate_post_image_files.assert_not_called()
+        create_final_image_from_base.assert_called_once_with(
+            "/media/generated_posts/uploads/user-base.png",
+        )
+        render_image_file.assert_called_once()
+        self.assertEqual(
+            rendered_post.base_image_url,
+            "/media/generated_posts/uploads/user-base.png",
+        )
+        self.assertEqual(
+            rendered_post.image_url,
+            "/media/generated_posts/final.png",
+        )
 
 
 class PostUserImagesTestCase(SimpleTestCase):

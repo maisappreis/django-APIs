@@ -48,6 +48,7 @@ from .serializers import (
 )
 from .services import (
     analyze_brand_visual_identity,
+    prepare_uploaded_post_image_files,
     rerender_post_image,
 )
 
@@ -282,6 +283,10 @@ class GeneratePostContentAPIView(APIView):
                     {"detail": str(error)},
                     status=status.HTTP_403_FORBIDDEN,
                 )
+        else:
+            data["image_files"] = prepare_uploaded_post_image_files(
+                data["images"]
+            )
 
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)

@@ -37,6 +37,8 @@ def serialize_post_generation(post_generation):
         "image_prompt": post_generation.image_prompt,
         "base_image_url": post_generation.base_image_url,
         "image_text": post_generation.image_text,
+        "image_title": post_generation.image_title,
+        "image_subtitle": post_generation.image_subtitle,
         "image_url": post_generation.image_url,
         "template": post_generation.template,
         "primary_color": post_generation.primary_color,
@@ -44,6 +46,8 @@ def serialize_post_generation(post_generation):
         "tertiary_color": post_generation.tertiary_color,
         "text_color": post_generation.text_color,
         "text_font": post_generation.text_font,
+        "title_font": post_generation.title_font,
+        "subtitle_font": post_generation.subtitle_font,
         "logo_position": post_generation.logo_position,
         "image_format": post_generation.image_format,
     }

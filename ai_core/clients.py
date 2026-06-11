@@ -47,8 +47,23 @@ POST_CONTENT_SCHEMA = {
             "type": "string",
             "description": "Texto curto para ser aplicado sobre a imagem do post.",
         },
+        "image_title": {
+            "type": "string",
+            "description": "Titulo curto para aparecer em destaque sobre a imagem.",
+        },
+        "image_subtitle": {
+            "type": "string",
+            "description": "Subtitulo curto para aparecer abaixo do titulo.",
+        },
     },
-    "required": ["caption", "hashtags", "image_prompt", "image_text"],
+    "required": [
+        "caption",
+        "hashtags",
+        "image_prompt",
+        "image_text",
+        "image_title",
+        "image_subtitle",
+    ],
 }
 
 
@@ -135,6 +150,14 @@ POST_BATCH_CONTENT_ITEM_SCHEMA = {
             "type": "string",
             "description": "Texto curto para ser aplicado sobre a imagem do post.",
         },
+        "image_title": {
+            "type": "string",
+            "description": "Titulo curto para aparecer em destaque sobre a imagem.",
+        },
+        "image_subtitle": {
+            "type": "string",
+            "description": "Subtitulo curto para aparecer abaixo do titulo.",
+        },
     },
     "required": [
         "order",
@@ -142,6 +165,8 @@ POST_BATCH_CONTENT_ITEM_SCHEMA = {
         "hashtags",
         "image_prompt",
         "image_text",
+        "image_title",
+        "image_subtitle",
     ],
 }
 

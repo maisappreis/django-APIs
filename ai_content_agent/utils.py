@@ -201,6 +201,11 @@ def _get_logo_coordinates(base_image, logo_image, position):
 
 def _get_center_text_font(base_width, text_font=None):
     font_size = int(base_width * TEXT_FONT_SIZE_RATIO)
+
+    return _get_text_font(font_size, text_font)
+
+
+def _get_text_font(font_size, text_font=None):
     font_key = _get_font_key(text_font)
 
     for font_path in _get_font_candidate_paths(font_key):

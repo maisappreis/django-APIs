@@ -315,6 +315,8 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             hashtags=post_data["hashtags"],
             image_prompt=post_data["image_prompt"],
             image_text=post_data["image_text"],
+            image_title=post_data.get("image_title", post_data["image_text"]),
+            image_subtitle=post_data.get("image_subtitle", ""),
             base_image_url=post_data["base_image_url"],
             image_url=post_data["image_url"],
             template=post_data["template"],
@@ -323,6 +325,8 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             tertiary_color=post_data["tertiary_color"],
             text_color=post_data["text_color"],
             text_font=post_data["text_font"],
+            title_font=post_data.get("title_font", post_data["text_font"]),
+            subtitle_font=post_data.get("subtitle_font", post_data["text_font"]),
             logo_position=post_data["logo_position"],
             image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
@@ -360,13 +364,15 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
     return saved_posts
 
 
-def create_post_drafts_from_generation_result(user, brand, batch, result):
+def create_post_drafts_from_generation_result(user, brand, batch, result, data=None):
     saved_posts = []
     available_dates = get_available_post_dates(user, len(result["posts"]))
     total_posts = len(result["posts"])
+    image_files = (data or {}).get("image_files") or []
 
     for index, post_data in enumerate(result["posts"]):
         scheduled_date = available_dates[index]
+        image_data = image_files[index] if index < len(image_files) else None
         post = Post.objects.create(
             batch=batch,
             brand=brand,
@@ -375,7 +381,11 @@ def create_post_drafts_from_generation_result(user, brand, batch, result):
             hashtags=post_data["hashtags"],
             image_prompt=post_data["image_prompt"],
             image_text=post_data["image_text"],
-            base_image_url="",
+            image_title=post_data.get("image_title", post_data["image_text"]),
+            image_subtitle=post_data.get("image_subtitle", ""),
+            base_image_url=(
+                image_data["base"]["image_url"] if image_data else ""
+            ),
             image_url="",
             template=post_data["template"],
             primary_color=post_data["primary_color"],
@@ -383,6 +393,8 @@ def create_post_drafts_from_generation_result(user, brand, batch, result):
             tertiary_color=post_data["tertiary_color"],
             text_color=post_data["text_color"],
             text_font=post_data["text_font"],
+            title_font=post_data.get("title_font", post_data["text_font"]),
+            subtitle_font=post_data.get("subtitle_font", post_data["text_font"]),
             logo_position=post_data["logo_position"],
             image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
@@ -390,6 +402,15 @@ def create_post_drafts_from_generation_result(user, brand, batch, result):
             idea=post_data["idea"],
             status=GenerationStatus.PENDING_REVIEW,
         )
+
+        if image_data and is_firebase_storage_enabled():
+            post.base_image_url = upload_generated_post_file(
+                local_path=image_data["base"]["absolute_path"],
+                user_id=user.id,
+                post_id=post.id,
+                kind="base",
+            )
+            post.save(update_fields=["base_image_url"])
 
         saved_posts.append(post)
         update_batch_progress(
@@ -447,18 +468,32 @@ def build_post_visual_settings(post_generation, validated_data):
         "image_text",
         post_generation.image_text,
     )
+    image_title = validated_data.pop(
+        "image_title",
+        post_generation.image_title or image_text,
+    )
+    image_subtitle = validated_data.pop(
+        "image_subtitle",
+        post_generation.image_subtitle,
+    )
 
     if validated_data.pop("has_text_image", True) is False:
         image_text = ""
+        image_title = ""
+        image_subtitle = ""
 
     return {
         "image_text": image_text,
+        "image_title": image_title,
+        "image_subtitle": image_subtitle,
         "template": post_generation.template or "none",
         "primary_color": post_generation.primary_color,
         "secondary_color": post_generation.secondary_color,
         "tertiary_color": post_generation.tertiary_color,
         "text_color": post_generation.text_color,
         "text_font": post_generation.text_font,
+        "title_font": post_generation.title_font or post_generation.text_font,
+        "subtitle_font": post_generation.subtitle_font or post_generation.text_font,
         "logo_position": post_generation.logo_position,
         **validated_data,
     }

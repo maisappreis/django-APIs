@@ -89,6 +89,8 @@ def mock_generate_batch_content(data, ideas):
                     f"tema {idea['theme']}, estilo moderno e profissional."
                 ),
                 "image_text": _mock_image_text(index),
+                "image_title": _mock_image_text(index),
+                "image_subtitle": f"Para {data['niche']} crescer com clareza",
             }
         )
 

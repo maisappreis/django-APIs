@@ -74,7 +74,9 @@ def build_post_from_idea_prompt(data, idea, index, total):
         - uma legenda pronta para publicacao;
         - uma lista de hashtags relevantes;
         - um prompt visual para geracao de imagem;
-        - um texto curto para aparecer sobre a imagem.
+        - um texto curto para aparecer sobre a imagem;
+        - um titulo curto para aparecer em destaque sobre a imagem;
+        - um subtitulo curto para aparecer abaixo do titulo.
 
         Regras:
         - Responda em portugues do Brasil.
@@ -99,6 +101,9 @@ def build_post_from_idea_prompt(data, idea, index, total):
         - O image_text deve ter tom de anuncio.
         - O image_text deve usar modo imperativo quando fizer sentido.
         - O image_text nao deve ter hashtags, emojis nem aspas.
+        - O image_title deve ter no maximo 5 palavras.
+        - O image_subtitle deve ter no maximo 10 palavras.
+        - O image_title e o image_subtitle nao devem ter hashtags, emojis nem aspas.
 
         Direcao opcional de texto para imagem: {image_text_direction}
         """
@@ -155,7 +160,9 @@ def build_posts_from_plan_prompt(data, ideas):
         - uma legenda pronta para publicacao;
         - uma lista de hashtags relevantes;
         - um prompt visual para geracao de imagem;
-        - um texto curto para aparecer sobre a imagem.
+        - um texto curto para aparecer sobre a imagem;
+        - um titulo curto para aparecer em destaque sobre a imagem;
+        - um subtitulo curto para aparecer abaixo do titulo.
 
         Regras:
         - Responda em portugues do Brasil.
@@ -187,6 +194,9 @@ def build_posts_from_plan_prompt(data, ideas):
         - O image_text deve ter tom de anuncio.
         - O image_text deve usar modo imperativo quando fizer sentido.
         - O image_text nao deve ter hashtags, emojis nem aspas.
+        - O image_title deve ter no maximo 5 palavras.
+        - O image_subtitle deve ter no maximo 10 palavras.
+        - O image_title e o image_subtitle nao devem ter hashtags, emojis nem aspas.
 
         Direcao opcional de texto para imagem: {image_text_direction}
         """
@@ -225,4 +235,9 @@ def build_post_prompt(data):
         - sem emojis;
         - sem aspas;
         - deve funcionar como chamada visual curta.
+
+        Gere tambem image_title e image_subtitle:
+        - image_title com no maximo 5 palavras;
+        - image_subtitle com no maximo 10 palavras;
+        - ambos sem hashtags, emojis nem aspas.
         """

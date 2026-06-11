@@ -26,6 +26,20 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("vertical_rectangle", "Vertical rectangle"),
         ("stripes", "Stripes"),
         ("layer", "Layer"),
+        ("text_center", "Text center"),
+        ("text_center_box", "Text center with box"),
+        ("text_top_center", "Text top center"),
+        ("text_top_center_box", "Text top center with box"),
+        ("text_bottom_center", "Text bottom center"),
+        ("text_bottom_center_box", "Text bottom center with box"),
+        ("text_top_left", "Text top left"),
+        ("text_top_left_box", "Text top left with box"),
+        ("text_bottom_left", "Text bottom left"),
+        ("text_bottom_left_box", "Text bottom left with box"),
+        ("text_top_right", "Text top right"),
+        ("text_top_right_box", "Text top right with box"),
+        ("text_bottom_right", "Text bottom right"),
+        ("text_bottom_right_box", "Text bottom right with box"),
     ]
 
     LOGO_POSITION_CHOICES = [
@@ -70,6 +84,16 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    image_title = serializers.CharField(
+        max_length=120,
+        required=False,
+        allow_blank=True,
+    )
+    image_subtitle = serializers.CharField(
+        max_length=180,
+        required=False,
+        allow_blank=True,
+    )
     my_images_or_ai = serializers.ChoiceField(
         choices=[
             ("ai", "AI"),
@@ -109,6 +133,16 @@ class PostGenerationInputSerializer(serializers.Serializer):
         allow_blank=True,
         default=DEFAULT_TEXT_FONT,
     )
+    title_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+    )
+    subtitle_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+    )
     template = serializers.ChoiceField(
         choices=TEMPLATE_CHOICES,
         required=False,
@@ -138,12 +172,16 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     base_image_url = serializers.CharField(required=False, allow_blank=True)
     image_url = serializers.CharField()
     image_text = serializers.CharField()
+    image_title = serializers.CharField(required=False, allow_blank=True)
+    image_subtitle = serializers.CharField(required=False, allow_blank=True)
     template = serializers.CharField()
     primary_color = serializers.CharField(required=False)
     secondary_color = serializers.CharField(required=False)
     tertiary_color = serializers.CharField(required=False)
     text_color = serializers.CharField(required=False)
     text_font = serializers.CharField(required=False, allow_blank=True)
+    title_font = serializers.CharField(required=False, allow_blank=True)
+    subtitle_font = serializers.CharField(required=False, allow_blank=True)
     logo_position = serializers.CharField(required=False)
     image_format = serializers.CharField(required=False)
 
@@ -284,10 +322,30 @@ class PostImageRenderInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    image_title = serializers.CharField(
+        max_length=120,
+        required=False,
+        allow_blank=True,
+    )
+    image_subtitle = serializers.CharField(
+        max_length=180,
+        required=False,
+        allow_blank=True,
+    )
     has_text_image = serializers.BooleanField(
         required=False,
     )
     text_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+    )
+    title_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+    )
+    subtitle_font = serializers.CharField(
         max_length=80,
         required=False,
         allow_blank=True,
