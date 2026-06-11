@@ -15,7 +15,9 @@ DEFAULT_POST_FORM_VALUES = {
     "niche": "",
     "logo_url": "",
     "text_color": DEFAULT_TEXT_COLOR,
-    "text_font": DEFAULT_TEXT_FONT,
+    "title_font": DEFAULT_TEXT_FONT,
+    "subtitle_font": DEFAULT_TEXT_FONT,
+    "image_format": DEFAULT_IMAGE_FORMAT,
     "color_palette": {
         "primary_color": DEFAULT_PRIMARY_COLOR,
         "secondary_color": DEFAULT_SECONDARY_COLOR,

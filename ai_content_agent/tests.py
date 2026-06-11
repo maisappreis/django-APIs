@@ -52,7 +52,8 @@ class BrandPatchAPITestCase(APITestCase):
             secondary_color="#222222",
             tertiary_color="#333333",
             text_color="#FFFFFF",
-            text_font="inter",
+            title_font="inter",
+            subtitle_font="inter",
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -65,7 +66,8 @@ class BrandPatchAPITestCase(APITestCase):
             {
                 "business_name": "New Brand",
                 "primary_color": "#006C44",
-                "text_font": "montserrat",
+                "title_font": "montserrat",
+                "subtitle_font": "montserrat",
             },
             format="json",
         )
@@ -75,7 +77,8 @@ class BrandPatchAPITestCase(APITestCase):
         self.assertEqual(self.brand.business_name, "New Brand")
         self.assertEqual(self.brand.niche, "Old niche")
         self.assertEqual(self.brand.primary_color, "#006C44")
-        self.assertEqual(self.brand.text_font, "montserrat")
+        self.assertEqual(self.brand.title_font, "montserrat")
+        self.assertEqual(self.brand.subtitle_font, "montserrat")
         self.assertEqual(response.data["business_name"], "New Brand")
 
     def test_patch_brand_does_not_update_other_users_brand(self):
@@ -151,7 +154,8 @@ class BrandCreateAPITestCase(APITestCase):
                     "secondary_color": "#222222",
                     "tertiary_color": "#333333",
                     "text_color": "#FFFFFF",
-                    "text_font": "inter",
+                    "title_font": "inter",
+            "subtitle_font": "inter",
                     "logo": get_test_image(),
                     "logo_position": "bottom_right",
                 },
@@ -175,7 +179,8 @@ class BrandCreateAPITestCase(APITestCase):
                 "secondary_color": "#222222",
                 "tertiary_color": "#333333",
                 "text_color": "#FFFFFF",
-                "text_font": "inter",
+                "title_font": "inter",
+            "subtitle_font": "inter",
             },
             format="multipart",
         )
@@ -201,7 +206,8 @@ class BrandCreateAPITestCase(APITestCase):
                 "secondary_color": "#222222",
                 "tertiary_color": "#333333",
                 "text_color": "#FFFFFF",
-                "text_font": "inter",
+                "title_font": "inter",
+            "subtitle_font": "inter",
             },
             format="multipart",
         )
@@ -219,7 +225,8 @@ class BrandCreateAPITestCase(APITestCase):
                 "secondary_color": "#222222",
                 "tertiary_color": "#333333",
                 "text_color": "#FFFFFF",
-                "text_font": "inter",
+                "title_font": "inter",
+            "subtitle_font": "inter",
                 "reference_image_1": get_test_image("reference.gif"),
             },
             format="multipart",
@@ -247,7 +254,8 @@ class BrandCreateAPITestCase(APITestCase):
                 "secondary_color": "#222222",
                 "tertiary_color": "#333333",
                 "text_color": "#FFFFFF",
-                "text_font": "inter",
+                "title_font": "inter",
+            "subtitle_font": "inter",
             },
             format="multipart",
         )
@@ -267,7 +275,8 @@ class PostImageTextTestCase(SimpleTestCase):
             "secondary_color": "#222222",
             "tertiary_color": "#333333",
             "text_color": "#FFFFFF",
-            "text_font": "inter",
+            "title_font": "inter",
+            "subtitle_font": "inter",
             **overrides,
         }
 
@@ -276,12 +285,13 @@ class PostImageTextTestCase(SimpleTestCase):
             "caption": "Caption",
             "hashtags": ["#tag"],
             "image_prompt": "Image prompt",
-            "image_text": "AI TEXT",
+            "image_title": "AI TEXT",
+            "image_subtitle": "AI SUBTITLE",
         }
 
     @patch("ai_content_agent.services.render_image_file")
     @patch("ai_content_agent.services.generate_post_image_files")
-    def test_render_post_content_uses_blank_image_text_when_disabled(
+    def test_render_post_content_uses_blank_image_title_when_disabled(
         self,
         generate_post_image_files,
         render_image_file,
@@ -304,12 +314,12 @@ class PostImageTextTestCase(SimpleTestCase):
             index=1,
         )
 
-        self.assertEqual(post_data["image_text"], "")
-        self.assertEqual(render_image_file.call_args.kwargs["image_text"], "")
+        self.assertEqual(post_data["image_title"], "")
+        self.assertEqual(render_image_file.call_args.kwargs["image_title"], "")
 
     @patch("ai_content_agent.services.render_image_file")
     @patch("ai_content_agent.services.generate_post_image_files")
-    def test_render_post_content_uses_user_image_text_when_provided(
+    def test_render_post_content_uses_user_image_title_when_provided(
         self,
         generate_post_image_files,
         render_image_file,
@@ -326,15 +336,15 @@ class PostImageTextTestCase(SimpleTestCase):
         }
 
         post_data = render_post_content(
-            data=self.get_base_data(image_text="USER TEXT"),
+            data=self.get_base_data(image_title="USER TEXT"),
             idea={"title": "Idea"},
             result=self.get_result(),
             index=1,
         )
 
-        self.assertEqual(post_data["image_text"], "USER TEXT")
+        self.assertEqual(post_data["image_title"], "USER TEXT")
         self.assertEqual(
-            render_image_file.call_args.kwargs["image_text"],
+            render_image_file.call_args.kwargs["image_title"],
             "USER TEXT",
         )
 
@@ -355,7 +365,8 @@ class PostDraftGenerationTestCase(SimpleTestCase):
             "secondary_color": "#222222",
             "tertiary_color": "#333333",
             "text_color": "#FFFFFF",
-            "text_font": "inter",
+            "title_font": "inter",
+            "subtitle_font": "inter",
         }
 
     @override_settings(CONTENT_AGENT_USE_MOCK_CONTENT=True)
@@ -405,12 +416,14 @@ class PostDraftOperationTestCase(TestCase):
                     "secondary_color": "#222222",
                     "tertiary_color": "#333333",
                     "text_color": "#FFFFFF",
-                    "text_font": "inter",
+                    "title_font": "inter",
+            "subtitle_font": "inter",
                     "logo_position": "",
                     "caption": "Caption",
                     "hashtags": ["#tag"],
                     "image_prompt": "Prompt to review",
-                    "image_text": "TEXT",
+                    "image_title": "TEXT",
+                    "image_subtitle": "SUBTITLE",
                 }
             ],
         }
@@ -457,12 +470,14 @@ class PostDraftOperationTestCase(TestCase):
                     "secondary_color": "#222222",
                     "tertiary_color": "#333333",
                     "text_color": "#FFFFFF",
-                    "text_font": "inter",
+                    "title_font": "inter",
+            "subtitle_font": "inter",
                     "logo_position": "",
                     "caption": "Caption",
                     "hashtags": ["#tag"],
                     "image_prompt": "Prompt to review",
-                    "image_text": "TEXT",
+                    "image_title": "TEXT",
+                    "image_subtitle": "SUBTITLE",
                 }
             ],
         }
@@ -517,9 +532,11 @@ class PostImageRenderInputSerializerTestCase(SimpleTestCase):
     def test_accepts_has_text_image_and_blank_logo_position(self):
         serializer = PostImageRenderInputSerializer(data={
             "has_text_image": "no",
-            "image_text": "",
+            "image_title": "",
+                "image_subtitle": "",
             "template": "none",
-            "text_font": "inter",
+            "title_font": "inter",
+            "subtitle_font": "inter",
             "text_color": "#FFFFFF",
             "primary_color": "#111111",
             "secondary_color": "#222222",
@@ -575,7 +592,7 @@ class RerenderPostImageTestCase(TestCase):
             user=user,
             base_image_url="/media/base.png",
             image_url="/media/final.png",
-            image_text="Old text",
+            image_title="Old text",
             template="none",
             logo_position="bottom_right",
         )
@@ -587,18 +604,20 @@ class RerenderPostImageTestCase(TestCase):
         rerendered_post = rerender_post_image(
             post,
             {
-                "image_text": "",
+                "image_title": "",
+                "image_subtitle": "",
                 "template": "none",
                 "primary_color": "#111111",
                 "secondary_color": "#222222",
                 "tertiary_color": "#333333",
                 "text_color": "#FFFFFF",
-                "text_font": "inter",
+                "title_font": "inter",
+            "subtitle_font": "inter",
                 "logo_position": "",
             },
         )
 
-        self.assertEqual(rerendered_post.image_text, "")
+        self.assertEqual(rerendered_post.image_title, "")
         self.assertEqual(rerendered_post.logo_position, "")
         self.assertEqual(render_image_file.call_args.kwargs["logo_file"], None)
 
@@ -625,13 +644,14 @@ class ApprovedPostImageRenderTestCase(TestCase):
             brand=brand,
             user=user,
             image_prompt="Reviewed prompt",
-            image_text="TEXT",
+            image_title="TEXT",
             template="none",
             primary_color="#111111",
             secondary_color="#222222",
             tertiary_color="#333333",
             text_color="#FFFFFF",
-            text_font="inter",
+            title_font="inter",
+            subtitle_font="inter",
             logo_position="",
             image_format="portrait",
             status=GenerationStatus.PENDING_REVIEW,
@@ -680,13 +700,14 @@ class ApprovedPostImageRenderTestCase(TestCase):
             user=user,
             base_image_url="/media/generated_posts/uploads/user-base.png",
             image_prompt="Reviewed prompt",
-            image_text="TEXT",
+            image_title="TEXT",
             template="none",
             primary_color="#111111",
             secondary_color="#222222",
             tertiary_color="#333333",
             text_color="#FFFFFF",
-            text_font="inter",
+            title_font="inter",
+            subtitle_font="inter",
             logo_position="",
             image_format="portrait",
             status=GenerationStatus.PENDING_REVIEW,
@@ -733,7 +754,8 @@ class PostUserImagesTestCase(SimpleTestCase):
             "secondary_color": "#222222",
             "tertiary_color": "#333333",
             "text_color": "#FFFFFF",
-            "text_font": "inter",
+            "title_font": "inter",
+            "subtitle_font": "inter",
             "my_images_or_ai": "user",
             "images": [get_test_image("post.gif")],
             **overrides,
@@ -744,7 +766,8 @@ class PostUserImagesTestCase(SimpleTestCase):
             "caption": "Caption",
             "hashtags": ["#tag"],
             "image_prompt": "Image prompt",
-            "image_text": "AI TEXT",
+            "image_title": "AI TEXT",
+            "image_subtitle": "AI SUBTITLE",
         }
 
     @override_settings(MEDIA_ROOT="")
@@ -781,7 +804,8 @@ class GeneratePostContentAPITestCase(APITestCase):
             secondary_color="#222222",
             tertiary_color="#333333",
             text_color="#FFFFFF",
-            text_font="inter",
+            title_font="inter",
+            subtitle_font="inter",
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -802,7 +826,8 @@ class GeneratePostContentAPITestCase(APITestCase):
                 "secondary_color": "#222222",
                 "tertiary_color": "#333333",
                 "text_color": "#FFFFFF",
-                "text_font": "inter",
+                "title_font": "inter",
+            "subtitle_font": "inter",
                 "logo_position": "bottom_right",
             },
             format="multipart",
@@ -848,7 +873,8 @@ class GeneratePostContentAPITestCase(APITestCase):
                 "secondary_color": "#222222",
                 "tertiary_color": "#333333",
                 "text_color": "#FFFFFF",
-                "text_font": "inter",
+                "title_font": "inter",
+            "subtitle_font": "inter",
                 "logo_position": "bottom_right",
             },
             format="multipart",
@@ -880,13 +906,14 @@ class GeneratePostContentAPITestCase(APITestCase):
             caption="Caption",
             hashtags=["#tag"],
             image_prompt="Old prompt",
-            image_text="TEXT",
+            image_title="TEXT",
             template="none",
             primary_color="#111111",
             secondary_color="#222222",
             tertiary_color="#333333",
             text_color="#FFFFFF",
-            text_font="inter",
+            title_font="inter",
+            subtitle_font="inter",
             logo_position="",
             status=GenerationStatus.PENDING_REVIEW,
             scheduled_date="2026-06-09",
@@ -934,7 +961,7 @@ class GeneratePostContentAPITestCase(APITestCase):
             caption="Caption",
             hashtags=["#tag"],
             image_prompt="Prompt to review",
-            image_text="TEXT",
+            image_title="TEXT",
             template="none",
             status=GenerationStatus.PENDING_REVIEW,
             scheduled_date="2026-06-09",
@@ -949,3 +976,5 @@ class GeneratePostContentAPITestCase(APITestCase):
             response.data["batch"]["posts"][0]["image_prompt"],
             "Prompt to review",
         )
+
+

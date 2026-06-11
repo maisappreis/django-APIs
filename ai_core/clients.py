@@ -43,10 +43,6 @@ POST_CONTENT_SCHEMA = {
             "type": "string",
             "description": "Prompt visual para futura geração de imagem.",
         },
-        "image_text": {
-            "type": "string",
-            "description": "Texto curto para ser aplicado sobre a imagem do post.",
-        },
         "image_title": {
             "type": "string",
             "description": "Titulo curto para aparecer em destaque sobre a imagem.",
@@ -60,7 +56,6 @@ POST_CONTENT_SCHEMA = {
         "caption",
         "hashtags",
         "image_prompt",
-        "image_text",
         "image_title",
         "image_subtitle",
     ],
@@ -146,10 +141,6 @@ POST_BATCH_CONTENT_ITEM_SCHEMA = {
             "type": "string",
             "description": "Prompt visual para futura geracao de imagem.",
         },
-        "image_text": {
-            "type": "string",
-            "description": "Texto curto para ser aplicado sobre a imagem do post.",
-        },
         "image_title": {
             "type": "string",
             "description": "Titulo curto para aparecer em destaque sobre a imagem.",
@@ -164,7 +155,6 @@ POST_BATCH_CONTENT_ITEM_SCHEMA = {
         "caption",
         "hashtags",
         "image_prompt",
-        "image_text",
         "image_title",
         "image_subtitle",
     ],
@@ -215,9 +205,13 @@ BRAND_VISUAL_IDENTITY_SCHEMA = {
             "type": "string",
             "description": "Cor recomendada para texto em hexadecimal.",
         },
-        "text_font": {
+        "title_font": {
             "type": "string",
-            "description": "Fonte sugerida ou estilo tipografico.",
+            "description": "Fonte sugerida para titulos.",
+        },
+        "subtitle_font": {
+            "type": "string",
+            "description": "Fonte sugerida para subtitulos.",
         },
     },
     "required": [
@@ -227,7 +221,8 @@ BRAND_VISUAL_IDENTITY_SCHEMA = {
         "secondary_color",
         "tertiary_color",
         "text_color",
-        "text_font",
+        "title_font",
+        "subtitle_font",
     ],
 }
 

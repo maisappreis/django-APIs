@@ -88,8 +88,7 @@ def mock_generate_batch_content(data, ideas):
                     f"Imagem publicitaria para {data['business_name']}, "
                     f"tema {idea['theme']}, estilo moderno e profissional."
                 ),
-                "image_text": _mock_image_text(index),
-                "image_title": _mock_image_text(index),
+                "image_title": _mock_image_title(index),
                 "image_subtitle": f"Para {data['niche']} crescer com clareza",
             }
         )
@@ -110,7 +109,7 @@ def _mock_post_format(index):
     return formats[(index - 1) % len(formats)]
 
 
-def _mock_image_text(index):
+def _mock_image_title(index):
     texts = (
         "COMECE HOJE",
         "AGENDE AGORA",

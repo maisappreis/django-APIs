@@ -141,7 +141,8 @@ def analyze_brand_visual_identity(brand):
         brand.tertiary_color,
     )
     brand.text_color = _clean_hex_color(result["text_color"], brand.text_color)
-    brand.text_font = result["text_font"][:80]
+    brand.title_font = result["title_font"][:80]
+    brand.subtitle_font = result["subtitle_font"][:80]
     brand.save(
         update_fields=[
             "visual_identity_summary",
@@ -150,7 +151,8 @@ def analyze_brand_visual_identity(brand):
             "secondary_color",
             "tertiary_color",
             "text_color",
-            "text_font",
+            "title_font",
+            "subtitle_font",
             "updated_at",
         ]
     )
@@ -262,7 +264,6 @@ def _get_template_color_kwargs(template_name, visual_settings):
 def render_image_file(
     image_path,
     template_name,
-    image_text,
     image_title="",
     image_subtitle="",
     logo_file=None,
@@ -271,11 +272,13 @@ def render_image_file(
     secondary_color="#1FD794",
     tertiary_color="#98C8B6",
     text_color="#FFFFFF",
-    text_font="",
     title_font="",
     subtitle_font="",
 ):
     logo_file = logo_file if logo_position else None
+    combined_text = "\n".join(
+        text for text in (image_title, image_subtitle) if text
+    )
 
     if template_name != "none":
         template_renderer = TEMPLATE_RENDERERS[template_name]
@@ -289,29 +292,21 @@ def render_image_file(
 
         render_kwargs = {
             "image_path": image_path,
-            "text": image_text,
+            "title": image_title,
+            "subtitle": image_subtitle,
             "logo_file": logo_file,
             "logo_position": TEMPLATE_LOGO_POSITIONS[template_name],
-            "text_font": text_font,
+            "title_font": title_font,
+            "subtitle_font": subtitle_font,
             **color_kwargs,
         }
-
-        if template_name in TEXT_OVERLAY_TEMPLATE_NAMES:
-            render_kwargs.update(
-                {
-                    "title": image_title,
-                    "subtitle": image_subtitle,
-                    "title_font": title_font,
-                    "subtitle_font": subtitle_font,
-                }
-            )
 
         template_renderer(**render_kwargs)
     else:
         apply_center_text_to_image(
             image_path=image_path,
-            text=image_text,
-            text_font=text_font,
+            text=combined_text,
+            text_font=title_font,
             text_color=text_color,
         )
 
@@ -323,44 +318,38 @@ def render_image_file(
             )
 
 
-def get_final_image_text(data, result):
-    if not data.get("has_text_image", True):
-        return ""
-
-    return data.get("image_text") or result["image_text"]
-
-
 def get_final_image_title(data, result):
     if not data.get("has_text_image", True):
         return ""
 
-    return (
-        data.get("image_title")
-        or result.get("image_title")
-        or get_final_image_text(data, result)
-    )
+    if "image_title" in data:
+        return data.get("image_title", "")
+
+    return result.get("image_title", "")
 
 
 def get_final_image_subtitle(data, result):
     if not data.get("has_text_image", True):
         return ""
 
-    return data.get("image_subtitle") or result.get("image_subtitle", "")
+    if "image_subtitle" in data:
+        return data.get("image_subtitle", "")
+
+    return result.get("image_subtitle", "")
 
 
 def get_title_font(data):
-    return data.get("title_font", "") or data.get("text_font", "")
+    return data.get("title_font", "")
 
 
 def get_subtitle_font(data):
-    return data.get("subtitle_font", "") or data.get("text_font", "")
+    return data.get("subtitle_font", "")
 
 
 def render_post_content(data, idea, result, index):
     image_data = get_post_image_files(data, result, index)
 
     template_name = get_template_name_for_post(data, index)
-    image_text = get_final_image_text(data, result)
     image_title = get_final_image_title(data, result)
     image_subtitle = get_final_image_subtitle(data, result)
     logo_position = get_logo_position_for_template(
@@ -371,7 +360,6 @@ def render_post_content(data, idea, result, index):
     render_image_file(
         image_path=image_data["final"]["absolute_path"],
         template_name=template_name,
-        image_text=image_text,
         image_title=image_title,
         image_subtitle=image_subtitle,
         logo_file=data.get("logo"),
@@ -380,7 +368,6 @@ def render_post_content(data, idea, result, index):
         secondary_color=data["secondary_color"],
         tertiary_color=data["tertiary_color"],
         text_color=data["text_color"],
-        text_font=data.get("text_font", ""),
         title_font=get_title_font(data),
         subtitle_font=get_subtitle_font(data),
     )
@@ -393,13 +380,11 @@ def render_post_content(data, idea, result, index):
         "secondary_color": data["secondary_color"],
         "tertiary_color": data["tertiary_color"],
         "text_color": data["text_color"],
-        "text_font": data.get("text_font", ""),
         "logo_position": logo_position,
         "image_format": data.get("image_format", "square"),
         "caption": result["caption"],
         "hashtags": result["hashtags"],
         "image_prompt": result["image_prompt"],
-        "image_text": image_text,
         "image_title": image_title,
         "image_subtitle": image_subtitle,
         "base_image_url": image_data["base"]["image_url"],
@@ -413,7 +398,6 @@ def render_post_content(data, idea, result, index):
 
 def build_post_draft_content(data, idea, result, index):
     template_name = get_template_name_for_post(data, index)
-    image_text = get_final_image_text(data, result)
     image_title = get_final_image_title(data, result)
     image_subtitle = get_final_image_subtitle(data, result)
     logo_position = get_logo_position_for_template(
@@ -429,7 +413,6 @@ def build_post_draft_content(data, idea, result, index):
         "secondary_color": data["secondary_color"],
         "tertiary_color": data["tertiary_color"],
         "text_color": data["text_color"],
-        "text_font": data.get("text_font", ""),
         "title_font": get_title_font(data),
         "subtitle_font": get_subtitle_font(data),
         "logo_position": logo_position,
@@ -437,7 +420,6 @@ def build_post_draft_content(data, idea, result, index):
         "caption": result["caption"],
         "hashtags": result["hashtags"],
         "image_prompt": result["image_prompt"],
-        "image_text": image_text,
         "image_title": image_title,
         "image_subtitle": image_subtitle,
         "base_image_url": "",
@@ -520,7 +502,6 @@ def render_approved_post_image(post, use_existing_base=False):
     render_image_file(
         image_path=image_data["final"]["absolute_path"],
         template_name=post.template or "none",
-        image_text=post.image_text,
         image_title=post.image_title,
         image_subtitle=post.image_subtitle,
         logo_file=get_post_logo_file(post) if logo_position else None,
@@ -529,7 +510,6 @@ def render_approved_post_image(post, use_existing_base=False):
         secondary_color=post.secondary_color,
         tertiary_color=post.tertiary_color,
         text_color=post.text_color,
-        text_font=post.text_font,
         title_font=post.title_font,
         subtitle_font=post.subtitle_font,
     )
@@ -568,16 +548,10 @@ def render_approved_post_image(post, use_existing_base=False):
 def rerender_post_image(post, visual_settings):
     final_image_data = create_final_image_from_base(post.base_image_url)
     template_name = visual_settings["template"]
-    image_title = visual_settings.get(
-        "image_title",
-        visual_settings["image_text"],
-    )
+    image_title = visual_settings.get("image_title", "")
     image_subtitle = visual_settings.get("image_subtitle", "")
-    title_font = visual_settings.get("title_font", visual_settings["text_font"])
-    subtitle_font = visual_settings.get(
-        "subtitle_font",
-        visual_settings["text_font"],
-    )
+    title_font = visual_settings.get("title_font", "")
+    subtitle_font = visual_settings.get("subtitle_font", "")
     logo_position = get_logo_position_for_template(
         template_name=template_name,
         logo_position=visual_settings["logo_position"],
@@ -586,7 +560,6 @@ def rerender_post_image(post, visual_settings):
     render_image_file(
         image_path=final_image_data["absolute_path"],
         template_name=template_name,
-        image_text=visual_settings["image_text"],
         image_title=image_title,
         image_subtitle=image_subtitle,
         logo_file=get_post_logo_file(post) if logo_position else None,
@@ -595,20 +568,17 @@ def rerender_post_image(post, visual_settings):
         secondary_color=visual_settings["secondary_color"],
         tertiary_color=visual_settings["tertiary_color"],
         text_color=visual_settings["text_color"],
-        text_font=visual_settings["text_font"],
         title_font=title_font,
         subtitle_font=subtitle_font,
     )
 
     post.template = template_name
-    post.image_text = visual_settings["image_text"]
     post.image_title = image_title
     post.image_subtitle = image_subtitle
     post.primary_color = visual_settings["primary_color"]
     post.secondary_color = visual_settings["secondary_color"]
     post.tertiary_color = visual_settings["tertiary_color"]
     post.text_color = visual_settings["text_color"]
-    post.text_font = visual_settings["text_font"]
     post.title_font = title_font
     post.subtitle_font = subtitle_font
     post.logo_position = logo_position
@@ -626,14 +596,12 @@ def rerender_post_image(post, visual_settings):
     post.save(
         update_fields=[
             "template",
-            "image_text",
             "image_title",
             "image_subtitle",
             "primary_color",
             "secondary_color",
             "tertiary_color",
             "text_color",
-            "text_font",
             "title_font",
             "subtitle_font",
             "logo_position",

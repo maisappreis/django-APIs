@@ -1,17 +1,19 @@
 from pathlib import Path
 from PIL import Image, ImageDraw
 from ai_content_agent.helpers import _hex_to_rgba, _paste_logo
-from ai_content_agent.utils import _get_center_text_font, _wrap_text
+from ai_content_agent.templates.text_block import draw_title_subtitle_block
 
 
 def apply_template_rectangle(
     image_path,
-    text,
+    title="",
+    subtitle="",
     logo_file=None,
     logo_position="bottom_right",
     primary_color=None,
     text_color=None,
-    text_font=None,
+    title_font=None,
+    subtitle_font=None,
 ):
     image_path = Path(image_path)
 
@@ -30,35 +32,19 @@ def apply_template_rectangle(
         base_image = Image.alpha_composite(base_image, banner_layer)
 
         draw = ImageDraw.Draw(base_image)
-        font = _get_center_text_font(width, text_font)
-        lines = _wrap_text(
-            text=text,
-            font=font,
-            max_width=int(width * 0.82),
+        draw_title_subtitle_block(
             draw=draw,
-        )
-        text_block = "\n".join(lines)
-
-        bbox = draw.multiline_textbbox(
-            (0, 0),
-            text_block,
-            font=font,
-            spacing=10,
-        )
-
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-        text_x = (width - text_width) // 2
-        text_y = banner_y + (banner_height - text_height) // 2 - int(height * 0.025)
-
-        draw.multiline_text(
-            (text_x, text_y),
-            text_block,
-            font=font,
-            fill=_hex_to_rgba(text_color, alpha=255),
-            align="center",
-            spacing=10,
+            width=width,
+            height=height,
+            title=title,
+            subtitle=subtitle,
+            title_font=title_font,
+            subtitle_font=subtitle_font,
+            text_color=text_color,
+            max_width=int(width * 0.82),
+            anchor_x=width // 2,
+            anchor_y=banner_y + banner_height // 2 - int(height * 0.025),
+            horizontal_align="center",
         )
 
         if logo_file:

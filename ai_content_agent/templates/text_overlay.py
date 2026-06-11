@@ -25,20 +25,18 @@ TEXT_BOX_ALPHA = 170
 
 def apply_template_text_overlay(
     image_path,
-    text="",
     title="",
     subtitle="",
     logo_file=None,
     logo_position="bottom_right",
     primary_color="#000000",
     text_color="#FFFFFF",
-    text_font=None,
     title_font=None,
     subtitle_font=None,
     position="text_center",
     show_box=False,
 ):
-    title = (title or text or "").strip()
+    title = (title or "").strip()
     subtitle = (subtitle or "").strip()
 
     image_path = Path(image_path)
@@ -53,12 +51,10 @@ def apply_template_text_overlay(
 
         draw = ImageDraw.Draw(base_image)
         width, height = base_image.size
-        title_typeface = title_font or text_font
-        subtitle_typeface = subtitle_font or text_font
         title_size = int(width * TITLE_FONT_SIZE_RATIO)
         subtitle_size = int(width * SUBTITLE_FONT_SIZE_RATIO)
-        title_font_file = _get_text_font(title_size, title_typeface)
-        subtitle_font_file = _get_text_font(subtitle_size, subtitle_typeface)
+        title_font_file = _get_text_font(title_size, title_font)
+        subtitle_font_file = _get_text_font(subtitle_size, subtitle_font)
         max_width = int(width * TEXT_BLOCK_MAX_WIDTH_RATIO)
         title_lines = (
             _wrap_text(title, title_font_file, max_width, draw)

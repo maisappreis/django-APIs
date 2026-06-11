@@ -74,7 +74,6 @@ def build_post_from_idea_prompt(data, idea, index, total):
         - uma legenda pronta para publicacao;
         - uma lista de hashtags relevantes;
         - um prompt visual para geracao de imagem;
-        - um texto curto para aparecer sobre a imagem;
         - um titulo curto para aparecer em destaque sobre a imagem;
         - um subtitulo curto para aparecer abaixo do titulo.
 
@@ -95,12 +94,8 @@ def build_post_from_idea_prompt(data, idea, index, total):
           quando forem parte natural do desenho, como etiquetas, placas, etapas
           de processo ou elementos de interface.
         - O prompt visual nao deve pedir frases em ingles.
-        - O prompt visual nao deve incluir o image_text como texto dentro da
-          imagem, pois esse texto sera aplicado pelo backend depois.
-        - O image_text deve ter no maximo 6 palavras.
-        - O image_text deve ter tom de anuncio.
-        - O image_text deve usar modo imperativo quando fizer sentido.
-        - O image_text nao deve ter hashtags, emojis nem aspas.
+        - O prompt visual nao deve incluir image_title nem image_subtitle como
+          texto dentro da imagem, pois esse texto sera aplicado pelo backend depois.
         - O image_title deve ter no maximo 5 palavras.
         - O image_subtitle deve ter no maximo 10 palavras.
         - O image_title e o image_subtitle nao devem ter hashtags, emojis nem aspas.
@@ -160,7 +155,6 @@ def build_posts_from_plan_prompt(data, ideas):
         - uma legenda pronta para publicacao;
         - uma lista de hashtags relevantes;
         - um prompt visual para geracao de imagem;
-        - um texto curto para aparecer sobre a imagem;
         - um titulo curto para aparecer em destaque sobre a imagem;
         - um subtitulo curto para aparecer abaixo do titulo.
 
@@ -188,12 +182,8 @@ def build_posts_from_plan_prompt(data, ideas):
           quando forem parte natural do desenho, como etiquetas, placas, etapas
           de processo ou elementos de interface.
         - O prompt visual nao deve pedir frases em ingles.
-        - O prompt visual nao deve incluir o image_text como texto dentro da
-          imagem, pois esse texto sera aplicado pelo backend depois.
-        - O image_text deve ter no maximo 6 palavras.
-        - O image_text deve ter tom de anuncio.
-        - O image_text deve usar modo imperativo quando fizer sentido.
-        - O image_text nao deve ter hashtags, emojis nem aspas.
+        - O prompt visual nao deve incluir image_title nem image_subtitle como
+          texto dentro da imagem, pois esse texto sera aplicado pelo backend depois.
         - O image_title deve ter no maximo 5 palavras.
         - O image_subtitle deve ter no maximo 10 palavras.
         - O image_title e o image_subtitle nao devem ter hashtags, emojis nem aspas.
@@ -223,18 +213,8 @@ def build_post_prompt(data):
         - As hashtags devem começar com #.
         - O prompt visual deve descrever a imagem de forma objetiva.
 
-        Texto sugerido para a imagem: {data.get("image_text_direction", "")}
-
-        Gere também um texto curto para aparecer sobre a imagem.
-
-        Regras do image_text:
-        - máximo de 6 palavras;
-        - tom de anúncio;
-        - modo imperativo quando fizer sentido;
-        - sem hashtags;
-        - sem emojis;
-        - sem aspas;
-        - deve funcionar como chamada visual curta.
+        Direcao sugerida para titulo/subtitulo da imagem:
+        {data.get("image_text_direction", "")}
 
         Gere tambem image_title e image_subtitle:
         - image_title com no maximo 5 palavras;

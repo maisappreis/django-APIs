@@ -94,8 +94,10 @@ def update_brand_manual_identity(brand, data):
         "secondary_color",
         "tertiary_color",
         "text_color",
-        "text_font",
+        "title_font",
+        "subtitle_font",
         "logo_position",
+        "image_format",
     ]
     update_fields = []
 
@@ -116,8 +118,10 @@ def apply_brand_defaults(data, brand, request_data):
         "secondary_color",
         "tertiary_color",
         "text_color",
-        "text_font",
+        "title_font",
+        "subtitle_font",
         "logo_position",
+        "image_format",
     ]
 
     for field in fields:
@@ -314,8 +318,7 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             caption=post_data["caption"],
             hashtags=post_data["hashtags"],
             image_prompt=post_data["image_prompt"],
-            image_text=post_data["image_text"],
-            image_title=post_data.get("image_title", post_data["image_text"]),
+            image_title=post_data.get("image_title", ""),
             image_subtitle=post_data.get("image_subtitle", ""),
             base_image_url=post_data["base_image_url"],
             image_url=post_data["image_url"],
@@ -324,9 +327,8 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             secondary_color=post_data["secondary_color"],
             tertiary_color=post_data["tertiary_color"],
             text_color=post_data["text_color"],
-            text_font=post_data["text_font"],
-            title_font=post_data.get("title_font", post_data["text_font"]),
-            subtitle_font=post_data.get("subtitle_font", post_data["text_font"]),
+            title_font=post_data.get("title_font", ""),
+            subtitle_font=post_data.get("subtitle_font", ""),
             logo_position=post_data["logo_position"],
             image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
@@ -380,8 +382,7 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
             caption=post_data["caption"],
             hashtags=post_data["hashtags"],
             image_prompt=post_data["image_prompt"],
-            image_text=post_data["image_text"],
-            image_title=post_data.get("image_title", post_data["image_text"]),
+            image_title=post_data.get("image_title", ""),
             image_subtitle=post_data.get("image_subtitle", ""),
             base_image_url=(
                 image_data["base"]["image_url"] if image_data else ""
@@ -392,9 +393,8 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
             secondary_color=post_data["secondary_color"],
             tertiary_color=post_data["tertiary_color"],
             text_color=post_data["text_color"],
-            text_font=post_data["text_font"],
-            title_font=post_data.get("title_font", post_data["text_font"]),
-            subtitle_font=post_data.get("subtitle_font", post_data["text_font"]),
+            title_font=post_data.get("title_font", ""),
+            subtitle_font=post_data.get("subtitle_font", ""),
             logo_position=post_data["logo_position"],
             image_format=post_data.get("image_format", batch.image_format),
             post_order=post_data["order"],
@@ -464,13 +464,9 @@ def mark_batch_failed(batch, error):
 
 
 def build_post_visual_settings(post_generation, validated_data):
-    image_text = validated_data.pop(
-        "image_text",
-        post_generation.image_text,
-    )
     image_title = validated_data.pop(
         "image_title",
-        post_generation.image_title or image_text,
+        post_generation.image_title,
     )
     image_subtitle = validated_data.pop(
         "image_subtitle",
@@ -478,12 +474,10 @@ def build_post_visual_settings(post_generation, validated_data):
     )
 
     if validated_data.pop("has_text_image", True) is False:
-        image_text = ""
         image_title = ""
         image_subtitle = ""
 
     return {
-        "image_text": image_text,
         "image_title": image_title,
         "image_subtitle": image_subtitle,
         "template": post_generation.template or "none",
@@ -491,9 +485,8 @@ def build_post_visual_settings(post_generation, validated_data):
         "secondary_color": post_generation.secondary_color,
         "tertiary_color": post_generation.tertiary_color,
         "text_color": post_generation.text_color,
-        "text_font": post_generation.text_font,
-        "title_font": post_generation.title_font or post_generation.text_font,
-        "subtitle_font": post_generation.subtitle_font or post_generation.text_font,
+        "title_font": post_generation.title_font,
+        "subtitle_font": post_generation.subtitle_font,
         "logo_position": post_generation.logo_position,
         **validated_data,
     }

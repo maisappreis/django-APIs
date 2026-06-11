@@ -57,8 +57,10 @@ class BrandAdmin(admin.ModelAdmin):
                     "secondary_color",
                     "tertiary_color",
                     "text_color",
-                    "text_font",
+                    "title_font",
+                    "subtitle_font",
                     "logo_position",
+                    "image_format",
                 )
             },
         ),

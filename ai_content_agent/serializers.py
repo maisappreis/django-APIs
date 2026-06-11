@@ -79,11 +79,6 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         default=True,
     )
-    image_text = serializers.CharField(
-        max_length=120,
-        required=False,
-        allow_blank=True,
-    )
     image_title = serializers.CharField(
         max_length=120,
         required=False,
@@ -127,21 +122,17 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         default=DEFAULT_TEXT_COLOR,
     )
-    text_font = serializers.CharField(
+    title_font = serializers.CharField(
         max_length=80,
         required=False,
         allow_blank=True,
         default=DEFAULT_TEXT_FONT,
     )
-    title_font = serializers.CharField(
-        max_length=80,
-        required=False,
-        allow_blank=True,
-    )
     subtitle_font = serializers.CharField(
         max_length=80,
         required=False,
         allow_blank=True,
+        default=DEFAULT_TEXT_FONT,
     )
     template = serializers.ChoiceField(
         choices=TEMPLATE_CHOICES,
@@ -171,7 +162,6 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     image_prompt = serializers.CharField()
     base_image_url = serializers.CharField(required=False, allow_blank=True)
     image_url = serializers.CharField()
-    image_text = serializers.CharField()
     image_title = serializers.CharField(required=False, allow_blank=True)
     image_subtitle = serializers.CharField(required=False, allow_blank=True)
     template = serializers.CharField()
@@ -179,7 +169,6 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     secondary_color = serializers.CharField(required=False)
     tertiary_color = serializers.CharField(required=False)
     text_color = serializers.CharField(required=False)
-    text_font = serializers.CharField(required=False, allow_blank=True)
     title_font = serializers.CharField(required=False, allow_blank=True)
     subtitle_font = serializers.CharField(required=False, allow_blank=True)
     logo_position = serializers.CharField(required=False)
@@ -211,9 +200,25 @@ class BrandInputSerializer(serializers.Serializer):
         regex=r"^#[0-9A-Fa-f]{6}$",
         help_text="Cor de texto em hexadecimal. Exemplo: #FFFFFF.",
     )
-    text_font = serializers.CharField(
+    title_font = serializers.CharField(
         max_length=80,
-        help_text="Fonte principal da marca. Exemplo: montserrat.",
+        required=False,
+        allow_blank=True,
+        default=DEFAULT_TEXT_FONT,
+        help_text="Fonte do titulo da marca. Exemplo: montserrat.",
+    )
+    subtitle_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        default=DEFAULT_TEXT_FONT,
+        help_text="Fonte do subtitulo da marca. Exemplo: inter.",
+    )
+    image_format = serializers.ChoiceField(
+        choices=PostGenerationInputSerializer.IMAGE_FORMAT_CHOICES,
+        required=False,
+        default=DEFAULT_IMAGE_FORMAT,
+        help_text="Formato padrao das imagens da marca.",
     )
     logo = serializers.ImageField(
         required=False,
@@ -268,11 +273,22 @@ class BrandPatchSerializer(serializers.Serializer):
         required=False,
         help_text="Cor de texto em hexadecimal. Exemplo: #FFFFFF.",
     )
-    text_font = serializers.CharField(
+    title_font = serializers.CharField(
         max_length=80,
         required=False,
         allow_blank=True,
-        help_text="Fonte principal da marca. Exemplo: montserrat.",
+        help_text="Fonte do titulo da marca. Exemplo: montserrat.",
+    )
+    subtitle_font = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        help_text="Fonte do subtitulo da marca. Exemplo: inter.",
+    )
+    image_format = serializers.ChoiceField(
+        choices=PostGenerationInputSerializer.IMAGE_FORMAT_CHOICES,
+        required=False,
+        help_text="Formato padrao das imagens da marca.",
     )
     logo = serializers.ImageField(
         required=False,
@@ -309,7 +325,9 @@ class BrandOutputSerializer(serializers.Serializer):
     secondary_color = serializers.CharField()
     tertiary_color = serializers.CharField()
     text_color = serializers.CharField()
-    text_font = serializers.CharField(allow_blank=True)
+    title_font = serializers.CharField(allow_blank=True)
+    subtitle_font = serializers.CharField(allow_blank=True)
+    image_format = serializers.CharField()
     logo_position = serializers.CharField()
 
 
@@ -317,11 +335,6 @@ class PostImageRenderInputSerializer(serializers.Serializer):
     TEMPLATE_CHOICES = PostGenerationInputSerializer.TEMPLATE_CHOICES
     LOGO_POSITION_CHOICES = PostGenerationInputSerializer.LOGO_POSITION_CHOICES
 
-    image_text = serializers.CharField(
-        max_length=120,
-        required=False,
-        allow_blank=True,
-    )
     image_title = serializers.CharField(
         max_length=120,
         required=False,
@@ -334,11 +347,6 @@ class PostImageRenderInputSerializer(serializers.Serializer):
     )
     has_text_image = serializers.BooleanField(
         required=False,
-    )
-    text_font = serializers.CharField(
-        max_length=80,
-        required=False,
-        allow_blank=True,
     )
     title_font = serializers.CharField(
         max_length=80,
