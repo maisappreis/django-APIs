@@ -10,7 +10,7 @@ import httpx
 from threading import Thread
 
 from .jobs import generate_post_review_batch, run_post_image_generation_job
-from .models import Post, PostBatch
+from .models import GenerationStatus, Post, PostBatch
 from .operations import (
     apply_brand_defaults,
     build_post_visual_settings,
@@ -30,7 +30,6 @@ from .operations import (
     prepare_post_download,
     save_brand_reference_images,
     sync_brand_logo,
-    update_post_draft_prompts,
     update_brand_manual_identity,
 )
 from .presenters import (
@@ -52,6 +51,29 @@ from .services import (
     prepare_uploaded_post_image_files,
     rerender_post_image,
 )
+
+
+def get_pending_review_posts_for_user(user):
+    return (
+        Post.objects.select_related("batch", "brand")
+        .filter(
+            user=user,
+            status=GenerationStatus.PENDING_REVIEW,
+            batch__status=GenerationStatus.PENDING_REVIEW,
+        )
+        .order_by(
+            "scheduled_date",
+            "post_order",
+            "created_at",
+        )
+    )
+
+
+def serialize_pending_review_posts_for_user(user):
+    return [
+        serialize_post_generation(post)
+        for post in get_pending_review_posts_for_user(user)
+    ]
 
 
 class BrandListAPIView(APIView):
@@ -313,15 +335,17 @@ class GeneratePostContentAPIView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        return Response(
-            {
-                "job_id": batch.id,
-                "status": batch.status,
-                "progress": batch.progress,
-                **serialize_post_batch(batch),
-            },
-            status=status.HTTP_201_CREATED,
+        response_data = {
+            "job_id": batch.id,
+            "status": batch.status,
+            "progress": batch.progress,
+            **serialize_post_batch(batch),
+        }
+        response_data["posts"] = serialize_pending_review_posts_for_user(
+            request.user
         )
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 class PostGenerationStatusAPIView(APIView):
@@ -347,61 +371,107 @@ class PostGenerationStatusAPIView(APIView):
 
 class PendingReviewPostBatchAPIView(APIView):
     def get(self, request):
-        batch = (
-            PostBatch.objects.prefetch_related("posts")
-            .filter(
-                user=request.user,
-                status="pending_review",
-            )
-            .order_by("-created_at")
-            .first()
-        )
+        posts = list(get_pending_review_posts_for_user(request.user))
 
-        if not batch:
-            return Response({"batch": None})
+        if not posts:
+            return Response({"batch": None, "posts": []})
 
-        return Response({"batch": serialize_post_batch(batch)})
+        latest_batch = max(posts, key=lambda post: post.batch.created_at).batch
+        serialized_posts = [
+            serialize_post_generation(post)
+            for post in posts
+        ]
+
+        return Response({
+            "batch": {
+                "batch_id": latest_batch.id,
+                "quantity": len(serialized_posts),
+                "image_format": latest_batch.image_format,
+                "strategy_summary": latest_batch.strategy_summary,
+                "posts": serialized_posts,
+            },
+            "posts": serialized_posts,
+        })
 
 
 class ApprovePostPromptsAPIView(APIView):
     def post(self, request, batch_id):
-        batch = get_object_or_404(
+        anchor_batch = get_object_or_404(
             PostBatch.objects.prefetch_related("posts"),
             id=batch_id,
             user=request.user,
-            status="pending_review",
+            status=GenerationStatus.PENDING_REVIEW,
         )
         input_serializer = PostPromptApprovalSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
+        prompt_items = input_serializer.validated_data["posts"]
+        prompt_items_by_id = {
+            item["id"]: item
+            for item in prompt_items
+        }
+        posts = list(
+            Post.objects.select_related("batch")
+            .filter(
+                id__in=prompt_items_by_id.keys(),
+                user=request.user,
+                status=GenerationStatus.PENDING_REVIEW,
+                batch__status=GenerationStatus.PENDING_REVIEW,
+            )
+        )
+        batches_by_id = {
+            post.batch_id: post.batch
+            for post in posts
+            if post.batch_id
+        }
 
-        update_post_draft_prompts(
-            batch,
-            input_serializer.validated_data["posts"],
+        if anchor_batch.id not in batches_by_id:
+            batches_by_id[anchor_batch.id] = anchor_batch
+
+        for post in posts:
+            post.image_prompt = prompt_items_by_id[post.id]["image_prompt"]
+            post.save(update_fields=["image_prompt"])
+
+        ai_posts_count = sum(
+            batch.posts.filter(status=GenerationStatus.PENDING_REVIEW).count()
+            for batch in batches_by_id.values()
+            if batch.image_source == "ai"
         )
 
-        if batch.image_source == "ai":
+        if ai_posts_count:
             try:
-                ensure_ai_image_quota(request.user, batch.quantity)
+                ensure_ai_image_quota(request.user, ai_posts_count)
             except ValueError as error:
                 return Response(
                     {"detail": str(error)},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        mark_batch_pending(batch)
+        jobs = []
 
-        Thread(
-            target=run_post_image_generation_job,
-            args=(request.user.id, batch.id),
-            daemon=True,
-        ).start()
+        for batch in batches_by_id.values():
+            mark_batch_pending(batch)
 
-        return Response(
-            {
+            Thread(
+                target=run_post_image_generation_job,
+                args=(request.user.id, batch.id),
+                daemon=True,
+            ).start()
+            jobs.append({
                 "job_id": batch.id,
                 "batch_id": batch.id,
                 "status": batch.status,
                 "progress": batch.progress,
+            })
+
+        anchor_batch.refresh_from_db()
+
+        return Response(
+            {
+                "job_id": anchor_batch.id,
+                "batch_id": anchor_batch.id,
+                "status": anchor_batch.status,
+                "progress": anchor_batch.progress,
+                "jobs": jobs,
             },
             status=status.HTTP_202_ACCEPTED,
         )

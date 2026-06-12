@@ -356,6 +356,26 @@ class PostImageTextTestCase(SimpleTestCase):
             "USER TEXT",
         )
 
+    @patch("ai_content_agent.services.apply_center_text_to_image")
+    def test_render_image_file_joins_title_and_subtitle_with_hyphen(
+        self,
+        apply_center_text_to_image,
+    ):
+        from .services import render_image_file
+
+        render_image_file(
+            image_path="/tmp/final.png",
+            template_name="none",
+            image_title="TITLE",
+            image_subtitle="SUBTITLE",
+            title_font="inter",
+        )
+
+        self.assertEqual(
+            apply_center_text_to_image.call_args.kwargs["text"],
+            "TITLE - SUBTITLE",
+        )
+
 
 class PostDraftGenerationTestCase(SimpleTestCase):
     def get_base_data(self):
@@ -957,6 +977,29 @@ class GeneratePostContentAPITestCase(APITestCase):
         self,
         thread_class,
     ):
+        existing_batch = PostBatch.objects.create(
+            user=self.user,
+            brand=self.brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Existing",
+            quantity=1,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+        )
+        existing_post = Post.objects.create(
+            batch=existing_batch,
+            brand=self.brand,
+            user=self.user,
+            caption="Existing caption",
+            hashtags=["#tag"],
+            image_prompt="Existing prompt",
+            image_title="TEXT",
+            template="none",
+            status=GenerationStatus.PENDING_REVIEW,
+            scheduled_date="2026-06-09",
+        )
+
         response = self.client.post(
             reverse("generate-post-content"),
             {
@@ -983,13 +1026,22 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertEqual(response.data["status"], GenerationStatus.PENDING_REVIEW)
         self.assertEqual(response.data["progress"], 100)
         self.assertEqual(response.data["quantity"], 1)
-        self.assertEqual(len(response.data["posts"]), 1)
-        self.assertTrue(response.data["posts"][0]["image_prompt"])
+        self.assertEqual(len(response.data["posts"]), 2)
+        self.assertEqual(response.data["posts"][0]["id"], existing_post.id)
+        self.assertEqual(
+            response.data["posts"][0]["batch_id"],
+            existing_batch.id,
+        )
+        self.assertTrue(response.data["posts"][1]["image_prompt"])
+        self.assertEqual(
+            response.data["posts"][1]["batch_id"],
+            response.data["batch_id"],
+        )
         thread_class.assert_not_called()
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
     @patch("ai_content_agent.views.Thread")
-    def test_approve_post_prompts_updates_prompts_and_starts_image_job(
+    def test_approve_post_prompts_updates_prompts_and_starts_image_jobs(
         self,
         thread_class,
     ):
@@ -999,6 +1051,16 @@ class GeneratePostContentAPITestCase(APITestCase):
             objective="Attract leads",
             tone="Friendly",
             theme="Summer",
+            quantity=1,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+        )
+        other_batch = PostBatch.objects.create(
+            user=self.user,
+            brand=self.brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Winter",
             quantity=1,
             status=GenerationStatus.PENDING_REVIEW,
             progress=100,
@@ -1022,6 +1084,25 @@ class GeneratePostContentAPITestCase(APITestCase):
             status=GenerationStatus.PENDING_REVIEW,
             scheduled_date="2026-06-09",
         )
+        other_post = Post.objects.create(
+            batch=other_batch,
+            brand=self.brand,
+            user=self.user,
+            caption="Other caption",
+            hashtags=["#tag"],
+            image_prompt="Other old prompt",
+            image_title="TEXT",
+            template="none",
+            primary_color="#111111",
+            secondary_color="#222222",
+            tertiary_color="#333333",
+            text_color="#FFFFFF",
+            title_font="inter",
+            subtitle_font="inter",
+            logo_position="",
+            status=GenerationStatus.PENDING_REVIEW,
+            scheduled_date="2026-06-10",
+        )
         thread_instance = thread_class.return_value
 
         response = self.client.post(
@@ -1031,6 +1112,10 @@ class GeneratePostContentAPITestCase(APITestCase):
                     {
                         "id": post.id,
                         "image_prompt": "Reviewed prompt",
+                    },
+                    {
+                        "id": other_post.id,
+                        "image_prompt": "Other reviewed prompt",
                     }
                 ]
             },
@@ -1038,15 +1123,21 @@ class GeneratePostContentAPITestCase(APITestCase):
         )
 
         post.refresh_from_db()
+        other_post.refresh_from_db()
         batch.refresh_from_db()
+        other_batch.refresh_from_db()
 
         self.assertEqual(response.status_code, 202)
         self.assertEqual(response.data["status"], GenerationStatus.PENDING)
         self.assertEqual(post.image_prompt, "Reviewed prompt")
+        self.assertEqual(other_post.image_prompt, "Other reviewed prompt")
         self.assertEqual(batch.status, GenerationStatus.PENDING)
-        thread_instance.start.assert_called_once()
+        self.assertEqual(other_batch.status, GenerationStatus.PENDING)
+        self.assertEqual(len(response.data["jobs"]), 2)
+        self.assertEqual(thread_class.call_count, 2)
+        self.assertEqual(thread_instance.start.call_count, 2)
 
-    def test_pending_review_endpoint_returns_latest_review_batch(self):
+    def test_pending_review_endpoint_returns_all_pending_review_posts(self):
         batch = PostBatch.objects.create(
             user=self.user,
             brand=self.brand,
@@ -1057,6 +1148,17 @@ class GeneratePostContentAPITestCase(APITestCase):
             status=GenerationStatus.PENDING_REVIEW,
             progress=100,
             strategy_summary="Review this batch",
+        )
+        other_batch = PostBatch.objects.create(
+            user=self.user,
+            brand=self.brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Winter",
+            quantity=1,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+            strategy_summary="Review this other batch",
         )
         post = Post.objects.create(
             batch=batch,
@@ -1070,12 +1172,37 @@ class GeneratePostContentAPITestCase(APITestCase):
             status=GenerationStatus.PENDING_REVIEW,
             scheduled_date="2026-06-09",
         )
+        other_post = Post.objects.create(
+            batch=other_batch,
+            brand=self.brand,
+            user=self.user,
+            caption="Other caption",
+            hashtags=["#tag"],
+            image_prompt="Other prompt to review",
+            image_title="TEXT",
+            template="none",
+            status=GenerationStatus.PENDING_REVIEW,
+            scheduled_date="2026-06-10",
+        )
 
         response = self.client.get(reverse("pending-review-post-batch"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["batch"]["batch_id"], batch.id)
+        self.assertEqual(response.data["batch"]["quantity"], 2)
+        self.assertEqual(len(response.data["batch"]["posts"]), 2)
         self.assertEqual(response.data["batch"]["posts"][0]["id"], post.id)
+        self.assertEqual(
+            response.data["batch"]["posts"][0]["batch_id"],
+            batch.id,
+        )
+        self.assertEqual(
+            response.data["batch"]["posts"][1]["id"],
+            other_post.id,
+        )
+        self.assertEqual(
+            response.data["batch"]["posts"][1]["batch_id"],
+            other_batch.id,
+        )
         self.assertEqual(
             response.data["batch"]["posts"][0]["image_prompt"],
             "Prompt to review",

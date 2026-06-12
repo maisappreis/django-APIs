@@ -279,7 +279,7 @@ def render_image_file(
     logo_file = logo_file if logo_position else None
     title_font = title_font or DEFAULT_TEXT_FONT
     subtitle_font = subtitle_font or DEFAULT_TEXT_FONT
-    combined_text = "\n".join(
+    combined_text = ": ".join(
         text for text in (image_title, image_subtitle) if text
     )
 

@@ -32,6 +32,7 @@ def serialize_brand(brand):
 def serialize_post_generation(post_generation):
     return {
         "id": post_generation.id,
+        "batch_id": post_generation.batch_id,
         "brand_id": post_generation.brand_id,
         "date": post_generation.scheduled_date,
         "caption": post_generation.caption,
