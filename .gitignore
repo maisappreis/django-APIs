@@ -44,3 +44,8 @@ venv.bak/
 *.log
 logs/
 *.log.*
+
+# Tests
+.coverage
+.coverage.*
+htmlcov/
