@@ -49,7 +49,7 @@ class Revenue(models.Model):
 
 
     def __str__(self):
-        return self.customer
+        return str(self.customer)
     
     class Meta:
         constraints = [
