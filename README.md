@@ -114,7 +114,16 @@ Run **Tests**
 ```sh
 python manage.py test dental_clinic.tests
 python manage.py test upgit_gym.tests
+
+coverage run manage.py test ai_content_agent
+
+coverage run manage.py test
+coverage report
+coverage html
 ```
+
+Open to see coverage:
+htmlcov/index.html
 
 ---
 
@@ -128,8 +137,10 @@ Exibe: SHOW DATABASES;
 To reset database migrations:
 python manage.py migrate [app] zero
 
-To update requirements.txt
+To update requirements.txt:
+```sh
 pip freeze > requirements.txt
+```
 
 ---
 
