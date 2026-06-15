@@ -11,20 +11,20 @@ from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import Plan, Subscription
 
-from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
-from .operations import (
+from ..models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
+from ..operations import (
     create_post_drafts_from_generation_result,
     delete_post_generation,
     get_available_post_dates,
 )
-from .serializers import PostImageRenderInputSerializer
-from .services import (
+from ..serializers import PostImageRenderInputSerializer
+from ..services import (
     generate_post_batch_draft_content,
     render_approved_post_image,
     render_post_content,
     rerender_post_image,
 )
-from .utils import _get_font_key, _get_font_candidate_paths
+from ..utils import _get_font_key, _get_font_candidate_paths
 
 
 TODAY = "2026-06-11"
@@ -361,7 +361,7 @@ class PostImageTextTestCase(SimpleTestCase):
         self,
         apply_center_text_to_image,
     ):
-        from .services import render_image_file
+        from ..services import render_image_file
 
         render_image_file(
             image_path="/tmp/final.png",
@@ -373,7 +373,7 @@ class PostImageTextTestCase(SimpleTestCase):
 
         self.assertEqual(
             apply_center_text_to_image.call_args.kwargs["text"],
-            "TITLE - SUBTITLE",
+            "TITLE: SUBTITLE",
         )
 
 
@@ -639,7 +639,7 @@ class PostImageRenderInputSerializerTestCase(SimpleTestCase):
 
 class PostGenerationInputSerializerTestCase(SimpleTestCase):
     def test_accepts_blank_logo_position_to_generate_post_without_logo(self):
-        from .serializers import PostGenerationInputSerializer
+        from ..serializers import PostGenerationInputSerializer
 
         serializer = PostGenerationInputSerializer(data={
             "business_name": "Brand",
@@ -1267,5 +1267,3 @@ class DeletePostAPITestCase(APITestCase):
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Post.objects.filter(id=post.id).exists())
         self.assertEqual(delete_public_file.call_count, 2)
-
-
