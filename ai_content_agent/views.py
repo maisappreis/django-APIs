@@ -24,11 +24,13 @@ from .operations import (
     get_future_scheduled_posts,
     get_monthly_ai_image_usage,
     get_or_create_brand,
+    get_pending_review_posts_for_user,
     get_user_brands,
     mark_batch_pending,
     mark_batch_failed,
     prepare_post_download,
     save_brand_reference_images,
+    serialize_pending_review_posts_for_user,
     sync_brand_logo,
     update_brand_manual_identity,
 )
@@ -51,29 +53,6 @@ from .services import (
     prepare_uploaded_post_image_files,
     rerender_post_image,
 )
-
-
-def get_pending_review_posts_for_user(user):
-    return (
-        Post.objects.select_related("batch", "brand")
-        .filter(
-            user=user,
-            status=GenerationStatus.PENDING_REVIEW,
-            batch__status=GenerationStatus.PENDING_REVIEW,
-        )
-        .order_by(
-            "scheduled_date",
-            "post_order",
-            "created_at",
-        )
-    )
-
-
-def serialize_pending_review_posts_for_user(user):
-    return [
-        serialize_post_generation(post)
-        for post in get_pending_review_posts_for_user(user)
-    ]
 
 
 class BrandListAPIView(APIView):

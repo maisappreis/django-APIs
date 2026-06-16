@@ -8,7 +8,7 @@ import httpx
 
 from .defaults import DEFAULT_TEXT_FONT
 from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
-from .presenters import get_download_filename
+from .presenters import get_download_filename, serialize_post_generation
 from .rules import get_ai_image_monthly_limit, get_current_month_range
 from .rules import can_capture_visual_identity, get_max_brands
 from .storage import (
@@ -152,6 +152,29 @@ def get_future_scheduled_posts(user):
     )
 
     return start_date, posts
+
+
+def get_pending_review_posts_for_user(user):
+    return (
+        Post.objects.select_related("batch", "brand")
+        .filter(
+            user=user,
+            status=GenerationStatus.PENDING_REVIEW,
+            batch__status=GenerationStatus.PENDING_REVIEW,
+        )
+        .order_by(
+            "scheduled_date",
+            "post_order",
+            "created_at",
+        )
+    )
+
+
+def serialize_pending_review_posts_for_user(user):
+    return [
+        serialize_post_generation(post)
+        for post in get_pending_review_posts_for_user(user)
+    ]
 
 
 def get_available_post_dates(user, quantity):
