@@ -135,6 +135,29 @@ class ContentAgentViewExtraTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    @override_settings(CONTENT_AGENT_MAINTENANCE_TOKEN="secret-token")
+    @patch("ai_content_agent.views.cleanup_post_images_outside_retention_window")
+    def test_firebase_cleanup_maintenance_requires_token(self, cleanup):
+        response = self.client.get(reverse("firebase-cleanup-maintenance"))
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        cleanup.assert_not_called()
+
+    @override_settings(CONTENT_AGENT_MAINTENANCE_TOKEN="secret-token")
+    @patch("ai_content_agent.views.cleanup_post_images_outside_retention_window")
+    def test_firebase_cleanup_maintenance_runs_with_bearer_token(self, cleanup):
+        cleanup.return_value = 3
+
+        response = self.client.get(
+            reverse("firebase-cleanup-maintenance"),
+            HTTP_AUTHORIZATION="Bearer secret-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "ok")
+        self.assertEqual(response.data["cleaned_posts"], 3)
+        cleanup.assert_called_once_with()
+
     def test_generate_posts_returns_400_when_brand_is_missing(self):
         response = self.client.post(
             reverse("generate-post-content"),

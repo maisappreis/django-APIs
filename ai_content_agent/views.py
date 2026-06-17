@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
@@ -8,7 +9,9 @@ from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 import httpx
 from threading import Thread
+from secrets import compare_digest
 
+from .firebase_cleanup import cleanup_post_images_outside_retention_window
 from .jobs import generate_post_review_batch, run_post_image_generation_job
 from .models import GenerationStatus, Post, PostBatch
 from .operations import (
@@ -54,6 +57,19 @@ from .services import (
     prepare_uploaded_post_image_files,
     rerender_post_image,
 )
+
+
+def is_valid_maintenance_request(request):
+    expected_token = getattr(settings, "CONTENT_AGENT_MAINTENANCE_TOKEN", "")
+    auth_header = request.headers.get("Authorization", "")
+    prefix = "Bearer "
+
+    if not expected_token or not auth_header.startswith(prefix):
+        return False
+
+    token = auth_header.removeprefix(prefix).strip()
+
+    return compare_digest(token, expected_token)
 
 
 class BrandListAPIView(APIView):
@@ -236,6 +252,26 @@ class CalendarPostsAPIView(APIView):
                     serialize_post_generation(post_generation)
                     for post_generation in posts
                 ],
+            }
+        )
+
+
+class FirebaseCleanupMaintenanceAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not is_valid_maintenance_request(request):
+            return Response(
+                {"detail": "Unauthorized maintenance request."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        cleaned_count = cleanup_post_images_outside_retention_window()
+
+        return Response(
+            {
+                "status": "ok",
+                "cleaned_posts": cleaned_count,
             }
         )
 

@@ -1250,8 +1250,11 @@ class DeletePostAPITestCase(APITestCase):
         self.assertEqual(response.status_code, 404)
         self.assertTrue(Post.objects.filter(id=post.id).exists())
 
-    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
-    @patch("ai_content_agent.operations.delete_public_file")
+    @override_settings(
+        CONTENT_AGENT_STORAGE_BACKEND="firebase",
+        FIREBASE_STORAGE_BUCKET="bucket",
+    )
+    @patch("ai_content_agent.firebase_cleanup.delete_public_file")
     def test_delete_post_removes_firebase_images(self, delete_public_file):
         post = Post.objects.create(
             user=self.user,

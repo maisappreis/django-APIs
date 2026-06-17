@@ -32,6 +32,8 @@ Talvez, futuramente, limitar a quantidade de vezes que o usuário captura identi
 
 - Apenas 1 logo por marca deve ficar salva no Firebase.
 - Apenas 2 imagens de referência da identidade visual por marca devem ficar salvas do Firebase.
-- Imagem base do post: mantém salvo apenas os posts do intervalo: de 7 dias atrás até 30 dias na frente. (data de hoje como referência)
-- Imagem/post final: mantém salvo apenas os posts do intervalo: de 7 dias atrás até 30 dias na frente. (data de hoje como referência). E se usuário editar a imagem/post final, essa deve ser substituida no firebase, não será mantido histórico de edição de post.
+- Imagem base do post: mantém salvo apenas os posts do intervalo: de 30 dias atrás até 30 dias na frente. (data de hoje como referência)
+- Imagem/post final: mantém salvo apenas os posts do intervalo: de 30 dias atrás até 30 dias na frente. (data de hoje como referência). E se usuário editar a imagem/post final, essa deve ser substituida no firebase, não será mantido histórico de edição de post.
 - Manter caption/dados no bancopara ter histórico textual.
+
+- Vercel Cron chama endpoint de limpeza 1x por semana. Se tiver muitos usuários, chamar 1x por dia.

@@ -7,12 +7,15 @@ from django.utils import timezone
 import httpx
 
 from .defaults import DEFAULT_TEXT_FONT
+from .firebase_cleanup import (
+    cleanup_replaced_brand_files,
+    delete_firebase_file,
+)
 from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
 from .presenters import get_download_filename, serialize_post_generation
 from .rules import get_ai_image_monthly_limit, get_current_month_range
 from .rules import can_capture_visual_identity, get_max_brands
 from .storage import (
-    delete_public_file,
     is_firebase_storage_enabled,
     upload_brand_reference_file,
     upload_generated_post_file,
@@ -206,11 +209,21 @@ def get_available_post_dates(user, quantity):
 
 
 def save_brand_reference_images(brand, data, user):
+    next_reference_indexes = []
+
     if data.get("reference_image_1"):
+        next_reference_indexes.append(1)
         brand.reference_image_1 = data["reference_image_1"]
 
     if data.get("reference_image_2"):
+        next_reference_indexes.append(2)
         brand.reference_image_2 = data["reference_image_2"]
+
+    if is_firebase_storage_enabled():
+        cleanup_replaced_brand_files(
+            brand,
+            next_reference_indexes=next_reference_indexes,
+        )
 
     brand.save()
 
@@ -321,6 +334,9 @@ def sync_brand_logo(brand, data, user):
         if brand.logo:
             data["logo"] = brand.logo.path
         return
+
+    if is_firebase_storage_enabled():
+        cleanup_replaced_brand_files(brand, next_logo=True)
 
     brand.logo = data["logo"]
     brand.save(update_fields=["logo", "updated_at"])
@@ -573,9 +589,8 @@ def delete_post_generation(post_generation):
             if not image_url:
                 continue
 
-            try:
-                delete_public_file(image_url)
-            except Exception as error:
+            if not delete_firebase_file(image_url):
+                error = RuntimeError(f"Unable to delete {image_url}")
                 storage_errors.append(error)
 
     post_generation.delete()

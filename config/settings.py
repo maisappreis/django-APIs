@@ -25,6 +25,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
+OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+CONTENT_AGENT_USE_MOCK_IMAGES = (
+    os.getenv("CONTENT_AGENT_USE_MOCK_IMAGES", "true").lower() == "true"
+)
 CONTENT_AGENT_STORAGE_BACKEND = os.getenv(
     "CONTENT_AGENT_STORAGE_BACKEND",
     "local",
@@ -36,14 +44,9 @@ CONTENT_AGENT_FONT_DIR = os.getenv(
 FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
 FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
 FIREBASE_PUBLIC_BASE_URL = os.getenv("FIREBASE_PUBLIC_BASE_URL", "")
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
-OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
-CONTENT_AGENT_USE_MOCK_IMAGES = (
-    os.getenv("CONTENT_AGENT_USE_MOCK_IMAGES", "true").lower() == "true"
+CONTENT_AGENT_MAINTENANCE_TOKEN = os.getenv(
+    "CONTENT_AGENT_MAINTENANCE_TOKEN",
+    os.getenv("CRON_SECRET", ""),
 )
 
 if is_production(): 

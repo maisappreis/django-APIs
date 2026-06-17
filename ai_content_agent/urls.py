@@ -8,6 +8,7 @@ from .views import (
     ContentAgentUsageAPIView,
     DeletePostAPIView,
     DownloadPostImageAPIView,
+    FirebaseCleanupMaintenanceAPIView,
     GeneratePostContentAPIView,
     PendingReviewPostBatchAPIView,
     PostGenerationStatusAPIView,
@@ -54,6 +55,11 @@ urlpatterns = [
         "usage/",
         ContentAgentUsageAPIView.as_view(),
         name="content-agent-usage",
+    ),
+    path(
+        "maintenance/firebase-cleanup/",
+        FirebaseCleanupMaintenanceAPIView.as_view(),
+        name="firebase-cleanup-maintenance",
     ),
     path(
         "posts/<int:post_id>/render/",

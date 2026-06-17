@@ -402,9 +402,9 @@ class OperationsTest(TestCase):
                 prepare_post_download(post)
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
-    @patch("ai_content_agent.operations.delete_public_file")
-    def test_delete_post_generation_collects_storage_errors(self, delete_public_file):
-        delete_public_file.side_effect = [RuntimeError("base"), None]
+    @patch("ai_content_agent.operations.delete_firebase_file")
+    def test_delete_post_generation_collects_storage_errors(self, delete_firebase_file):
+        delete_firebase_file.side_effect = [False, True]
         post = create_post(
             base_image_url="https://cdn.test/base.png",
             image_url="https://cdn.test/final.png",

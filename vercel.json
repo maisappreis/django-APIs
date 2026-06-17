@@ -15,6 +15,12 @@
         "src": "/(.*)",
         "dest": "/config/wsgi.py"
       }
+    ],
+    "crons": [
+      {
+        "path": "/api/content-agent/maintenance/firebase-cleanup/",
+        "schedule": "0 3 * * *"
+      }
     ]
   }
   

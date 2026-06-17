@@ -19,6 +19,7 @@ from ai_content_agent.templates.text_overlay import (
     apply_template_text_overlay,
 )
 from ai_content_agent.defaults import DEFAULT_TEXT_FONT
+from ai_content_agent.firebase_cleanup import delete_replaced_firebase_file
 
 from ai_core.prompts import build_post_plan_prompt, build_posts_from_plan_prompt
 from ai_content_agent.mocks import (
@@ -549,6 +550,7 @@ def render_approved_post_image(post, use_existing_base=False):
 
 
 def rerender_post_image(post, visual_settings):
+    previous_image_url = post.image_url
     final_image_data = create_final_image_from_base(post.base_image_url)
     template_name = visual_settings["template"]
     image_title = visual_settings.get("image_title", "")
@@ -596,6 +598,7 @@ def rerender_post_image(post, visual_settings):
             post_id=post.id,
             kind="final",
         )
+        delete_replaced_firebase_file(previous_image_url, image_url)
 
     post.image_url = image_url
     post.save(

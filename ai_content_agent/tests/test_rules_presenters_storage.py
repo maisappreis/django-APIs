@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import Mock, patch
 
 from django.test import TestCase, override_settings
@@ -6,6 +6,13 @@ from django.utils import timezone
 
 from accounts.models import Plan, Subscription
 from ai_content_agent.models import GenerationStatus
+from ai_content_agent.firebase_cleanup import (
+    cleanup_post_images_outside_retention_window,
+    cleanup_replaced_brand_files,
+    delete_replaced_firebase_file,
+    get_post_image_retention_range,
+    is_firebase_public_url,
+)
 from ai_content_agent.presenters import (
     get_download_filename,
     serialize_brand,
@@ -207,7 +214,10 @@ class StorageTest(TestCase):
             "users/1/brands/3/references/reference-2.webp",
         )
 
-    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @override_settings(
+        CONTENT_AGENT_STORAGE_BACKEND="firebase",
+        FIREBASE_PUBLIC_BASE_URL="https://cdn.test",
+    )
     @patch("ai_content_agent.storage.get_firebase_bucket")
     def test_delete_public_file_deletes_blob(self, get_firebase_bucket):
         bucket = Mock()
@@ -216,3 +226,99 @@ class StorageTest(TestCase):
 
         self.assertTrue(delete_public_file("https://storage.googleapis.com/b/users/1/a.png"))
         blob.delete.assert_called_once()
+
+
+class FirebaseCleanupTest(TestCase):
+    @override_settings(
+        CONTENT_AGENT_STORAGE_BACKEND="firebase",
+        FIREBASE_PUBLIC_BASE_URL="https://cdn.test",
+    )
+    @patch("ai_content_agent.firebase_cleanup.delete_public_file")
+    def test_cleanup_replaced_brand_files_deletes_only_replaced_slots(self, delete_file):
+        brand = create_brand(
+            logo_url="https://cdn.test/logo.png",
+            reference_image_1_url="https://cdn.test/ref1.png",
+            reference_image_2_url="https://cdn.test/ref2.png",
+        )
+        delete_file.return_value = True
+
+        deleted = cleanup_replaced_brand_files(
+            brand,
+            next_logo=True,
+            next_reference_indexes=[2],
+        )
+
+        self.assertEqual(deleted, ["https://cdn.test/logo.png", "https://cdn.test/ref2.png"])
+        self.assertEqual(delete_file.call_count, 2)
+
+    @override_settings(
+        CONTENT_AGENT_STORAGE_BACKEND="firebase",
+        FIREBASE_PUBLIC_BASE_URL="https://cdn.test",
+    )
+    @patch("ai_content_agent.firebase_cleanup.delete_public_file")
+    def test_delete_replaced_firebase_file_skips_same_url(self, delete_file):
+        self.assertFalse(
+            delete_replaced_firebase_file(
+                "https://cdn.test/final.png",
+                "https://cdn.test/final.png",
+            )
+        )
+
+        delete_file.assert_not_called()
+
+    @override_settings(
+        FIREBASE_PUBLIC_BASE_URL="https://cdn.test",
+        FIREBASE_STORAGE_BUCKET="bucket-name",
+    )
+    def test_is_firebase_public_url_ignores_local_media_urls(self):
+        self.assertTrue(is_firebase_public_url("https://cdn.test/users/1/file.png"))
+        self.assertTrue(
+            is_firebase_public_url(
+                "https://storage.googleapis.com/bucket-name/users/1/file.png"
+            )
+        )
+        self.assertFalse(is_firebase_public_url("/media/generated_posts/final.png"))
+
+    def test_post_image_retention_range_uses_30_days_before_and_after(self):
+        start_date, end_date = get_post_image_retention_range(date(2026, 6, 17))
+
+        self.assertEqual(start_date, date(2026, 5, 18))
+        self.assertEqual(end_date, date(2026, 7, 17))
+
+    @override_settings(
+        CONTENT_AGENT_STORAGE_BACKEND="firebase",
+        FIREBASE_PUBLIC_BASE_URL="https://cdn.test",
+    )
+    @patch("ai_content_agent.firebase_cleanup.delete_public_file")
+    def test_cleanup_post_images_outside_retention_window_keeps_text_history(self, delete_file):
+        user = create_user()
+        inside = create_post(
+            user=user,
+            scheduled_date=date(2026, 6, 20),
+            status=GenerationStatus.COMPLETED,
+            base_image_url="https://cdn.test/base-inside.png",
+            image_url="https://cdn.test/final-inside.png",
+        )
+        outside = create_post(
+            user=user,
+            scheduled_date=date(2026, 8, 1),
+            status=GenerationStatus.COMPLETED,
+            caption="Keep this caption",
+            base_image_url="https://cdn.test/base-outside.png",
+            image_url="https://cdn.test/final-outside.png",
+        )
+        delete_file.return_value = True
+
+        cleaned_count = cleanup_post_images_outside_retention_window(
+            reference_date=date(2026, 6, 17)
+        )
+
+        self.assertEqual(cleaned_count, 1)
+        outside.refresh_from_db()
+        inside.refresh_from_db()
+        self.assertEqual(outside.caption, "Keep this caption")
+        self.assertEqual(outside.base_image_url, "")
+        self.assertEqual(outside.image_url, "")
+        self.assertEqual(inside.base_image_url, "https://cdn.test/base-inside.png")
+        self.assertEqual(inside.image_url, "https://cdn.test/final-inside.png")
+        self.assertEqual(delete_file.call_count, 2)
