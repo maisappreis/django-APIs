@@ -43,6 +43,7 @@ from .serializers import (
     BrandInputSerializer,
     BrandOutputSerializer,
     BrandPatchSerializer,
+    CalendarPostsQuerySerializer,
     PostBatchOutputSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
@@ -218,7 +219,15 @@ class BrandDetailAPIView(APIView):
 
 class CalendarPostsAPIView(APIView):
     def get(self, request):
-        start_date, posts = get_future_scheduled_posts(request.user)
+        input_serializer = CalendarPostsQuerySerializer(data=request.query_params)
+        input_serializer.is_valid(raise_exception=True)
+
+        data = input_serializer.validated_data
+        start_date, posts = get_future_scheduled_posts(
+            request.user,
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date"),
+        )
 
         return Response(
             {

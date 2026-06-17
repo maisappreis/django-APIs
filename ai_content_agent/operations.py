@@ -139,14 +139,19 @@ def get_user_brands(user):
     return Brand.objects.filter(user=user).order_by("-updated_at")
 
 
-def get_future_scheduled_posts(user):
-    start_date = timezone.localdate()
+def get_future_scheduled_posts(user, start_date=None, end_date=None):
+    start_date = start_date or timezone.localdate()
+    filters = {
+        "user": user,
+        "scheduled_date__gte": start_date,
+        "status": GenerationStatus.COMPLETED,
+    }
+
+    if end_date:
+        filters["scheduled_date__lte"] = end_date
+
     posts = (
-        Post.objects.filter(
-            user=user,
-            scheduled_date__gte=start_date,
-            status=GenerationStatus.COMPLETED,
-        )
+        Post.objects.filter(**filters)
         .exclude(scheduled_date__isnull=True)
         .order_by("scheduled_date", "post_order", "created_at")
     )

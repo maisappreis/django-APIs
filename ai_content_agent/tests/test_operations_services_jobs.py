@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -18,6 +19,7 @@ from ai_content_agent.operations import (
     ensure_ai_image_quota,
     ensure_brand_quota,
     ensure_visual_identity_capture_allowed,
+    get_future_scheduled_posts,
     get_brand_by_id_for_user,
     get_monthly_ai_image_usage,
     get_or_create_brand,
@@ -145,6 +147,37 @@ class OperationsTest(TestCase):
         self.assertEqual(new_brand.business_name, "New")
         self.assertEqual(get_brand_by_id_for_user(user, ""), None)
         self.assertEqual(get_brand_by_id_for_user(user, existing.id), existing)
+
+    def test_get_future_scheduled_posts_filters_by_date_range(self):
+        user = create_user()
+        brand = create_brand(user=user)
+        inside = create_post(
+            user=user,
+            brand=brand,
+            scheduled_date=date(2026, 6, 20),
+            status=GenerationStatus.COMPLETED,
+        )
+        create_post(
+            user=user,
+            brand=brand,
+            scheduled_date=date(2026, 7, 20),
+            status=GenerationStatus.COMPLETED,
+        )
+        create_post(
+            user=user,
+            brand=brand,
+            scheduled_date=date(2026, 6, 20),
+            status=GenerationStatus.PENDING,
+        )
+
+        start_date, posts = get_future_scheduled_posts(
+            user,
+            start_date=date(2026, 6, 14),
+            end_date=date(2026, 7, 17),
+        )
+
+        self.assertEqual(start_date, date(2026, 6, 14))
+        self.assertEqual(list(posts), [inside])
 
     def test_brand_quota_and_visual_identity_rules(self):
         user = create_user()

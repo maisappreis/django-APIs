@@ -1,4 +1,5 @@
 import tempfile
+from datetime import date
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -104,13 +105,35 @@ class ContentAgentViewExtraTest(APITestCase):
     @patch("ai_content_agent.views.get_future_scheduled_posts")
     def test_calendar_returns_start_and_posts(self, get_future_posts):
         post = create_post(user=self.user, brand=self.brand)
-        get_future_posts.return_value = ("2026-06-15", [post])
+        get_future_posts.return_value = (date(2026, 6, 14), [post])
 
-        response = self.client.get(reverse("calendar-posts"))
+        response = self.client.get(
+            reverse("calendar-posts"),
+            {
+                "start_date": "2026-06-14",
+                "end_date": "2026-07-17",
+            },
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["start"], "2026-06-15")
+        get_future_posts.assert_called_once_with(
+            self.user,
+            start_date=date(2026, 6, 14),
+            end_date=date(2026, 7, 17),
+        )
+        self.assertEqual(response.data["start"], date(2026, 6, 14))
         self.assertEqual(response.data["posts"][0]["id"], post.id)
+
+    def test_calendar_rejects_invalid_date_range(self):
+        response = self.client.get(
+            reverse("calendar-posts"),
+            {
+                "start_date": "2026-07-17",
+                "end_date": "2026-06-14",
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_generate_posts_returns_400_when_brand_is_missing(self):
         response = self.client.post(
