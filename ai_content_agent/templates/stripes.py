@@ -9,7 +9,7 @@ def apply_template_stripes(
     title="",
     subtitle="",
     logo_file=None,
-    logo_position="bottom_right",
+    logo_position="top_left",
     primary_color=None,
     secondary_color=None,
     tertiary_color=None,
@@ -42,6 +42,7 @@ def apply_template_stripes(
 
         draw = ImageDraw.Draw(base_image)
         left_margin = int(width * 0.08)
+        bottom_margin = int(height * 0.08)
         max_text_width = int(width * 0.58)
         draw_title_subtitle_block(
             draw=draw,
@@ -54,8 +55,9 @@ def apply_template_stripes(
             text_color=text_color,
             max_width=max_text_width,
             anchor_x=left_margin,
-            anchor_y=height // 2 + int(height * 0.15),
+            anchor_y=height - bottom_margin,
             horizontal_align="left",
+            vertical_anchor="bottom",
         )
 
         if logo_file:

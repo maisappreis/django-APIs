@@ -42,6 +42,7 @@ def apply_template_vertical_rectangle(
 
         draw = ImageDraw.Draw(base_image)
         left_margin = int(width * 0.08)
+        top_margin = int(height * 0.08)
         max_text_width = int(width * 0.58)
         draw_title_subtitle_block(
             draw=draw,
@@ -54,7 +55,9 @@ def apply_template_vertical_rectangle(
             text_color=text_color,
             max_width=max_text_width,
             anchor_x=left_margin,
+            anchor_y=top_margin,
             horizontal_align="left",
+            vertical_anchor="top",
         )
 
         if logo_file:

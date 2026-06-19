@@ -47,6 +47,8 @@ def apply_template_corners(
         base_image = Image.alpha_composite(base_image, corners_layer)
 
         draw = ImageDraw.Draw(base_image)
+        left_margin = int(width * 0.08)
+        bottom_margin = int(height * 0.08)
         draw_title_subtitle_block(
             draw=draw,
             width=width,
@@ -56,8 +58,11 @@ def apply_template_corners(
             title_font=title_font,
             subtitle_font=subtitle_font,
             text_color=text_color,
-            max_width=int(width * 0.72),
-            horizontal_align="center",
+            max_width=int(width * 0.58),
+            anchor_x=left_margin,
+            anchor_y=height - bottom_margin,
+            horizontal_align="left",
+            vertical_anchor="bottom",
         )
 
         if logo_file:
