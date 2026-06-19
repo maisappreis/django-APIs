@@ -7,6 +7,7 @@ def serialize_brand(brand):
         "id": brand.id,
         "business_name": brand.business_name,
         "niche": brand.niche,
+        "content_language": brand.content_language,
         "visual_identity_summary": brand.visual_identity_summary,
         "visual_identity_prompt": brand.visual_identity_prompt,
         "reference_image_1_url": (

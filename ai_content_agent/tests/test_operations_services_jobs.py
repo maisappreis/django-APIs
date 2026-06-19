@@ -201,6 +201,7 @@ class OperationsTest(TestCase):
         update_brand_manual_identity(brand, {
             "business_name": "Updated",
             "primary_color": "#ABCDEF",
+            "content_language": "en-US",
         })
         data = {}
         apply_brand_defaults(data, brand, request_data={"primary_color": "#000000"})
@@ -208,9 +209,11 @@ class OperationsTest(TestCase):
         brand.refresh_from_db()
         self.assertEqual(brand.business_name, "Updated")
         self.assertEqual(brand.primary_color, "#ABCDEF")
+        self.assertEqual(brand.content_language, "en-US")
         self.assertNotIn("primary_color", data)
         self.assertEqual(data["secondary_color"], brand.secondary_color)
         self.assertEqual(data["brand_visual_identity"], brand.visual_identity_prompt)
+        self.assertEqual(data["content_language"], "en-US")
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
     @patch("ai_content_agent.operations.upload_brand_reference_file")
@@ -456,7 +459,11 @@ class ServicesTest(SimpleTestCase):
     def test_generate_post_image_files_uses_ai_client_when_mock_disabled(self, generate):
         generate_post_image_files({"image_prompt": "Prompt"}, image_format="portrait")
 
-        generate.assert_called_once_with("Prompt", image_format="portrait")
+        generate.assert_called_once_with(
+            "Prompt",
+            image_format="portrait",
+            content_language="pt-BR",
+        )
 
     def test_uploaded_image_file_helpers(self):
         with override_settings(MEDIA_ROOT=self.media_root):
@@ -483,7 +490,11 @@ class ServicesTest(SimpleTestCase):
         )
         self.assertEqual(get_post_image_files({"image_format": "portrait"}, {}, 1), "generated")
         save_uploaded.assert_called_once_with("upload")
-        generate.assert_called_once_with({}, image_format="portrait")
+        generate.assert_called_once_with(
+            {},
+            image_format="portrait",
+            content_language="pt-BR",
+        )
 
     @patch("ai_content_agent.services.apply_logo_to_image")
     @patch("ai_content_agent.services.apply_center_text_to_image")

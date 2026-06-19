@@ -759,7 +759,7 @@ class ApprovedPostImageRenderTestCase(TestCase):
 
         generate_post_image_files.assert_called_once_with({
             "image_prompt": "Reviewed prompt",
-        }, image_format="portrait")
+        }, image_format="portrait", content_language="pt-BR")
         render_image_file.assert_called_once()
         self.assertEqual(rendered_post.base_image_url, "/media/base.png")
         self.assertEqual(rendered_post.image_url, "/media/final.png")

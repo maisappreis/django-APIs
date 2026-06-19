@@ -96,6 +96,7 @@ def update_brand_manual_identity(brand, data):
     fields = [
         "business_name",
         "niche",
+        "content_language",
         "primary_color",
         "secondary_color",
         "tertiary_color",
@@ -135,6 +136,7 @@ def apply_brand_defaults(data, brand, request_data):
             data[field] = getattr(brand, field)
 
     data["brand_visual_identity"] = brand.visual_identity_prompt
+    data["content_language"] = brand.content_language
 
     return data
 

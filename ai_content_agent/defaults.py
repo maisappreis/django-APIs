@@ -8,6 +8,11 @@ DEFAULT_TEMPLATE = "none"
 DEFAULT_QUANTITY = 1
 DEFAULT_USE_TEMPLATES = False
 DEFAULT_IMAGE_FORMAT = "square"
+DEFAULT_CONTENT_LANGUAGE = "pt-BR"
+CONTENT_LANGUAGE_CHOICES = (
+    ("pt-BR", "Português (Brasil)"),
+    ("en-US", "English (United States)"),
+)
 
 DEFAULT_POST_FORM_VALUES = {
     "brand_id": None,

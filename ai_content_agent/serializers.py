@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
 from .defaults import (
+    CONTENT_LANGUAGE_CHOICES,
+    DEFAULT_CONTENT_LANGUAGE,
     DEFAULT_IMAGE_FORMAT,
     DEFAULT_LOGO_POSITION,
     DEFAULT_PRIMARY_COLOR,
@@ -200,6 +202,12 @@ class BrandInputSerializer(serializers.Serializer):
         max_length=120,
         help_text="Nicho de atuacao da marca.",
     )
+    content_language = serializers.ChoiceField(
+        choices=CONTENT_LANGUAGE_CHOICES,
+        required=False,
+        default=DEFAULT_CONTENT_LANGUAGE,
+        help_text="Idioma do conteúdo gerado para a marca.",
+    )
     primary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         help_text="Cor primaria em hexadecimal. Exemplo: #006C44.",
@@ -269,6 +277,11 @@ class BrandPatchSerializer(serializers.Serializer):
         required=False,
         help_text="Nicho de atuacao da marca.",
     )
+    content_language = serializers.ChoiceField(
+        choices=CONTENT_LANGUAGE_CHOICES,
+        required=False,
+        help_text="Idioma do conteúdo gerado para a marca.",
+    )
     primary_color = serializers.RegexField(
         regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
@@ -332,6 +345,7 @@ class BrandOutputSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     business_name = serializers.CharField()
     niche = serializers.CharField()
+    content_language = serializers.CharField()
     visual_identity_summary = serializers.CharField(allow_blank=True)
     visual_identity_prompt = serializers.CharField(allow_blank=True)
     reference_image_1_url = serializers.CharField(allow_blank=True)

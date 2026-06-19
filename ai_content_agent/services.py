@@ -56,13 +56,18 @@ def _build_generated_image_data(relative_path):
     }
 
 
-def generate_post_image_files(result, image_format="square"):
+def generate_post_image_files(
+    result,
+    image_format="square",
+    content_language="pt-BR",
+):
     if getattr(settings, "CONTENT_AGENT_USE_MOCK_IMAGES", True):
         return mock_generate_image_files()
 
     return generate_image_files(
         result["image_prompt"],
         image_format=image_format,
+        content_language=content_language,
     )
 
 
@@ -110,6 +115,7 @@ def get_post_image_files(data, result, index):
     return generate_post_image_files(
         result,
         image_format=data.get("image_format", "square"),
+        content_language=data.get("content_language", "pt-BR"),
     )
 
 
@@ -127,6 +133,7 @@ def analyze_brand_visual_identity(brand):
         business_name=brand.business_name,
         niche=brand.niche,
         image_paths=image_paths,
+        content_language=brand.content_language,
     )
 
     brand.visual_identity_summary = result["visual_identity_summary"]
@@ -498,9 +505,13 @@ def render_approved_post_image(post, use_existing_base=False):
             "final": final_data,
         }
     else:
-        image_data = generate_post_image_files({
-            "image_prompt": post.image_prompt,
-        }, image_format=post.image_format)
+        image_data = generate_post_image_files(
+            {"image_prompt": post.image_prompt},
+            image_format=post.image_format,
+            content_language=(
+                post.brand.content_language if post.brand else "pt-BR"
+            ),
+        )
 
     logo_position = get_logo_position_for_template(
         template_name=post.template or "none",
@@ -666,6 +677,7 @@ def generate_post_batch_draft_content(data):
             plan_prompt,
             schema=POST_PLAN_SCHEMA,
             schema_name="post_plan",
+            content_language=data.get("content_language", "pt-BR"),
         )
 
     ideas = plan["posts"]
@@ -683,6 +695,7 @@ def generate_post_batch_draft_content(data):
             content_prompt,
             schema=POST_BATCH_CONTENT_SCHEMA,
             schema_name="post_batch_content",
+            content_language=data.get("content_language", "pt-BR"),
         )
 
     content_posts = sorted(content["posts"], key=lambda post: post["order"])

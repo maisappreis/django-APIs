@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 
 from .defaults import (
+    CONTENT_LANGUAGE_CHOICES,
+    DEFAULT_CONTENT_LANGUAGE,
     DEFAULT_IMAGE_FORMAT,
     DEFAULT_LOGO_POSITION,
     DEFAULT_PRIMARY_COLOR,
@@ -19,6 +21,11 @@ class Brand(models.Model):
     )
     business_name = models.CharField(max_length=120)
     niche = models.CharField(max_length=120)
+    content_language = models.CharField(
+        max_length=5,
+        choices=CONTENT_LANGUAGE_CHOICES,
+        default=DEFAULT_CONTENT_LANGUAGE,
+    )
     reference_image_1 = models.ImageField(
         upload_to="content_agent/brand_references/",
         null=True,

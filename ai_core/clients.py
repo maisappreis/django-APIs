@@ -1,6 +1,7 @@
 import json
 import base64
 import mimetypes
+from copy import deepcopy
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -9,19 +10,23 @@ from pathlib import Path
 from shutil import copyfile
 from uuid import uuid4
 
+from ai_core.prompts import (
+    build_brand_visual_identity_prompt,
+    build_image_generation_prompt,
+    get_content_system_prompt,
+    get_visual_identity_system_prompt,
+)
+
 
 IMAGE_FORMATS = {
     "square": {
         "size": "1024x1024",
-        "prompt_label": "quadrada",
     },
     "portrait": {
         "size": "1024x1536",
-        "prompt_label": "vertical em formato retrato",
     },
     "landscape": {
         "size": "1536x1024",
-        "prompt_label": "horizontal em formato paisagem",
     },
 }
 
@@ -236,22 +241,35 @@ def get_openai_client():
     return OpenAI(api_key=api_key)
 
 
+def _get_language_neutral_schema(schema):
+    schema = deepcopy(schema)
+
+    def remove_descriptions(value):
+        if isinstance(value, dict):
+            value.pop("description", None)
+            for child in value.values():
+                remove_descriptions(child)
+        elif isinstance(value, list):
+            for child in value:
+                remove_descriptions(child)
+
+    remove_descriptions(schema)
+    return schema
+
+
 def generate_structured_content(
     prompt,
     schema=POST_CONTENT_SCHEMA,
     schema_name="post_content",
+    content_language="pt-BR",
 ):
     client = get_openai_client()
-
     response = client.responses.create(
         model=settings.OPENAI_MODEL,
         input=[
             {
                 "role": "system",
-                "content": (
-                    "Você é um especialista em marketing de conteúdo para redes sociais. "
-                    "Responda sempre em português do Brasil."
-                ),
+                "content": get_content_system_prompt(content_language),
             },
             {
                 "role": "user",
@@ -263,7 +281,7 @@ def generate_structured_content(
                 "type": "json_schema",
                 "name": schema_name,
                 "strict": True,
-                "schema": schema,
+                "schema": _get_language_neutral_schema(schema),
             }
         },
     )
@@ -279,37 +297,21 @@ def _build_image_data_url(image_path):
     return f"data:{mime_type};base64,{image_base64}"
 
 
-def generate_brand_visual_identity(business_name, niche, image_paths):
+def generate_brand_visual_identity(
+    business_name,
+    niche,
+    image_paths,
+    content_language="pt-BR",
+):
     client = get_openai_client()
     content = [
         {
             "type": "input_text",
-            "text": f"""
-                Analise os prints do Instagram da marca abaixo e extraia a
-                identidade visual para guiar futuras artes de posts.
-
-                Negocio: {business_name}
-                Nicho: {niche}
-
-                Foque em padroes visuais recorrentes: paleta de cores,
-                composicao, fundos, estilo de fotos ou ilustracoes, densidade
-                de texto, formas, bordas, hierarquia visual e clima geral.
-
-                Regras:
-                - Responda em portugues do Brasil.
-                - Retorne cores em hexadecimal.
-                - O visual_identity_prompt deve ser uma instrucao pratica para
-                  geracao de imagens publicitarias coerentes com a marca.
-                - Use as cores da marca como acentos, elementos graficos,
-                  fundos pontuais, detalhes de layout ou areas de composicao.
-                - Nao transforme a cor principal em uma camada, filtro,
-                  gradiente ou overlay translucido cobrindo toda a imagem.
-                - Nao sugira aplicar uma pelicula colorida uniforme sobre
-                  fotos, pessoas, produtos ou cenarios.
-                - Nao copie textos especificos dos posts.
-                - Nao recomende titulo ou manchete dentro da imagem; o backend
-                  aplica o texto principal depois.
-                """,
+            "text": build_brand_visual_identity_prompt(
+                business_name,
+                niche,
+                content_language,
+            ),
         }
     ]
 
@@ -326,10 +328,7 @@ def generate_brand_visual_identity(business_name, niche, image_paths):
         input=[
             {
                 "role": "system",
-                "content": (
-                    "Voce e um diretor de arte especializado em identidade "
-                    "visual para redes sociais."
-                ),
+                "content": get_visual_identity_system_prompt(content_language),
             },
             {
                 "role": "user",
@@ -341,7 +340,9 @@ def generate_brand_visual_identity(business_name, niche, image_paths):
                 "type": "json_schema",
                 "name": "brand_visual_identity",
                 "strict": True,
-                "schema": BRAND_VISUAL_IDENTITY_SCHEMA,
+                "schema": _get_language_neutral_schema(
+                    BRAND_VISUAL_IDENTITY_SCHEMA
+                ),
             }
         },
     )
@@ -364,12 +365,17 @@ def _get_image_format_config(image_format):
     return IMAGE_FORMATS.get(image_format, IMAGE_FORMATS["square"])
 
 
-def _generate_image_bytes(prompt, image_format="square"):
+def _generate_image_bytes(
+    prompt,
+    image_format="square",
+    content_language="pt-BR",
+):
     client = get_openai_client()
     format_config = _get_image_format_config(image_format)
     image_prompt = _build_image_generation_prompt(
         prompt,
         image_format=image_format,
+        content_language=content_language,
     )
 
     response = client.images.generate(
@@ -384,54 +390,28 @@ def _generate_image_bytes(prompt, image_format="square"):
     return base64.b64decode(image_base64)
 
 
-def _build_image_generation_prompt(prompt, image_format="square"):
-    format_config = _get_image_format_config(image_format)
-
-    return f"""
-        Gere uma imagem publicitaria {format_config["prompt_label"]} para rede
-        social a partir da direcao visual abaixo.
-
-        Direcao visual:
-        {prompt}
-
-        Prioridade visual:
-        - Siga com alta fidelidade o tema, o subtema e os detalhes concretos
-          descritos na direcao visual.
-        - Crie uma cena especifica, nao uma imagem generica de banco de imagens.
-        - A imagem deve ter sujeito principal claro, ambiente definido, acao ou
-          objeto focal, composicao intencional e clima visual coerente com o
-          objetivo do post.
-        - Evite repetir a formula visual padrao de retrato frontal, pessoa
-          sorrindo, fundo neutro e elementos graficos genericos, a menos que a
-          direcao visual peca isso explicitamente.
-        - Prefira detalhes visuais relevantes ao tema: objetos, contexto,
-          materiais, gestos, textura, luz, perspectiva e situacao de uso.
-        - Use variedade de enquadramento quando a direcao permitir: close-up,
-          plano medio, cena ampla, perspectiva superior, detalhe de maos,
-          ambiente em uso, bastidor ou composicao de objetos.
-
-        Regras obrigatorias:
-        - Nao coloque titulo, cabecalho, manchete, slogan principal ou chamada
-          grande dentro da imagem.
-        - Nao escreva texto em ingles.
-        - Se houver texto na cena, use apenas palavras curtas em portugues do
-          Brasil e somente como parte natural do desenho, por exemplo etiquetas,
-          placas, botoes, etapas de processo, quadros ou elementos de interface.
-        - Nao inclua texto promocional sobreposto; o backend aplicara o texto
-          principal depois.
-        - Use cores da marca como acentos, blocos, detalhes, objetos, fundos
-          parciais ou elementos graficos; nao aplique uma camada colorida
-          translucida, filtro uniforme, overlay ou pelicula sobre toda a imagem.
-        - Preserve textura, luz, contraste e cores naturais de fotos, pessoas,
-          produtos e ambientes quando esses elementos aparecerem.
-        - Reserve espaco visual limpo no centro para receber texto aplicado
-          posteriormente.
-        - Priorize composicao profissional, moderna e coerente com o negocio.
-        """
+def _build_image_generation_prompt(
+    prompt,
+    image_format="square",
+    content_language="pt-BR",
+):
+    return build_image_generation_prompt(
+        prompt,
+        image_format,
+        content_language,
+    )
 
 
-def generate_image_file(prompt, image_format="square"):
-    image_bytes = _generate_image_bytes(prompt, image_format=image_format)
+def generate_image_file(
+    prompt,
+    image_format="square",
+    content_language="pt-BR",
+):
+    image_bytes = _generate_image_bytes(
+        prompt,
+        image_format=image_format,
+        content_language=content_language,
+    )
     relative_path = Path("generated_posts") / f"{uuid4()}.png"
     image_data = _build_generated_image_data(relative_path)
     absolute_path = Path(image_data["absolute_path"])
@@ -441,8 +421,16 @@ def generate_image_file(prompt, image_format="square"):
     return image_data
 
 
-def generate_image_files(prompt, image_format="square"):
-    image_bytes = _generate_image_bytes(prompt, image_format=image_format)
+def generate_image_files(
+    prompt,
+    image_format="square",
+    content_language="pt-BR",
+):
+    image_bytes = _generate_image_bytes(
+        prompt,
+        image_format=image_format,
+        content_language=content_language,
+    )
 
     image_id = uuid4()
     base_relative_path = Path("generated_posts") / f"base-{image_id}.png"
