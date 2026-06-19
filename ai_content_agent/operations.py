@@ -16,6 +16,7 @@ from .presenters import get_download_filename, serialize_post_generation
 from .rules import get_ai_image_monthly_limit, get_current_month_range
 from .rules import can_capture_visual_identity, get_max_brands
 from .storage import (
+    cleanup_local_files,
     is_firebase_storage_enabled,
     upload_brand_reference_file,
     upload_generated_post_file,
@@ -388,24 +389,30 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
         )
 
         if is_firebase_storage_enabled():
-            post.base_image_url = upload_generated_post_file(
-                local_path=post_data["base_absolute_path"],
-                user_id=user.id,
-                post_id=post.id,
-                kind="base",
-            )
-            post.image_url = upload_generated_post_file(
-                local_path=post_data["final_absolute_path"],
-                user_id=user.id,
-                post_id=post.id,
-                kind="final",
-            )
-            post.save(
-                update_fields=[
-                    "base_image_url",
-                    "image_url",
-                ]
-            )
+            try:
+                post.base_image_url = upload_generated_post_file(
+                    local_path=post_data["base_absolute_path"],
+                    user_id=user.id,
+                    post_id=post.id,
+                    kind="base",
+                )
+                post.image_url = upload_generated_post_file(
+                    local_path=post_data["final_absolute_path"],
+                    user_id=user.id,
+                    post_id=post.id,
+                    kind="final",
+                )
+                post.save(
+                    update_fields=[
+                        "base_image_url",
+                        "image_url",
+                    ]
+                )
+            finally:
+                cleanup_local_files(
+                    post_data["base_absolute_path"],
+                    post_data["final_absolute_path"],
+                )
 
         saved_posts.append(post)
         update_batch_progress(
@@ -456,13 +463,19 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
         )
 
         if image_data and is_firebase_storage_enabled():
-            post.base_image_url = upload_generated_post_file(
-                local_path=image_data["base"]["absolute_path"],
-                user_id=user.id,
-                post_id=post.id,
-                kind="base",
-            )
-            post.save(update_fields=["base_image_url"])
+            try:
+                post.base_image_url = upload_generated_post_file(
+                    local_path=image_data["base"]["absolute_path"],
+                    user_id=user.id,
+                    post_id=post.id,
+                    kind="base",
+                )
+                post.save(update_fields=["base_image_url"])
+            finally:
+                cleanup_local_files(
+                    image_data["base"]["absolute_path"],
+                    image_data["final"]["absolute_path"],
+                )
 
         saved_posts.append(post)
         update_batch_progress(

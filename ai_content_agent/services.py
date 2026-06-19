@@ -29,6 +29,7 @@ from ai_content_agent.mocks import (
 )
 from ai_content_agent.utils import apply_center_text_to_image, apply_logo_to_image
 from ai_content_agent.storage import (
+    cleanup_local_files,
     is_firebase_storage_enabled,
     upload_generated_post_file,
 )
@@ -471,6 +472,9 @@ def create_final_image_from_base(base_image_url):
     final_path.parent.mkdir(parents=True, exist_ok=True)
     copyfile(base_path, final_path)
 
+    if not base_image_url.startswith(settings.MEDIA_URL):
+        final_data["temporary_source_path"] = str(base_path)
+
     return final_data
 
 
@@ -523,20 +527,27 @@ def render_approved_post_image(post, use_existing_base=False):
     post.logo_position = logo_position
 
     if is_firebase_storage_enabled():
-        if not use_existing_base:
-            post.base_image_url = upload_generated_post_file(
-                local_path=image_data["base"]["absolute_path"],
+        try:
+            if not use_existing_base:
+                post.base_image_url = upload_generated_post_file(
+                    local_path=image_data["base"]["absolute_path"],
+                    user_id=post.user_id,
+                    post_id=post.id,
+                    kind="base",
+                )
+
+            post.image_url = upload_generated_post_file(
+                local_path=image_data["final"]["absolute_path"],
                 user_id=post.user_id,
                 post_id=post.id,
-                kind="base",
+                kind="final",
             )
-
-        post.image_url = upload_generated_post_file(
-            local_path=image_data["final"]["absolute_path"],
-            user_id=post.user_id,
-            post_id=post.id,
-            kind="final",
-        )
+        finally:
+            cleanup_local_files(
+                image_data["base"].get("absolute_path"),
+                image_data["final"].get("absolute_path"),
+                image_data["final"].get("temporary_source_path"),
+            )
 
     post.save(
         update_fields=[
@@ -592,13 +603,19 @@ def rerender_post_image(post, visual_settings):
     image_url = final_image_data["image_url"]
 
     if is_firebase_storage_enabled():
-        image_url = upload_generated_post_file(
-            local_path=final_image_data["absolute_path"],
-            user_id=post.user_id,
-            post_id=post.id,
-            kind="final",
-        )
-        delete_replaced_firebase_file(previous_image_url, image_url)
+        try:
+            image_url = upload_generated_post_file(
+                local_path=final_image_data["absolute_path"],
+                user_id=post.user_id,
+                post_id=post.id,
+                kind="final",
+            )
+            delete_replaced_firebase_file(previous_image_url, image_url)
+        finally:
+            cleanup_local_files(
+                final_image_data["absolute_path"],
+                final_image_data.get("temporary_source_path"),
+            )
 
     post.image_url = image_url
     post.save(

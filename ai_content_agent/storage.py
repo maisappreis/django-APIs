@@ -12,6 +12,18 @@ def is_firebase_storage_enabled():
     return get_storage_backend() == "firebase"
 
 
+def cleanup_local_files(*file_paths):
+    for file_path in file_paths:
+        if not file_path:
+            continue
+
+        try:
+            Path(file_path).unlink(missing_ok=True)
+        except OSError:
+            # Storage cleanup must not turn a successful upload into a failure.
+            continue
+
+
 def get_public_url(object_path):
     base_url = getattr(settings, "FIREBASE_PUBLIC_BASE_URL", "").rstrip("/")
 

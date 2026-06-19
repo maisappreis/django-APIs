@@ -62,7 +62,7 @@ class MocksTest(SimpleTestCase):
         self.assertEqual(content["posts"][0]["order"], 1)
         self.assertIn("#dentalclinic", content["posts"][0]["hashtags"])
         self.assertEqual(_mock_post_format(8), "educativo")
-        self.assertEqual(_mock_image_title(8), "COMECE HOJE")
+        self.assertEqual(_mock_image_title(8), "Título do Post")
         self.assertEqual(_mock_hashtag("!!!"), "#conteudo")
 
     @override_settings(MEDIA_URL="/media/")

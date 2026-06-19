@@ -5,9 +5,7 @@ from uuid import uuid4
 from django.conf import settings
 
 
-MOCK_IMAGE_RELATIVE_PATH = Path(
-    "generated_posts/28b0357f-abc4-4177-b3f4-938cbafcb5f5.png"
-)
+MOCK_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "mock_image.png"
 
 
 def _build_generated_image_data(relative_path):
@@ -22,8 +20,6 @@ def _build_generated_image_data(relative_path):
 
 
 def mock_generate_image_files():
-    source_path = Path(settings.MEDIA_ROOT) / MOCK_IMAGE_RELATIVE_PATH
-
     image_id = uuid4()
     base_relative_path = Path("generated_posts") / f"base-{image_id}.png"
     final_relative_path = Path("generated_posts") / f"final-{image_id}.png"
@@ -31,8 +27,8 @@ def mock_generate_image_files():
     final_data = _build_generated_image_data(final_relative_path)
 
     Path(base_data["absolute_path"]).parent.mkdir(parents=True, exist_ok=True)
-    copyfile(source_path, base_data["absolute_path"])
-    copyfile(source_path, final_data["absolute_path"])
+    copyfile(MOCK_IMAGE_PATH, base_data["absolute_path"])
+    copyfile(MOCK_IMAGE_PATH, final_data["absolute_path"])
 
     return {
         "base": base_data,
@@ -89,7 +85,7 @@ def mock_generate_batch_content(data, ideas):
                     f"tema {idea['theme']}, estilo moderno e profissional."
                 ),
                 "image_title": _mock_image_title(index),
-                "image_subtitle": f"Para {data['niche']} crescer com clareza",
+                "image_subtitle": f"O subtítulo do post ficará escrito aqui",
             }
         )
 
@@ -111,7 +107,7 @@ def _mock_post_format(index):
 
 def _mock_image_title(index):
     texts = (
-        "COMECE HOJE",
+        "Título do Post",
         "AGENDE AGORA",
         "TRANSFORME SUA ROTINA",
         "DESCUBRA MAIS",
