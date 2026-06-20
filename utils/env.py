@@ -1,26 +1,36 @@
 import os
 import sys
 
+
 def is_test() -> bool:
-    """
-    Returns true if is a test environment
-    """
+    """Return whether Django's test command is running."""
     return "test" in sys.argv
 
 
-environment = os.environ.get("ENVIROMENT", "dev") if not is_test() else "test"
+def get_environment() -> str:
+    """Return the explicit app environment, with native Vercel fallback."""
+    if is_test():
+        return "test"
+
+    environment = (
+        os.environ.get("ENVIRONMENT")
+        or os.environ.get("VERCEL_ENV")
+        or "development"
+    )
+
+    normalized_environment = environment.strip().lower()
+    aliases = {
+        "dev": "development",
+        "prod": "production",
+    }
+    return aliases.get(normalized_environment, normalized_environment)
 
 
 def is_development() -> bool:
-    """
-    Returns true if is a development environment
-    """
-    return environment == "dev"
+    """Return whether the app is running in development."""
+    return get_environment() == "development"
 
 
 def is_production() -> bool:
-    """
-    Returns true if is a production environment
-    """
-    # return 'vercel' in environment
-    return True
+    """Return whether the app is running in production."""
+    return get_environment() == "production"

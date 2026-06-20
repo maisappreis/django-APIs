@@ -160,3 +160,20 @@ Frontend‑focused Full Stack Developer
 
 This project is licensed under the MIT License.
 
+## Deploy e migrations
+
+The environment is defined by `ENVIRONMENT` and, when absent, by `VERCEL_ENV`.
+In production, use:
+
+```env
+ENVIRONMENT=production
+```
+
+Before publishing a version, apply the migrations to the production database only once, using the Neon variables:
+
+```powershell
+python manage.py migrate --noinput
+python manage.py check --deploy
+```
+
+These commands should run in a release job or pipeline with serialized concurrency.
