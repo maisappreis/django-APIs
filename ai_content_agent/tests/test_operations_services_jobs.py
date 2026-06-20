@@ -305,6 +305,52 @@ class OperationsTest(TestCase):
         upload_logo_file.assert_called_once()
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.operations.upload_logo_file")
+    @patch("ai_content_agent.firebase_cleanup.delete_firebase_file")
+    def test_sync_brand_logo_does_not_delete_shared_legacy_logo(
+        self,
+        delete_file,
+        upload_logo_file,
+    ):
+        user = create_user()
+        legacy_url = "https://cdn.test/users/1/brand/logo.png"
+        brand = create_brand(user=user, logo_url=legacy_url)
+        create_brand(
+            user=user,
+            business_name="Second brand",
+            logo_url=legacy_url,
+        )
+        upload_logo_file.return_value = (
+            f"https://cdn.test/users/{user.id}/brands/{brand.id}/logo.gif"
+        )
+
+        with override_settings(MEDIA_ROOT=self.media_root):
+            sync_brand_logo(
+                brand,
+                {"logo": get_uploaded_image("logo.gif")},
+                user,
+            )
+
+        delete_file.assert_not_called()
+        upload_logo_file.assert_called_once_with(
+            local_path=upload_logo_file.call_args.kwargs["local_path"],
+            user_id=user.id,
+            brand_id=brand.id,
+        )
+
+    @patch("ai_content_agent.signals.delete_firebase_file")
+    def test_deleting_brand_removes_persistent_assets(self, delete_file):
+        brand = create_brand(
+            logo_url="https://cdn.test/logo.png",
+            reference_image_1_url="https://cdn.test/ref1.png",
+            reference_image_2_url="https://cdn.test/ref2.png",
+        )
+
+        brand.delete()
+
+        self.assertEqual(delete_file.call_count, 3)
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
     @patch("ai_content_agent.operations.upload_generated_post_file")
     def test_create_posts_from_generation_result_uploads_generated_files(self, upload_file):
         upload_file.side_effect = [
@@ -594,6 +640,26 @@ class ServicesTest(SimpleTestCase):
         logo = SimpleNamespace(path="/tmp/logo.png")
         post = SimpleNamespace(brand=SimpleNamespace(logo=logo))
         self.assertEqual(get_post_logo_file(post), "/tmp/logo.png")
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.services.get_remote_image_work_path")
+    def test_get_post_logo_file_downloads_persistent_logo(self, get_work_path):
+        get_work_path.return_value = Path("/tmp/remote-logo.png")
+        post = SimpleNamespace(
+            brand=SimpleNamespace(
+                logo=None,
+                logo_url="https://cdn.test/users/1/brands/2/logo.png",
+            )
+        )
+
+        self.assertEqual(
+            get_post_logo_file(post),
+            str(Path("/tmp/remote-logo.png")),
+        )
+        get_work_path.assert_called_once_with(
+            post.brand.logo_url,
+            asset_group="logos",
+        )
 
     @override_settings(CONTENT_AGENT_USE_MOCK_CONTENT=False)
     @patch("ai_content_agent.services.build_posts_from_plan_prompt", return_value="content prompt")

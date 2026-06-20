@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from django.conf import settings
 from django.utils import timezone
 
-from .models import Post
+from .models import Brand, Post
 from .storage import delete_public_file, is_firebase_storage_enabled
 
 
@@ -55,7 +55,14 @@ def cleanup_replaced_brand_files(brand, next_logo=False, next_reference_indexes=
     next_reference_indexes = set(next_reference_indexes or [])
     deleted = []
 
-    if next_logo and delete_firebase_file(brand.logo_url):
+    logo_is_shared = (
+        brand.logo_url
+        and Brand.objects.exclude(id=brand.id)
+        .filter(logo_url=brand.logo_url)
+        .exists()
+    )
+
+    if next_logo and not logo_is_shared and delete_firebase_file(brand.logo_url):
         deleted.append(brand.logo_url)
 
     if 1 in next_reference_indexes and delete_firebase_file(brand.reference_image_1_url):

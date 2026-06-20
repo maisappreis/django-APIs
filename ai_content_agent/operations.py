@@ -213,6 +213,7 @@ def get_available_post_dates(user, quantity):
 
 def save_brand_reference_images(brand, data, user):
     next_reference_indexes = []
+    local_paths = []
 
     if data.get("reference_image_1"):
         next_reference_indexes.append(1)
@@ -233,7 +234,8 @@ def save_brand_reference_images(brand, data, user):
     if not is_firebase_storage_enabled():
         return brand
 
-    if brand.reference_image_1:
+    if 1 in next_reference_indexes and brand.reference_image_1:
+        local_paths.append(brand.reference_image_1.path)
         brand.reference_image_1_url = upload_brand_reference_file(
             local_path=brand.reference_image_1.path,
             user_id=user.id,
@@ -241,7 +243,8 @@ def save_brand_reference_images(brand, data, user):
             index=1,
         )
 
-    if brand.reference_image_2:
+    if 2 in next_reference_indexes and brand.reference_image_2:
+        local_paths.append(brand.reference_image_2.path)
         brand.reference_image_2_url = upload_brand_reference_file(
             local_path=brand.reference_image_2.path,
             user_id=user.id,
@@ -249,13 +252,23 @@ def save_brand_reference_images(brand, data, user):
             index=2,
         )
 
+    # Firebase URLs are the persistent source of truth. FileField paths point
+    # at Vercel's ephemeral workspace and must not be reused later.
+    if 1 in next_reference_indexes:
+        brand.reference_image_1 = None
+    if 2 in next_reference_indexes:
+        brand.reference_image_2 = None
+
     brand.save(
         update_fields=[
+            "reference_image_1",
+            "reference_image_2",
             "reference_image_1_url",
             "reference_image_2_url",
             "updated_at",
         ]
     )
+    cleanup_local_files(*local_paths)
 
     return brand
 
@@ -334,7 +347,9 @@ def mark_batch_pending(batch):
 
 def sync_brand_logo(brand, data, user):
     if not data.get("logo"):
-        if brand.logo:
+        if is_firebase_storage_enabled() and brand.logo_url:
+            data["logo"] = brand.logo_url
+        elif brand.logo:
             data["logo"] = brand.logo.path
         return
 
@@ -347,12 +362,20 @@ def sync_brand_logo(brand, data, user):
     brand.logo_url = brand.logo.url
 
     if is_firebase_storage_enabled():
+        local_logo_path = brand.logo.path
         brand.logo_url = upload_logo_file(
-            local_path=brand.logo.path,
+            local_path=local_logo_path,
             user_id=user.id,
+            brand_id=brand.id,
         )
 
-    brand.save(update_fields=["logo_url", "updated_at"])
+        # Firebase is the source of truth. Rendering code materializes this
+        # URL in a temporary work file only when it needs the logo.
+        data["logo"] = brand.logo_url
+        brand.logo = None
+        cleanup_local_files(local_logo_path)
+
+    brand.save(update_fields=["logo", "logo_url", "updated_at"])
 
 
 def create_posts_from_generation_result(user, brand, batch, data, result):

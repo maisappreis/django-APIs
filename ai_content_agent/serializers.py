@@ -15,6 +15,14 @@ from .defaults import (
     DEFAULT_USE_TEMPLATES,
 )
 
+MAX_BRAND_IMAGE_SIZE = 10 * 1024 * 1024
+
+
+def validate_brand_image(uploaded_file):
+    if uploaded_file and uploaded_file.size > MAX_BRAND_IMAGE_SIZE:
+        raise serializers.ValidationError("A imagem deve ter no maximo 10 MB.")
+    return uploaded_file
+
 
 class CalendarPostsQuerySerializer(serializers.Serializer):
     start_date = serializers.DateField(required=False)
@@ -265,6 +273,10 @@ class BrandInputSerializer(serializers.Serializer):
         help_text="Opcional. Segunda imagem de referencia para captura por IA.",
     )
 
+    validate_logo = staticmethod(validate_brand_image)
+    validate_reference_image_1 = staticmethod(validate_brand_image)
+    validate_reference_image_2 = staticmethod(validate_brand_image)
+
 
 class BrandPatchSerializer(serializers.Serializer):
     business_name = serializers.CharField(
@@ -339,6 +351,10 @@ class BrandPatchSerializer(serializers.Serializer):
         allow_null=True,
         help_text="Opcional. Segunda imagem de referencia para captura por IA.",
     )
+
+    validate_logo = staticmethod(validate_brand_image)
+    validate_reference_image_1 = staticmethod(validate_brand_image)
+    validate_reference_image_2 = staticmethod(validate_brand_image)
 
 
 class BrandOutputSerializer(serializers.Serializer):

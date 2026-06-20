@@ -120,21 +120,35 @@ def get_post_image_files(data, result, index):
 
 
 def analyze_brand_visual_identity(brand):
-    image_paths = [
-        image.path
-        for image in (brand.reference_image_1, brand.reference_image_2)
-        if image
-    ]
+    image_paths = []
+    temporary_paths = []
+
+    for image, public_url in (
+        (brand.reference_image_1, brand.reference_image_1_url),
+        (brand.reference_image_2, brand.reference_image_2_url),
+    ):
+        if public_url and is_firebase_storage_enabled():
+            path = get_remote_image_work_path(
+                public_url,
+                asset_group="brand-references",
+            )
+            image_paths.append(str(path))
+            temporary_paths.append(str(path))
+        elif image:
+            image_paths.append(image.path)
 
     if not image_paths:
         raise ValueError("At least one brand reference image is required.")
 
-    result = generate_brand_visual_identity(
-        business_name=brand.business_name,
-        niche=brand.niche,
-        image_paths=image_paths,
-        content_language=brand.content_language,
-    )
+    try:
+        result = generate_brand_visual_identity(
+            business_name=brand.business_name,
+            niche=brand.niche,
+            image_paths=image_paths,
+            content_language=brand.content_language,
+        )
+    finally:
+        cleanup_local_files(*temporary_paths)
 
     brand.visual_identity_summary = result["visual_identity_summary"]
     brand.visual_identity_prompt = result["visual_identity_prompt"]
@@ -369,20 +383,33 @@ def render_post_content(data, idea, result, index):
         logo_position=data["logo_position"],
     )
 
-    render_image_file(
-        image_path=image_data["final"]["absolute_path"],
-        template_name=template_name,
-        image_title=image_title,
-        image_subtitle=image_subtitle,
-        logo_file=data.get("logo"),
-        logo_position=logo_position,
-        primary_color=data["primary_color"],
-        secondary_color=data["secondary_color"],
-        tertiary_color=data["tertiary_color"],
-        text_color=data["text_color"],
-        title_font=get_title_font(data),
-        subtitle_font=get_subtitle_font(data),
+    logo_file = data.get("logo")
+    temporary_logo = bool(
+        logo_file
+        and isinstance(logo_file, str)
+        and logo_file.startswith(("http://", "https://"))
     )
+    if temporary_logo:
+        logo_file = str(get_remote_image_work_path(logo_file, asset_group="logos"))
+
+    try:
+        render_image_file(
+            image_path=image_data["final"]["absolute_path"],
+            template_name=template_name,
+            image_title=image_title,
+            image_subtitle=image_subtitle,
+            logo_file=logo_file,
+            logo_position=logo_position,
+            primary_color=data["primary_color"],
+            secondary_color=data["secondary_color"],
+            tertiary_color=data["tertiary_color"],
+            text_color=data["text_color"],
+            title_font=get_title_font(data),
+            subtitle_font=get_subtitle_font(data),
+        )
+    finally:
+        if temporary_logo:
+            cleanup_local_files(logo_file)
 
     return {
         "order": index,
@@ -447,10 +474,11 @@ def get_local_media_path(image_url):
     return Path(settings.MEDIA_ROOT) / relative_path
 
 
-def get_remote_image_work_path(image_url):
+def get_remote_image_work_path(image_url, asset_group="generated-posts"):
     parsed_url = urlparse(image_url)
-    filename = Path(parsed_url.path).name or f"base-{uuid4()}.png"
-    work_path = Path(settings.MEDIA_ROOT) / "generated_posts" / "work" / filename
+    extension = Path(parsed_url.path).suffix or ".png"
+    filename = f"{uuid4()}{extension}"
+    work_path = Path(settings.MEDIA_ROOT) / "work" / asset_group / filename
     work_path.parent.mkdir(parents=True, exist_ok=True)
 
     response = httpx.get(image_url, timeout=30)
@@ -486,7 +514,14 @@ def create_final_image_from_base(base_image_url):
 
 
 def get_post_logo_file(post):
-    if post.brand and post.brand.logo:
+    if not post.brand:
+        return None
+
+    logo_url = getattr(post.brand, "logo_url", "")
+    if logo_url and is_firebase_storage_enabled():
+        return str(get_remote_image_work_path(logo_url, asset_group="logos"))
+
+    if post.brand.logo:
         return post.brand.logo.path
 
     return None
@@ -518,20 +553,31 @@ def render_approved_post_image(post, use_existing_base=False):
         logo_position=post.logo_position,
     )
 
-    render_image_file(
-        image_path=image_data["final"]["absolute_path"],
-        template_name=post.template or "none",
-        image_title=post.image_title,
-        image_subtitle=post.image_subtitle,
-        logo_file=get_post_logo_file(post) if logo_position else None,
-        logo_position=logo_position,
-        primary_color=post.primary_color,
-        secondary_color=post.secondary_color,
-        tertiary_color=post.tertiary_color,
-        text_color=post.text_color,
-        title_font=post.title_font,
-        subtitle_font=post.subtitle_font,
+    logo_file = get_post_logo_file(post) if logo_position else None
+    temporary_logo = bool(
+        logo_file
+        and post.brand
+        and post.brand.logo_url
+        and is_firebase_storage_enabled()
     )
+    try:
+        render_image_file(
+            image_path=image_data["final"]["absolute_path"],
+            template_name=post.template or "none",
+            image_title=post.image_title,
+            image_subtitle=post.image_subtitle,
+            logo_file=logo_file,
+            logo_position=logo_position,
+            primary_color=post.primary_color,
+            secondary_color=post.secondary_color,
+            tertiary_color=post.tertiary_color,
+            text_color=post.text_color,
+            title_font=post.title_font,
+            subtitle_font=post.subtitle_font,
+        )
+    finally:
+        if temporary_logo:
+            cleanup_local_files(logo_file)
 
     post.base_image_url = image_data["base"]["image_url"]
     post.image_url = image_data["final"]["image_url"]
@@ -586,20 +632,31 @@ def rerender_post_image(post, visual_settings):
         logo_position=visual_settings["logo_position"],
     )
 
-    render_image_file(
-        image_path=final_image_data["absolute_path"],
-        template_name=template_name,
-        image_title=image_title,
-        image_subtitle=image_subtitle,
-        logo_file=get_post_logo_file(post) if logo_position else None,
-        logo_position=logo_position,
-        primary_color=visual_settings["primary_color"],
-        secondary_color=visual_settings["secondary_color"],
-        tertiary_color=visual_settings["tertiary_color"],
-        text_color=visual_settings["text_color"],
-        title_font=title_font,
-        subtitle_font=subtitle_font,
+    logo_file = get_post_logo_file(post) if logo_position else None
+    temporary_logo = bool(
+        logo_file
+        and post.brand
+        and post.brand.logo_url
+        and is_firebase_storage_enabled()
     )
+    try:
+        render_image_file(
+            image_path=final_image_data["absolute_path"],
+            template_name=template_name,
+            image_title=image_title,
+            image_subtitle=image_subtitle,
+            logo_file=logo_file,
+            logo_position=logo_position,
+            primary_color=visual_settings["primary_color"],
+            secondary_color=visual_settings["secondary_color"],
+            tertiary_color=visual_settings["tertiary_color"],
+            text_color=visual_settings["text_color"],
+            title_font=title_font,
+            subtitle_font=subtitle_font,
+        )
+    finally:
+        if temporary_logo:
+            cleanup_local_files(logo_file)
 
     post.template = template_name
     post.image_title = image_title

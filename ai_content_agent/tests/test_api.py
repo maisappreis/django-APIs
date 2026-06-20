@@ -172,10 +172,14 @@ class BrandCreateAPITestCase(APITestCase):
 
         self.assertEqual(response.status_code, 201)
         brand = Brand.objects.get(user=self.user, business_name="Logo Brand")
-        self.assertTrue(brand.logo)
+        self.assertFalse(brand.logo)
         self.assertEqual(brand.logo_url, firebase_url)
         self.assertEqual(response.data["logo_url"], firebase_url)
-        upload_logo_file.assert_called_once()
+        upload_logo_file.assert_called_once_with(
+            local_path=upload_logo_file.call_args.kwargs["local_path"],
+            user_id=self.user.id,
+            brand_id=brand.id,
+        )
 
     def test_post_brand_without_logo_keeps_logo_url_blank(self):
         response = self.client.post(

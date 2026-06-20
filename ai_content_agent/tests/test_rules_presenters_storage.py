@@ -198,7 +198,10 @@ class StorageTest(TestCase):
             upload_generated_post_file("/tmp/source.jpg", 1, post_id=2, kind="base"),
             "https://cdn.test/file.png",
         )
-        self.assertEqual(upload_logo_file("/tmp/logo.svg", 1), "https://cdn.test/file.png")
+        self.assertEqual(
+            upload_logo_file("/tmp/logo.svg", 1, 3),
+            "https://cdn.test/file.png",
+        )
         self.assertEqual(
             upload_brand_reference_file("/tmp/ref.webp", 1, 3, 2),
             "https://cdn.test/file.png",
@@ -208,7 +211,7 @@ class StorageTest(TestCase):
         logo_path = upload_local_file_mock.call_args_list[1].kwargs["object_path"]
         reference_path = upload_local_file_mock.call_args_list[2].kwargs["object_path"]
         self.assertTrue(generated_path.startswith("users/1/posts/2/base-"))
-        self.assertEqual(logo_path, "users/1/brand/logo.svg")
+        self.assertEqual(logo_path, "users/1/brands/3/logo.svg")
         self.assertEqual(
             reference_path,
             "users/1/brands/3/references/reference-2.webp",

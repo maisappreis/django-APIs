@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
@@ -43,8 +44,20 @@ def get_firebase_bucket():
         ) from error
 
     credentials_path = getattr(settings, "FIREBASE_CREDENTIALS_PATH", "")
+    credentials_json = getattr(settings, "FIREBASE_CREDENTIALS_JSON", "")
 
-    if credentials_path:
+    if credentials_json:
+        try:
+            credentials_info = json.loads(credentials_json)
+        except json.JSONDecodeError as error:
+            raise RuntimeError(
+                "FIREBASE_CREDENTIALS_JSON must contain the complete service "
+                "account JSON, without placeholders such as '...'."
+            ) from error
+        client = storage.Client.from_service_account_info(
+            credentials_info
+        )
+    elif credentials_path:
         client = storage.Client.from_service_account_json(credentials_path)
     else:
         client = storage.Client()
@@ -77,9 +90,9 @@ def upload_generated_post_file(local_path, user_id, post_id=None, kind="image"):
     )
 
 
-def upload_logo_file(local_path, user_id):
+def upload_logo_file(local_path, user_id, brand_id):
     extension = Path(local_path).suffix or ".png"
-    object_path = f"users/{user_id}/brand/logo{extension}"
+    object_path = f"users/{user_id}/brands/{brand_id}/logo{extension}"
 
     return upload_local_file(
         local_path=local_path,

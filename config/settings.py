@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 import os
+import tempfile
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
@@ -42,7 +43,6 @@ CONTENT_AGENT_FONT_DIR = os.getenv(
     str(BASE_DIR / "ai_content_agent" / "fonts"),
 )
 FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
-FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
 FIREBASE_PUBLIC_BASE_URL = os.getenv("FIREBASE_PUBLIC_BASE_URL", "")
 CONTENT_AGENT_MAINTENANCE_TOKEN = os.getenv(
     "CONTENT_AGENT_MAINTENANCE_TOKEN",
@@ -51,6 +51,9 @@ CONTENT_AGENT_MAINTENANCE_TOKEN = os.getenv(
 
 if is_production(): 
     DEBUG = False
+    # Vercel Functions only provide ephemeral writable storage. Persistent
+    # media lives in Firebase; this directory is just a processing workspace.
+    MEDIA_ROOT = Path(tempfile.gettempdir()) / "django-apis-media"
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -90,6 +93,7 @@ if is_production():
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "false").lower() == "true"
     EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
+    FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
 else:
     DEBUG = True
     DATABASES = {
@@ -125,6 +129,7 @@ else:
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD_DEV", "")
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS_DEV", "false").lower() == "true"
     EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL_DEV", "false").lower() == "true"
+    FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
 
 
 # Application definition
