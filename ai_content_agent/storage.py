@@ -118,6 +118,67 @@ def generate_brand_reference_upload_url(user_id, content_type):
     }
 
 
+def generate_post_source_upload_url(user_id, content_type):
+    extension = BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS[content_type]
+    object_path = f"users/{user_id}/pending/post-source-images/{uuid4()}{extension}"
+    expires_in = getattr(settings, "FIREBASE_SIGNED_UPLOAD_EXPIRATION_SECONDS", 600)
+    blob = get_firebase_bucket().blob(object_path)
+    upload_url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(seconds=expires_in),
+        method="PUT",
+        content_type=content_type,
+    )
+    return {
+        "upload_url": upload_url,
+        "object_path": object_path,
+        "expires_in": expires_in,
+        "upload_headers": {"Content-Type": content_type},
+    }
+
+
+def consume_post_source_upload(user_id, object_path):
+    pattern = re.compile(
+        rf"^users/{user_id}/pending/post-source-images/"
+        r"[0-9a-f-]{36}\.(gif|jpg|png|webp)$"
+    )
+    if not pattern.fullmatch(object_path):
+        raise ValueError("Caminho de imagem inválido para este usuário.")
+
+    blob = get_firebase_bucket().blob(object_path)
+    try:
+        blob.reload()
+    except NotFound as error:
+        raise FileNotFoundError("Imagem enviada não encontrada.") from error
+
+    size = blob.size or 0
+    content_type = blob.content_type or ""
+    if size < 1 or size > MAX_BRAND_REFERENCE_SIZE:
+        raise ValueError("Cada imagem deve ter entre 1 byte e 10 MB.")
+    expected_format = BRAND_REFERENCE_IMAGE_FORMATS.get(content_type)
+    if not expected_format:
+        raise ValueError("Tipo de imagem não permitido.")
+
+    content = blob.download_as_bytes()
+    if len(content) != size or len(content) > MAX_BRAND_REFERENCE_SIZE:
+        raise ValueError("O tamanho real da imagem é inválido.")
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image.verify()
+            actual_format = image.format
+    except (UnidentifiedImageError, OSError) as error:
+        raise ValueError("O arquivo enviado não é uma imagem válida.") from error
+    if actual_format != expected_format:
+        raise ValueError("O conteúdo da imagem não corresponde ao tipo informado.")
+
+    blob.delete()
+    return {
+        "content": content,
+        "content_type": content_type,
+        "filename": Path(object_path).name,
+    }
+
+
 def finalize_brand_reference_upload(
     user_id,
     brand_id,

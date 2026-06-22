@@ -172,6 +172,29 @@ class ContentAgentViewExtraTest(APITestCase):
         generate_upload_url.assert_not_called()
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.views.generate_post_source_upload_url")
+    def test_sign_post_source_upload(self, generate_upload_url):
+        generate_upload_url.return_value = {
+            "upload_url": "https://storage.test/signed",
+            "object_path": "users/1/pending/post-source-images/ref.png",
+            "expires_in": 600,
+            "upload_headers": {"Content-Type": "image/png"},
+        }
+
+        response = self.client.post(
+            reverse("post-source-upload-sign"),
+            {
+                "filename": "post.png",
+                "content_type": "image/png",
+                "size": 1024,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        generate_upload_url.assert_called_once_with(self.user.id, "image/png")
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
     @patch("ai_content_agent.views.analyze_brand_visual_identity")
     @patch("ai_content_agent.views.delete_replaced_firebase_file")
     @patch("ai_content_agent.views.finalize_brand_reference_upload")
@@ -411,6 +434,47 @@ class ContentAgentViewExtraTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         prepare_images.assert_called_once()
+        generate_review.assert_called_once()
+
+    @patch("ai_content_agent.views.prepare_private_post_source_image_files")
+    @patch("ai_content_agent.views.generate_post_review_batch")
+    def test_generate_posts_consumes_private_source_paths(
+        self, generate_review, prepare_private_images
+    ):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+            image_source="user",
+        )
+        create_post(
+            user=self.user,
+            brand=self.brand,
+            batch=batch,
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        generate_review.return_value = batch
+        prepare_private_images.return_value = [{"base": {}, "final": {}}]
+        object_path = (
+            f"users/{self.user.id}/pending/post-source-images/"
+            "00000000-0000-0000-0000-000000000000.png"
+        )
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                image_object_paths=[object_path],
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        prepare_private_images.assert_called_once_with(
+            self.user.id,
+            [object_path],
+        )
         generate_review.assert_called_once()
 
     @override_settings(DEBUG=True)

@@ -14,10 +14,16 @@ from .views import (
     GeneratePostContentAPIView,
     PendingReviewPostBatchAPIView,
     PostGenerationStatusAPIView,
+    PostSourceUploadSignAPIView,
     RerenderPostImageAPIView,
 )
 
 urlpatterns = [
+    path(
+        "uploads/post-source-images/sign/",
+        PostSourceUploadSignAPIView.as_view(),
+        name="post-source-upload-sign",
+    ),
     path(
         "uploads/brand-references/sign/",
         BrandReferenceUploadSignAPIView.as_view(),

@@ -29,9 +29,11 @@ from ai_content_agent.rules import (
     get_user_plan_tier,
 )
 from ai_content_agent.storage import (
+    consume_post_source_upload,
     delete_public_file,
     finalize_brand_reference_upload,
     generate_brand_reference_upload_url,
+    generate_post_source_upload_url,
     get_object_path_from_public_url,
     get_public_url,
     get_storage_backend,
@@ -301,6 +303,32 @@ class StorageTest(TestCase):
             result["upload_headers"],
             {"Content-Type": "image/jpg"},
         )
+
+    @patch("ai_content_agent.storage.get_firebase_bucket")
+    def test_post_source_upload_is_signed_and_consumed_privately(
+        self, get_firebase_bucket
+    ):
+        image_data = BytesIO()
+        Image.new("RGB", (2, 2), "red").save(image_data, format="PNG")
+        content = image_data.getvalue()
+        bucket = Mock()
+        blob = bucket.blob.return_value
+        blob.generate_signed_url.return_value = "https://storage.test/signed"
+        blob.size = len(content)
+        blob.content_type = "image/png"
+        blob.download_as_bytes.return_value = content
+        get_firebase_bucket.return_value = bucket
+
+        signed = generate_post_source_upload_url(7, "image/png")
+        consumed = consume_post_source_upload(7, signed["object_path"])
+
+        self.assertTrue(
+            signed["object_path"].startswith(
+                "users/7/pending/post-source-images/"
+            )
+        )
+        self.assertEqual(consumed["content"], content)
+        blob.delete.assert_called_once_with()
 
     @override_settings(
         FIREBASE_STORAGE_BUCKET="bucket-name",

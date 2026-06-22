@@ -54,18 +54,21 @@ from .serializers import (
     BrandReferenceUploadSignOutputSerializer,
     BrandReferenceUploadSignSerializer,
     CalendarPostsQuerySerializer,
-    PostBatchOutputSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
     PostPromptApprovalSerializer,
+    PostSourceUploadSignOutputSerializer,
+    PostSourceUploadSignSerializer,
 )
 from .storage import (
     finalize_brand_reference_upload,
     generate_brand_reference_upload_url,
+    generate_post_source_upload_url,
     is_firebase_storage_enabled,
 )
 from .services import (
     analyze_brand_visual_identity,
+    prepare_private_post_source_image_files,
     prepare_uploaded_post_image_files,
     rerender_post_image,
 )
@@ -82,6 +85,30 @@ def is_valid_maintenance_request(request):
     token = auth_header.removeprefix(prefix).strip()
 
     return compare_digest(token, expected_token)
+
+
+class PostSourceUploadSignAPIView(APIView):
+    @extend_schema(
+        summary="Gera URL assinada para imagem fornecida pelo usuário",
+        request=PostSourceUploadSignSerializer,
+        responses={status.HTTP_200_OK: PostSourceUploadSignOutputSerializer},
+    )
+    def post(self, request):
+        serializer = PostSourceUploadSignSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not is_firebase_storage_enabled():
+            return Response(
+                {"detail": "Firebase Storage não está habilitado."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            generate_post_source_upload_url(
+                request.user.id,
+                serializer.validated_data["content_type"],
+            )
+        )
 
 
 class BrandReferenceUploadSignAPIView(APIView):
@@ -443,9 +470,11 @@ class GeneratePostContentAPIView(APIView):
 
         data = apply_brand_defaults(data, brand, request.data)
         data["images"] = request.FILES.getlist("images")
+        image_object_paths = request.data.getlist("image_object_paths")
+        received_images = image_object_paths or data["images"]
 
         if data["my_images_or_ai"] == "user" and (
-            len(data["images"]) != data["quantity"]
+            len(received_images) != data["quantity"]
         ):
             return Response(
                 {
@@ -454,7 +483,7 @@ class GeneratePostContentAPIView(APIView):
                         "solicitado."
                     ),
                     "expected": data["quantity"],
-                    "received": len(data["images"]),
+                    "received": len(received_images),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -468,9 +497,25 @@ class GeneratePostContentAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
-            data["image_files"] = prepare_uploaded_post_image_files(
-                data["images"]
-            )
+            try:
+                data["image_files"] = (
+                    prepare_private_post_source_image_files(
+                        request.user.id,
+                        image_object_paths,
+                    )
+                    if image_object_paths
+                    else prepare_uploaded_post_image_files(data["images"])
+                )
+            except FileNotFoundError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)

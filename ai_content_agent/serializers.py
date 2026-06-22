@@ -85,6 +85,14 @@ class BrandReferenceUploadSignOutputSerializer(serializers.Serializer):
     )
 
 
+class PostSourceUploadSignSerializer(BrandReferenceUploadSignSerializer):
+    pass
+
+
+class PostSourceUploadSignOutputSerializer(BrandReferenceUploadSignOutputSerializer):
+    pass
+
+
 class BrandReferenceUploadCompleteSerializer(serializers.Serializer):
     brand_id = serializers.IntegerField(min_value=1)
     slot = serializers.ChoiceField(choices=(1, 2))

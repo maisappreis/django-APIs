@@ -30,6 +30,7 @@ from ai_content_agent.mocks import (
 from ai_content_agent.utils import apply_center_text_to_image, apply_logo_to_image
 from ai_content_agent.storage import (
     cleanup_local_files,
+    consume_post_source_upload,
     generate_brand_reference_read_url,
     is_firebase_storage_enabled,
     upload_generated_post_file,
@@ -42,6 +43,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 from django.conf import settings
 import httpx
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
@@ -104,6 +106,22 @@ def prepare_uploaded_post_image_files(uploaded_images):
         save_uploaded_post_image_file(uploaded_image)
         for uploaded_image in uploaded_images
     ]
+
+
+def prepare_private_post_source_image_files(user_id, object_paths):
+    image_files = []
+
+    for object_path in object_paths:
+        upload = consume_post_source_upload(user_id, object_path)
+        image_files.append(
+            save_uploaded_post_image_file(SimpleUploadedFile(
+                upload["filename"],
+                upload["content"],
+                content_type=upload["content_type"],
+            ))
+        )
+
+    return image_files
 
 
 def get_post_image_files(data, result, index):
