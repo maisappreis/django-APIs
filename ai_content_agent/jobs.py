@@ -25,13 +25,31 @@ def generate_post_review_batch(user, brand, batch, data):
     result = generate_post_batch_draft_content(data)
     update_batch_progress(batch, 70)
 
-    create_post_drafts_from_generation_result(
+    if batch.image_source == "user":
+        for post_data in result["posts"]:
+            post_data["image_prompt"] = ""
+
+    posts = create_post_drafts_from_generation_result(
         user=user,
         brand=brand,
         batch=batch,
         data=data,
         result=result,
     )
+
+    if batch.image_source == "user":
+        total_posts = len(posts)
+
+        for index, post in enumerate(posts):
+            render_approved_post_image(post, use_existing_base=True)
+            mark_post_completed(post)
+            update_batch_progress(
+                batch,
+                70 + int((index + 1) / total_posts * 25),
+            )
+
+        mark_batch_completed(batch, result["strategy_summary"])
+        return batch
 
     mark_batch_pending_review(batch, result["strategy_summary"])
     return batch

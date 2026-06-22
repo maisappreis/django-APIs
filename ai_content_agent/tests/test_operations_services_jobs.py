@@ -824,6 +824,39 @@ class JobsTest(TestCase):
         self.assertEqual(batch.progress, 100)
         create_drafts.assert_called_once()
 
+    @patch("ai_content_agent.jobs.render_approved_post_image")
+    @patch("ai_content_agent.jobs.create_post_drafts_from_generation_result")
+    @patch("ai_content_agent.jobs.generate_post_batch_draft_content")
+    def test_user_images_skip_prompt_review_and_complete_batch(
+        self, generate_draft, create_drafts, render_image
+    ):
+        user = create_user()
+        brand = create_brand(user=user)
+        batch = create_batch(user=user, brand=brand, image_source="user")
+        post = create_post(
+            user=user,
+            brand=brand,
+            batch=batch,
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        result = {
+            "strategy_summary": "Strategy",
+            "posts": [get_post_result(order=1)],
+        }
+        generate_draft.return_value = result
+        create_drafts.return_value = [post]
+
+        from ai_content_agent.jobs import generate_post_review_batch
+
+        generate_post_review_batch(user, brand, batch, get_visual_data(quantity=1))
+
+        batch.refresh_from_db()
+        post.refresh_from_db()
+        self.assertEqual(result["posts"][0]["image_prompt"], "")
+        self.assertEqual(batch.status, GenerationStatus.COMPLETED)
+        self.assertEqual(post.status, GenerationStatus.COMPLETED)
+        render_image.assert_called_once_with(post, use_existing_base=True)
+
     @patch("ai_content_agent.jobs.generate_post_review_batch")
     def test_run_post_generation_job_success_and_failure(self, generate_review):
         user = create_user()
