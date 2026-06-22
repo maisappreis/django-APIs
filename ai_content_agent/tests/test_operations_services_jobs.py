@@ -240,6 +240,45 @@ class OperationsTest(TestCase):
         self.assertEqual(brand.reference_image_2_url, "https://cdn.test/ref2.gif")
         self.assertEqual(upload_reference.call_count, 2)
 
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.operations.delete_firebase_file")
+    @patch("ai_content_agent.operations.upload_brand_reference_file")
+    def test_reference_upload_failure_preserves_previous_urls(
+        self, upload_reference, delete_file
+    ):
+        user = create_user()
+        brand = create_brand(
+            user=user,
+            reference_image_1_url="https://cdn.test/old-1.png",
+            reference_image_2_url="https://cdn.test/old-2.png",
+        )
+        upload_reference.side_effect = [
+            "https://cdn.test/new-1.png",
+            RuntimeError("upload failed"),
+        ]
+
+        with override_settings(MEDIA_ROOT=self.media_root):
+            with self.assertRaisesMessage(RuntimeError, "upload failed"):
+                save_brand_reference_images(
+                    brand,
+                    {
+                        "reference_image_1": get_uploaded_image("ref1.gif"),
+                        "reference_image_2": get_uploaded_image("ref2.gif"),
+                    },
+                    user,
+                )
+
+        brand.refresh_from_db()
+        self.assertEqual(
+            brand.reference_image_1_url,
+            "https://cdn.test/old-1.png",
+        )
+        self.assertEqual(
+            brand.reference_image_2_url,
+            "https://cdn.test/old-2.png",
+        )
+        delete_file.assert_called_once_with("https://cdn.test/new-1.png")
+
     def test_create_batch_usage_quota_progress_and_markers(self):
         user = create_user()
         brand = create_brand(user=user)
@@ -303,6 +342,33 @@ class OperationsTest(TestCase):
         brand.refresh_from_db()
         self.assertEqual(brand.logo_url, "https://cdn.test/logo.gif")
         upload_logo_file.assert_called_once()
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.operations.delete_replaced_firebase_file")
+    @patch(
+        "ai_content_agent.operations.upload_logo_file",
+        side_effect=RuntimeError("upload failed"),
+    )
+    def test_logo_upload_failure_preserves_previous_url(
+        self, _upload_logo_file, delete_replaced
+    ):
+        user = create_user()
+        brand = create_brand(
+            user=user,
+            logo_url="https://cdn.test/old-logo.png",
+        )
+
+        with override_settings(MEDIA_ROOT=self.media_root):
+            with self.assertRaisesMessage(RuntimeError, "upload failed"):
+                sync_brand_logo(
+                    brand,
+                    {"logo": get_uploaded_image("logo.gif")},
+                    user,
+                )
+
+        brand.refresh_from_db()
+        self.assertEqual(brand.logo_url, "https://cdn.test/old-logo.png")
+        delete_replaced.assert_not_called()
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
     @patch("ai_content_agent.operations.upload_logo_file")

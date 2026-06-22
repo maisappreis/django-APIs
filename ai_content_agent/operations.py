@@ -8,8 +8,8 @@ import httpx
 
 from .defaults import DEFAULT_TEXT_FONT
 from .firebase_cleanup import (
-    cleanup_replaced_brand_files,
     delete_firebase_file,
+    delete_replaced_firebase_file,
 )
 from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
 from .presenters import get_download_filename, serialize_post_generation
@@ -214,6 +214,15 @@ def get_available_post_dates(user, quantity):
 def save_brand_reference_images(brand, data, user):
     next_reference_indexes = []
     local_paths = []
+    uploaded_urls = {}
+    previous_files = {
+        1: brand.reference_image_1.name,
+        2: brand.reference_image_2.name,
+    }
+    previous_urls = {
+        1: brand.reference_image_1_url,
+        2: brand.reference_image_2_url,
+    }
 
     if data.get("reference_image_1"):
         next_reference_indexes.append(1)
@@ -223,34 +232,48 @@ def save_brand_reference_images(brand, data, user):
         next_reference_indexes.append(2)
         brand.reference_image_2 = data["reference_image_2"]
 
-    if is_firebase_storage_enabled():
-        cleanup_replaced_brand_files(
-            brand,
-            next_reference_indexes=next_reference_indexes,
-        )
-
     brand.save()
 
     if not is_firebase_storage_enabled():
         return brand
 
-    if 1 in next_reference_indexes and brand.reference_image_1:
-        local_paths.append(brand.reference_image_1.path)
-        brand.reference_image_1_url = upload_brand_reference_file(
-            local_path=brand.reference_image_1.path,
-            user_id=user.id,
-            brand_id=brand.id,
-            index=1,
-        )
+    try:
+        if 1 in next_reference_indexes and brand.reference_image_1:
+            local_paths.append(brand.reference_image_1.path)
+            uploaded_urls[1] = upload_brand_reference_file(
+                local_path=brand.reference_image_1.path,
+                user_id=user.id,
+                brand_id=brand.id,
+                index=1,
+            )
 
-    if 2 in next_reference_indexes and brand.reference_image_2:
-        local_paths.append(brand.reference_image_2.path)
-        brand.reference_image_2_url = upload_brand_reference_file(
-            local_path=brand.reference_image_2.path,
-            user_id=user.id,
-            brand_id=brand.id,
-            index=2,
+        if 2 in next_reference_indexes and brand.reference_image_2:
+            local_paths.append(brand.reference_image_2.path)
+            uploaded_urls[2] = upload_brand_reference_file(
+                local_path=brand.reference_image_2.path,
+                user_id=user.id,
+                brand_id=brand.id,
+                index=2,
+            )
+    except Exception:
+        for uploaded_url in uploaded_urls.values():
+            delete_firebase_file(uploaded_url)
+
+        for index in next_reference_indexes:
+            setattr(brand, f"reference_image_{index}", previous_files[index])
+
+        brand.save(
+            update_fields=[
+                "reference_image_1",
+                "reference_image_2",
+                "updated_at",
+            ]
         )
+        cleanup_local_files(*local_paths)
+        raise
+
+    for index, uploaded_url in uploaded_urls.items():
+        setattr(brand, f"reference_image_{index}_url", uploaded_url)
 
     # Firebase URLs are the persistent source of truth. FileField paths point
     # at Vercel's ephemeral workspace and must not be reused later.
@@ -269,6 +292,9 @@ def save_brand_reference_images(brand, data, user):
         ]
     )
     cleanup_local_files(*local_paths)
+
+    for index, uploaded_url in uploaded_urls.items():
+        delete_replaced_firebase_file(previous_urls[index], uploaded_url)
 
     return brand
 
@@ -353,9 +379,8 @@ def sync_brand_logo(brand, data, user):
             data["logo"] = brand.logo.path
         return
 
-    if is_firebase_storage_enabled():
-        cleanup_replaced_brand_files(brand, next_logo=True)
-
+    previous_logo_name = brand.logo.name
+    previous_logo_url = brand.logo_url
     brand.logo = data["logo"]
     brand.save(update_fields=["logo", "updated_at"])
     data["logo"] = brand.logo.path
@@ -363,19 +388,37 @@ def sync_brand_logo(brand, data, user):
 
     if is_firebase_storage_enabled():
         local_logo_path = brand.logo.path
-        brand.logo_url = upload_logo_file(
-            local_path=local_logo_path,
-            user_id=user.id,
-            brand_id=brand.id,
-        )
+        try:
+            next_logo_url = upload_logo_file(
+                local_path=local_logo_path,
+                user_id=user.id,
+                brand_id=brand.id,
+            )
+        except Exception:
+            brand.logo = previous_logo_name
+            brand.logo_url = previous_logo_url
+            brand.save(update_fields=["logo", "logo_url", "updated_at"])
+            cleanup_local_files(local_logo_path)
+            raise
 
         # Firebase is the source of truth. Rendering code materializes this
         # URL in a temporary work file only when it needs the logo.
-        data["logo"] = brand.logo_url
+        data["logo"] = next_logo_url
+        brand.logo_url = next_logo_url
         brand.logo = None
         cleanup_local_files(local_logo_path)
 
     brand.save(update_fields=["logo", "logo_url", "updated_at"])
+
+    if is_firebase_storage_enabled() and previous_logo_url:
+        logo_is_shared = (
+            Brand.objects.exclude(id=brand.id)
+            .filter(logo_url=previous_logo_url)
+            .exists()
+        )
+
+        if not logo_is_shared:
+            delete_replaced_firebase_file(previous_logo_url, brand.logo_url)
 
 
 def create_posts_from_generation_result(user, brand, batch, data, result):

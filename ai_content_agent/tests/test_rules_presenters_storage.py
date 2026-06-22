@@ -243,11 +243,14 @@ class StorageTest(TestCase):
         logo_path = upload_local_file_mock.call_args_list[1].kwargs["object_path"]
         reference_path = upload_local_file_mock.call_args_list[2].kwargs["object_path"]
         self.assertTrue(generated_path.startswith("users/1/posts/2/base-"))
-        self.assertEqual(logo_path, "users/1/brands/3/logo.svg")
-        self.assertEqual(
-            reference_path,
-            "users/1/brands/3/references/reference-2.webp",
+        self.assertTrue(logo_path.startswith("users/1/brands/3/logo-"))
+        self.assertTrue(logo_path.endswith(".svg"))
+        self.assertTrue(
+            reference_path.startswith(
+                "users/1/brands/3/references/reference-2-"
+            )
         )
+        self.assertTrue(reference_path.endswith(".webp"))
 
     @override_settings(FIREBASE_SIGNED_UPLOAD_EXPIRATION_SECONDS=300)
     @patch("ai_content_agent.storage.get_firebase_bucket")

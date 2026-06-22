@@ -292,7 +292,9 @@ def upload_generated_post_file(local_path, user_id, post_id=None, kind="image"):
 
 def upload_logo_file(local_path, user_id, brand_id):
     extension = Path(local_path).suffix or ".png"
-    object_path = f"users/{user_id}/brands/{brand_id}/logo{extension}"
+    object_path = (
+        f"users/{user_id}/brands/{brand_id}/logo-{uuid4()}{extension}"
+    )
 
     return upload_local_file(
         local_path=local_path,
@@ -305,7 +307,7 @@ def upload_brand_reference_file(local_path, user_id, brand_id, index):
     extension = Path(local_path).suffix or ".png"
     object_path = (
         f"users/{user_id}/brands/{brand_id}/references/"
-        f"reference-{index}{extension}"
+        f"reference-{index}-{uuid4()}{extension}"
     )
 
     return upload_local_file(
