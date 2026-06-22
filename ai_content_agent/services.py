@@ -30,6 +30,7 @@ from ai_content_agent.mocks import (
 from ai_content_agent.utils import apply_center_text_to_image, apply_logo_to_image
 from ai_content_agent.storage import (
     cleanup_local_files,
+    generate_brand_reference_read_url,
     is_firebase_storage_enabled,
     upload_generated_post_file,
 )
@@ -129,7 +130,7 @@ def analyze_brand_visual_identity(brand):
     ):
         if public_url and is_firebase_storage_enabled():
             path = get_remote_image_work_path(
-                public_url,
+                generate_brand_reference_read_url(public_url),
                 asset_group="brand-references",
             )
             image_paths.append(str(path))

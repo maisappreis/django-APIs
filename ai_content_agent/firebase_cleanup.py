@@ -37,6 +37,9 @@ def is_firebase_public_url(public_url):
     parsed_url = urlparse(public_url)
     bucket_name = getattr(settings, "FIREBASE_STORAGE_BUCKET", "")
 
+    if parsed_url.scheme == "gs":
+        return parsed_url.netloc == bucket_name
+
     return (
         parsed_url.scheme in {"http", "https"}
         and parsed_url.netloc == "storage.googleapis.com"

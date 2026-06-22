@@ -1,8 +1,10 @@
 from datetime import date, datetime
+from io import BytesIO
 from unittest.mock import Mock, patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from PIL import Image
 
 from accounts.models import Plan, Subscription
 from ai_content_agent.models import GenerationStatus
@@ -28,6 +30,8 @@ from ai_content_agent.rules import (
 )
 from ai_content_agent.storage import (
     delete_public_file,
+    finalize_brand_reference_upload,
+    generate_brand_reference_upload_url,
     get_object_path_from_public_url,
     get_public_url,
     get_storage_backend,
@@ -105,6 +109,26 @@ class PresentersTest(TestCase):
             "https://cdn.test/ref1.png",
         )
         self.assertEqual(data["business_name"], "Test Brand")
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.presenters.generate_brand_reference_read_url")
+    def test_serialize_brand_signs_private_reference(self, generate_read_url):
+        generate_read_url.side_effect = lambda value: (
+            "https://storage.test/signed" if value else value
+        )
+        brand = create_brand(
+            reference_image_1_url="gs://bucket/users/1/reference.png"
+        )
+
+        data = serialize_brand(brand)
+
+        self.assertEqual(
+            data["reference_image_1_url"],
+            "https://storage.test/signed",
+        )
+        generate_read_url.assert_any_call(
+            "gs://bucket/users/1/reference.png"
+        )
 
     def test_serialize_post_generation_and_batch_orders_posts(self):
         user = create_user()
@@ -189,6 +213,12 @@ class StorageTest(TestCase):
             ),
             "users/1/file.png",
         )
+        self.assertEqual(
+            get_object_path_from_public_url(
+                "gs://bucket-name/users/1/private.png"
+            ),
+            "users/1/private.png",
+        )
 
     @patch("ai_content_agent.storage.upload_local_file")
     def test_upload_helpers_build_expected_object_paths(self, upload_local_file_mock):
@@ -216,6 +246,119 @@ class StorageTest(TestCase):
             reference_path,
             "users/1/brands/3/references/reference-2.webp",
         )
+
+    @override_settings(FIREBASE_SIGNED_UPLOAD_EXPIRATION_SECONDS=300)
+    @patch("ai_content_agent.storage.get_firebase_bucket")
+    def test_generate_brand_reference_upload_url_is_private_and_temporary(
+        self,
+        get_firebase_bucket,
+    ):
+        bucket = Mock()
+        blob = bucket.blob.return_value
+        blob.generate_signed_url.return_value = "https://storage.test/signed"
+        get_firebase_bucket.return_value = bucket
+
+        result = generate_brand_reference_upload_url(7, "image/webp")
+
+        object_path = bucket.blob.call_args.args[0]
+        self.assertTrue(
+            object_path.startswith(
+                "users/7/pending/brand-references/",
+            )
+        )
+        self.assertTrue(object_path.endswith(".webp"))
+        blob.generate_signed_url.assert_called_once()
+        signed_url_kwargs = blob.generate_signed_url.call_args.kwargs
+        self.assertEqual(signed_url_kwargs["version"], "v4")
+        self.assertEqual(signed_url_kwargs["method"], "PUT")
+        self.assertEqual(
+            signed_url_kwargs["content_type"],
+            "image/webp",
+        )
+        blob.make_public.assert_not_called()
+        self.assertEqual(result["upload_url"], "https://storage.test/signed")
+        self.assertEqual(result["object_path"], object_path)
+        self.assertEqual(result["expires_in"], 300)
+        self.assertEqual(
+            result["upload_headers"],
+            {"Content-Type": "image/webp"},
+        )
+
+    @patch("ai_content_agent.storage.get_firebase_bucket")
+    def test_generate_brand_reference_upload_url_accepts_jpg_alias(
+        self,
+        get_firebase_bucket,
+    ):
+        bucket = Mock()
+        blob = bucket.blob.return_value
+        blob.generate_signed_url.return_value = "https://storage.test/signed"
+        get_firebase_bucket.return_value = bucket
+
+        result = generate_brand_reference_upload_url(7, "image/jpg")
+
+        self.assertTrue(result["object_path"].endswith(".jpg"))
+        self.assertEqual(
+            result["upload_headers"],
+            {"Content-Type": "image/jpg"},
+        )
+
+    @override_settings(
+        FIREBASE_STORAGE_BUCKET="bucket-name",
+        FIREBASE_PUBLIC_BASE_URL="",
+    )
+    @patch("ai_content_agent.storage.get_firebase_bucket")
+    def test_finalize_brand_reference_upload_validates_and_moves_image(
+        self, get_firebase_bucket
+    ):
+        image_data = BytesIO()
+        Image.new("RGB", (2, 2), "red").save(image_data, format="PNG")
+        content = image_data.getvalue()
+        bucket = Mock()
+        pending_blob = bucket.blob.return_value
+        pending_blob.size = len(content)
+        pending_blob.content_type = "image/png"
+        pending_blob.download_as_bytes.return_value = content
+        get_firebase_bucket.return_value = bucket
+        pending_path = (
+            "users/7/pending/brand-references/"
+            "00000000-0000-0000-0000-000000000000.png"
+        )
+
+        result = finalize_brand_reference_upload(7, 3, 2, pending_path)
+
+        self.assertTrue(
+            result["object_path"].startswith(
+                "users/7/brands/3/references/reference-2-"
+            )
+        )
+        self.assertTrue(result["object_path"].endswith(".png"))
+        bucket.copy_blob.assert_called_once_with(
+            pending_blob, bucket, result["object_path"]
+        )
+        pending_blob.delete.assert_called_once_with()
+        self.assertEqual(result["content_type"], "image/png")
+        self.assertEqual(result["size"], len(content))
+        self.assertEqual(
+            result["storage_url"],
+            f"gs://bucket-name/{result['object_path']}",
+        )
+
+    @patch("ai_content_agent.storage.get_firebase_bucket")
+    def test_finalize_brand_reference_upload_rejects_another_users_path(
+        self, get_firebase_bucket
+    ):
+        with self.assertRaisesMessage(ValueError, "Caminho de upload inválido"):
+            finalize_brand_reference_upload(
+                7,
+                3,
+                1,
+                (
+                    "users/8/pending/brand-references/"
+                    "00000000-0000-0000-0000-000000000000.png"
+                ),
+            )
+
+        get_firebase_bucket.assert_not_called()
 
     @override_settings(
         CONTENT_AGENT_STORAGE_BACKEND="firebase",

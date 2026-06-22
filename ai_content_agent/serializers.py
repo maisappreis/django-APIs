@@ -1,4 +1,10 @@
+from PIL import Image, UnidentifiedImageError
 from rest_framework import serializers
+
+from .storage import (
+    BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS,
+    MAX_BRAND_REFERENCE_SIZE,
+)
 
 from .defaults import (
     CONTENT_LANGUAGE_CHOICES,
@@ -15,13 +21,83 @@ from .defaults import (
     DEFAULT_USE_TEMPLATES,
 )
 
-MAX_BRAND_IMAGE_SIZE = 10 * 1024 * 1024
+MAX_BRAND_IMAGE_SIZE = MAX_BRAND_REFERENCE_SIZE
+MAX_BRAND_LOGO_SIZE = 3 * 1024 * 1024
+ALLOWED_BRAND_LOGO_FORMATS = {"JPEG", "PNG", "WEBP"}
+BRAND_REFERENCE_CONTENT_TYPES = tuple(
+    BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS
+)
 
 
 def validate_brand_image(uploaded_file):
     if uploaded_file and uploaded_file.size > MAX_BRAND_IMAGE_SIZE:
         raise serializers.ValidationError("A imagem deve ter no maximo 10 MB.")
     return uploaded_file
+
+
+def validate_brand_logo(uploaded_file):
+    if not uploaded_file:
+        return uploaded_file
+
+    if uploaded_file.size > MAX_BRAND_LOGO_SIZE:
+        raise serializers.ValidationError(
+            "A logo deve ter no máximo 3 MB."
+        )
+
+    try:
+        uploaded_file.seek(0)
+
+        with Image.open(uploaded_file) as image:
+            image.verify()
+            image_format = image.format
+    except (UnidentifiedImageError, OSError) as error:
+        raise serializers.ValidationError(
+            "O arquivo enviado não é uma imagem válida."
+        ) from error
+    finally:
+        uploaded_file.seek(0)
+
+    if image_format not in ALLOWED_BRAND_LOGO_FORMATS:
+        raise serializers.ValidationError(
+            "Use uma logo nos formatos PNG, JPEG ou WebP."
+        )
+
+    return uploaded_file
+
+
+class BrandReferenceUploadSignSerializer(serializers.Serializer):
+    filename = serializers.CharField(max_length=255)
+    content_type = serializers.ChoiceField(
+        choices=BRAND_REFERENCE_CONTENT_TYPES,
+    )
+    size = serializers.IntegerField(
+        min_value=1,
+        max_value=MAX_BRAND_IMAGE_SIZE,
+    )
+
+
+class BrandReferenceUploadSignOutputSerializer(serializers.Serializer):
+    upload_url = serializers.URLField()
+    object_path = serializers.CharField()
+    expires_in = serializers.IntegerField()
+    upload_headers = serializers.DictField(
+        child=serializers.CharField(),
+    )
+
+
+class BrandReferenceUploadCompleteSerializer(serializers.Serializer):
+    brand_id = serializers.IntegerField(min_value=1)
+    slot = serializers.ChoiceField(choices=(1, 2))
+    object_path = serializers.CharField(max_length=500)
+    analyze = serializers.BooleanField(default=False)
+
+
+class BrandReferenceUploadCompleteOutputSerializer(serializers.Serializer):
+    brand_id = serializers.IntegerField()
+    slot = serializers.IntegerField()
+    object_path = serializers.CharField()
+    content_type = serializers.CharField()
+    size = serializers.IntegerField()
 
 
 class CalendarPostsQuerySerializer(serializers.Serializer):
@@ -273,7 +349,7 @@ class BrandInputSerializer(serializers.Serializer):
         help_text="Opcional. Segunda imagem de referencia para captura por IA.",
     )
 
-    validate_logo = staticmethod(validate_brand_image)
+    validate_logo = staticmethod(validate_brand_logo)
     validate_reference_image_1 = staticmethod(validate_brand_image)
     validate_reference_image_2 = staticmethod(validate_brand_image)
 
@@ -352,7 +428,7 @@ class BrandPatchSerializer(serializers.Serializer):
         help_text="Opcional. Segunda imagem de referencia para captura por IA.",
     )
 
-    validate_logo = staticmethod(validate_brand_image)
+    validate_logo = staticmethod(validate_brand_logo)
     validate_reference_image_1 = staticmethod(validate_brand_image)
     validate_reference_image_2 = staticmethod(validate_brand_image)
 

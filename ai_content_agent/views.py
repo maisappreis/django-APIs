@@ -11,7 +11,10 @@ import httpx
 from threading import Thread
 from secrets import compare_digest
 
-from .firebase_cleanup import cleanup_post_images_outside_retention_window
+from .firebase_cleanup import (
+    cleanup_post_images_outside_retention_window,
+    delete_replaced_firebase_file,
+)
 from .jobs import generate_post_review_batch, run_post_image_generation_job
 from .models import GenerationStatus, Post, PostBatch
 from .operations import (
@@ -46,11 +49,20 @@ from .serializers import (
     BrandInputSerializer,
     BrandOutputSerializer,
     BrandPatchSerializer,
+    BrandReferenceUploadCompleteOutputSerializer,
+    BrandReferenceUploadCompleteSerializer,
+    BrandReferenceUploadSignOutputSerializer,
+    BrandReferenceUploadSignSerializer,
     CalendarPostsQuerySerializer,
     PostBatchOutputSerializer,
     PostGenerationInputSerializer,
     PostImageRenderInputSerializer,
     PostPromptApprovalSerializer,
+)
+from .storage import (
+    finalize_brand_reference_upload,
+    generate_brand_reference_upload_url,
+    is_firebase_storage_enabled,
 )
 from .services import (
     analyze_brand_visual_identity,
@@ -70,6 +82,131 @@ def is_valid_maintenance_request(request):
     token = auth_header.removeprefix(prefix).strip()
 
     return compare_digest(token, expected_token)
+
+
+class BrandReferenceUploadSignAPIView(APIView):
+    @extend_schema(
+        summary="Gera uma URL assinada para upload de referência visual",
+        description=(
+            "Valida os metadados da imagem e retorna uma URL temporária "
+            "para upload direto e privado no Firebase Storage. O arquivo "
+            "não deve ser enviado a este endpoint."
+        ),
+        request=BrandReferenceUploadSignSerializer,
+        responses={
+            status.HTTP_200_OK: BrandReferenceUploadSignOutputSerializer,
+        },
+    )
+    def post(self, request):
+        serializer = BrandReferenceUploadSignSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not is_firebase_storage_enabled():
+            return Response(
+                {"detail": "Firebase Storage não está habilitado."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        upload = generate_brand_reference_upload_url(
+            user_id=request.user.id,
+            content_type=serializer.validated_data["content_type"],
+        )
+
+        return Response(upload, status=status.HTTP_200_OK)
+
+
+class BrandReferenceUploadCompleteAPIView(APIView):
+    @extend_schema(
+        summary="Confirma e associa uma referência visual privada",
+        description=(
+            "Valida no Firebase o upload direto, move o objeto temporário "
+            "para o caminho definitivo da marca e associa a referência ao "
+            "usuário autenticado."
+        ),
+        request=BrandReferenceUploadCompleteSerializer,
+        responses={
+            status.HTTP_200_OK: BrandReferenceUploadCompleteOutputSerializer,
+        },
+    )
+    def post(self, request):
+        serializer = BrandReferenceUploadCompleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        if not is_firebase_storage_enabled():
+            return Response(
+                {"detail": "Firebase Storage não está habilitado."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        brand = get_object_or_404(
+            get_user_brands(request.user),
+            id=data["brand_id"],
+        )
+
+        try:
+            ensure_visual_identity_capture_allowed(request.user)
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            confirmed = finalize_brand_reference_upload(
+                user_id=request.user.id,
+                brand_id=brand.id,
+                slot=data["slot"],
+                object_path=data["object_path"],
+            )
+        except FileNotFoundError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        slot = data["slot"]
+        url_field = f"reference_image_{slot}_url"
+        image_field = f"reference_image_{slot}"
+        previous_url = getattr(brand, url_field)
+        setattr(brand, url_field, confirmed["storage_url"])
+        setattr(brand, image_field, None)
+        brand.save(update_fields=[url_field, image_field, "updated_at"])
+        delete_replaced_firebase_file(
+            previous_url,
+            confirmed["storage_url"],
+        )
+
+        if data["analyze"]:
+            try:
+                analyze_brand_visual_identity(brand)
+            except Exception as error:
+                response_data = {
+                    "detail": "Erro ao captar identidade visual da marca.",
+                }
+
+                if settings.DEBUG:
+                    response_data["error"] = str(error)
+
+                return Response(
+                    response_data,
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+        response_data = {
+            "brand_id": brand.id,
+            "slot": slot,
+            "object_path": confirmed["object_path"],
+            "content_type": confirmed["content_type"],
+            "size": confirmed["size"],
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class BrandListAPIView(APIView):

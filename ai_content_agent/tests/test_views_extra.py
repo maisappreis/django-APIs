@@ -57,6 +57,216 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["id"], self.brand.id)
 
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.views.generate_brand_reference_upload_url")
+    def test_sign_brand_reference_upload(self, generate_upload_url):
+        generate_upload_url.return_value = {
+            "upload_url": "https://storage.test/signed",
+            "object_path": "users/1/pending/brand-references/ref.png",
+            "expires_in": 600,
+            "upload_headers": {"Content-Type": "image/png"},
+        }
+
+        response = self.client.post(
+            reverse("brand-reference-upload-sign"),
+            {
+                "filename": "reference.png",
+                "content_type": "image/png",
+                "size": 1024,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, generate_upload_url.return_value)
+        generate_upload_url.assert_called_once_with(
+            user_id=self.user.id,
+            content_type="image/png",
+        )
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.views.generate_brand_reference_upload_url")
+    def test_sign_brand_reference_upload_accepts_jpg_alias(
+        self,
+        generate_upload_url,
+    ):
+        generate_upload_url.return_value = {
+            "upload_url": "https://storage.test/signed",
+            "object_path": "users/1/pending/brand-references/ref.jpg",
+            "expires_in": 600,
+            "upload_headers": {"Content-Type": "image/jpg"},
+        }
+
+        response = self.client.post(
+            reverse("brand-reference-upload-sign"),
+            {
+                "filename": "reference.jpg",
+                "content_type": "image/jpg",
+                "size": 1024,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        generate_upload_url.assert_called_once_with(
+            user_id=self.user.id,
+            content_type="image/jpg",
+        )
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.views.generate_brand_reference_upload_url")
+    def test_sign_brand_reference_upload_rejects_invalid_metadata(
+        self,
+        generate_upload_url,
+    ):
+        response = self.client.post(
+            reverse("brand-reference-upload-sign"),
+            {
+                "filename": "reference.svg",
+                "content_type": "image/svg+xml",
+                "size": 10 * 1024 * 1024 + 1,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("content_type", response.data)
+        self.assertIn("size", response.data)
+        generate_upload_url.assert_not_called()
+
+    def test_sign_brand_reference_upload_requires_authentication(self):
+        anonymous_client = APIClient()
+
+        response = anonymous_client.post(
+            reverse("brand-reference-upload-sign"),
+            {
+                "filename": "reference.png",
+                "content_type": "image/png",
+                "size": 1024,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.views.generate_brand_reference_upload_url")
+    def test_sign_brand_reference_upload_requires_firebase(
+        self,
+        generate_upload_url,
+    ):
+        response = self.client.post(
+            reverse("brand-reference-upload-sign"),
+            {
+                "filename": "reference.png",
+                "content_type": "image/png",
+                "size": 1024,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+        generate_upload_url.assert_not_called()
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.views.analyze_brand_visual_identity")
+    @patch("ai_content_agent.views.delete_replaced_firebase_file")
+    @patch("ai_content_agent.views.finalize_brand_reference_upload")
+    def test_complete_brand_reference_upload_associates_private_object(
+        self, finalize_upload, delete_replaced_file, analyze_visual_identity
+    ):
+        create_subscription(self.user, tier=Plan.Tier.PLUS)
+        finalize_upload.return_value = {
+            "object_path": "users/1/brands/1/references/ref.png",
+            "storage_url": "https://storage.googleapis.com/bucket/ref.png",
+            "content_type": "image/png",
+            "size": 1024,
+        }
+        pending_path = (
+            f"users/{self.user.id}/pending/brand-references/"
+            "00000000-0000-0000-0000-000000000000.png"
+        )
+
+        response = self.client.post(
+            reverse("brand-reference-upload-complete"),
+            {
+                "brand_id": self.brand.id,
+                "slot": 1,
+                "object_path": pending_path,
+                "analyze": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.brand.refresh_from_db()
+        self.assertEqual(
+            self.brand.reference_image_1_url,
+            "https://storage.googleapis.com/bucket/ref.png",
+        )
+        finalize_upload.assert_called_once_with(
+            user_id=self.user.id,
+            brand_id=self.brand.id,
+            slot=1,
+            object_path=pending_path,
+        )
+        delete_replaced_file.assert_called_once_with(
+            "", "https://storage.googleapis.com/bucket/ref.png"
+        )
+        analyze_visual_identity.assert_called_once()
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch("ai_content_agent.views.finalize_brand_reference_upload")
+    def test_complete_brand_reference_upload_rejects_another_users_brand(
+        self, finalize_upload
+    ):
+        create_subscription(self.user, tier=Plan.Tier.PLUS)
+        another_brand = create_brand()
+
+        response = self.client.post(
+            reverse("brand-reference-upload-complete"),
+            {
+                "brand_id": another_brand.id,
+                "slot": 1,
+                "object_path": (
+                    f"users/{self.user.id}/pending/brand-references/"
+                    "00000000-0000-0000-0000-000000000000.png"
+                ),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        finalize_upload.assert_not_called()
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
+    @patch(
+        "ai_content_agent.views.finalize_brand_reference_upload",
+        side_effect=ValueError("O arquivo enviado não é uma imagem válida."),
+    )
+    def test_complete_brand_reference_upload_rejects_invalid_image(
+        self, _finalize_upload
+    ):
+        create_subscription(self.user, tier=Plan.Tier.PLUS)
+
+        response = self.client.post(
+            reverse("brand-reference-upload-complete"),
+            {
+                "brand_id": self.brand.id,
+                "slot": 1,
+                "object_path": (
+                    f"users/{self.user.id}/pending/brand-references/"
+                    "00000000-0000-0000-0000-000000000000.png"
+                ),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local", DEBUG=True)
     @patch("ai_content_agent.views.analyze_brand_visual_identity")
     def test_brand_create_returns_502_when_visual_identity_analysis_fails(self, analyze):

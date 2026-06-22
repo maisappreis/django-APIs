@@ -1,8 +1,30 @@
 import json
+import re
+from io import BytesIO
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 from django.conf import settings
+from google.api_core.exceptions import NotFound
+from PIL import Image, UnidentifiedImageError
+
+
+BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS = {
+    "image/gif": ".gif",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
+BRAND_REFERENCE_IMAGE_FORMATS = {
+    "image/gif": "GIF",
+    "image/jpeg": "JPEG",
+    "image/jpg": "JPEG",
+    "image/png": "PNG",
+    "image/webp": "WEBP",
+}
+MAX_BRAND_REFERENCE_SIZE = 10 * 1024 * 1024
 
 
 def get_storage_backend():
@@ -35,6 +57,10 @@ def get_public_url(object_path):
     return f"https://storage.googleapis.com/{bucket_name}/{object_path}"
 
 
+def get_private_storage_uri(object_path):
+    return f"gs://{settings.FIREBASE_STORAGE_BUCKET}/{object_path}"
+
+
 def get_firebase_bucket():
     try:
         from google.cloud import storage
@@ -63,6 +89,119 @@ def get_firebase_bucket():
         client = storage.Client()
 
     return client.bucket(settings.FIREBASE_STORAGE_BUCKET)
+
+
+def generate_brand_reference_upload_url(user_id, content_type):
+    extension = BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS[content_type]
+    object_path = (
+        f"users/{user_id}/pending/brand-references/"
+        f"{uuid4()}{extension}"
+    )
+    expires_in = getattr(
+        settings,
+        "FIREBASE_SIGNED_UPLOAD_EXPIRATION_SECONDS",
+        600,
+    )
+    blob = get_firebase_bucket().blob(object_path)
+    upload_url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(seconds=expires_in),
+        method="PUT",
+        content_type=content_type,
+    )
+
+    return {
+        "upload_url": upload_url,
+        "object_path": object_path,
+        "expires_in": expires_in,
+        "upload_headers": {"Content-Type": content_type},
+    }
+
+
+def finalize_brand_reference_upload(
+    user_id,
+    brand_id,
+    slot,
+    object_path,
+):
+    pending_path_pattern = re.compile(
+        rf"^users/{user_id}/pending/brand-references/"
+        r"[0-9a-f-]{36}\.(gif|jpg|png|webp)$"
+    )
+
+    if not pending_path_pattern.fullmatch(object_path):
+        raise ValueError("Caminho de upload inválido para este usuário.")
+
+    bucket = get_firebase_bucket()
+    pending_blob = bucket.blob(object_path)
+
+    try:
+        pending_blob.reload()
+    except NotFound as error:
+        raise FileNotFoundError("Upload não encontrado.") from error
+
+    size = pending_blob.size or 0
+    content_type = pending_blob.content_type or ""
+
+    if size < 1 or size > MAX_BRAND_REFERENCE_SIZE:
+        raise ValueError("A imagem deve ter entre 1 byte e 10 MB.")
+
+    expected_format = BRAND_REFERENCE_IMAGE_FORMATS.get(content_type)
+
+    if not expected_format:
+        raise ValueError("Tipo de imagem não permitido.")
+
+    content = pending_blob.download_as_bytes()
+
+    if len(content) != size or len(content) > MAX_BRAND_REFERENCE_SIZE:
+        raise ValueError("O tamanho real da imagem é inválido.")
+
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image.verify()
+            actual_format = image.format
+    except (UnidentifiedImageError, OSError) as error:
+        raise ValueError("O arquivo enviado não é uma imagem válida.") from error
+
+    if actual_format != expected_format:
+        raise ValueError("O conteúdo da imagem não corresponde ao tipo informado.")
+
+    extension = BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS[content_type]
+    final_path = (
+        f"users/{user_id}/brands/{brand_id}/references/"
+        f"reference-{slot}-{uuid4()}{extension}"
+    )
+    bucket.copy_blob(pending_blob, bucket, final_path)
+    pending_blob.delete()
+
+    return {
+        "object_path": final_path,
+        "storage_url": get_private_storage_uri(final_path),
+        "content_type": content_type,
+        "size": size,
+    }
+
+
+def generate_brand_reference_read_url(storage_url):
+    if (
+        not storage_url
+        or not storage_url.startswith("gs://")
+        or not is_firebase_storage_enabled()
+    ):
+        return storage_url
+
+    object_path = get_object_path_from_public_url(storage_url)
+    expires_in = getattr(
+        settings,
+        "FIREBASE_SIGNED_READ_EXPIRATION_SECONDS",
+        600,
+    )
+
+    return get_firebase_bucket().blob(object_path).generate_signed_url(
+        version="v4",
+        expiration=timedelta(seconds=expires_in),
+        method="GET",
+    )
 
 
 def upload_local_file(local_path, object_path, content_type="image/png"):
@@ -120,6 +259,10 @@ def get_object_path_from_public_url(public_url):
         return ""
 
     parsed_url = urlparse(public_url)
+
+    if parsed_url.scheme == "gs":
+        return unquote(parsed_url.path).lstrip("/")
+
     parsed_path = unquote(parsed_url.path).lstrip("/")
     public_base_url = getattr(settings, "FIREBASE_PUBLIC_BASE_URL", "").rstrip("/")
 

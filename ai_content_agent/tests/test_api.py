@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 from datetime import date
+from io import BytesIO
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -8,6 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
+from PIL import Image
 
 from accounts.models import Plan, Subscription
 
@@ -39,6 +41,17 @@ def get_test_image(name="logo.gif"):
             b"\x00\x02\x02D\x01\x00;"
         ),
         content_type="image/gif",
+    )
+
+
+def get_test_logo_png():
+    content = BytesIO()
+    Image.new("RGBA", (2, 2), "blue").save(content, format="PNG")
+
+    return SimpleUploadedFile(
+        "logo.png",
+        content.getvalue(),
+        content_type="image/png",
     )
 
 
@@ -117,6 +130,20 @@ class BrandPatchAPITestCase(APITestCase):
         self.assertEqual(response.status_code, 403)
         self.assertIn("identidade visual", response.data["detail"])
 
+    def test_patch_brand_rejects_gif_logo(self):
+        response = self.client.patch(
+            reverse("brand-detail", kwargs={"brand_id": self.brand.id}),
+            {"logo": get_test_image("logo.gif")},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("logo", response.data)
+        self.assertIn(
+            "PNG, JPEG ou WebP",
+            str(response.data["logo"]),
+        )
+
 
 class BrandCreateAPITestCase(APITestCase):
     def setUp(self):
@@ -149,7 +176,7 @@ class BrandCreateAPITestCase(APITestCase):
         self,
         upload_logo_file,
     ):
-        firebase_url = "https://storage.example.com/users/1/brand/logo.gif"
+        firebase_url = "https://storage.example.com/users/1/brand/logo.png"
         upload_logo_file.return_value = firebase_url
 
         with override_settings(MEDIA_ROOT=self.media_root):
@@ -164,7 +191,7 @@ class BrandCreateAPITestCase(APITestCase):
                     "text_color": "#FFFFFF",
                     "title_font": "inter",
             "subtitle_font": "inter",
-                    "logo": get_test_image(),
+                    "logo": get_test_logo_png(),
                     "logo_position": "bottom_right",
                 },
                 format="multipart",

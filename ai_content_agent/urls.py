@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     BrandDetailAPIView,
     BrandListAPIView,
+    BrandReferenceUploadCompleteAPIView,
+    BrandReferenceUploadSignAPIView,
     ApprovePostPromptsAPIView,
     CalendarPostsAPIView,
     ContentAgentUsageAPIView,
@@ -16,6 +18,16 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "uploads/brand-references/sign/",
+        BrandReferenceUploadSignAPIView.as_view(),
+        name="brand-reference-upload-sign",
+    ),
+    path(
+        "uploads/brand-references/complete/",
+        BrandReferenceUploadCompleteAPIView.as_view(),
+        name="brand-reference-upload-complete",
+    ),
     path(
         "brands/",
         BrandListAPIView.as_view(),

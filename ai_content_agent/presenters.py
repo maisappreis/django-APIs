@@ -1,6 +1,8 @@
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .storage import generate_brand_reference_read_url
+
 
 def serialize_brand(brand):
     return {
@@ -11,11 +13,11 @@ def serialize_brand(brand):
         "visual_identity_summary": brand.visual_identity_summary,
         "visual_identity_prompt": brand.visual_identity_prompt,
         "reference_image_1_url": (
-            brand.reference_image_1_url
+            generate_brand_reference_read_url(brand.reference_image_1_url)
             or (brand.reference_image_1.url if brand.reference_image_1 else "")
         ),
         "reference_image_2_url": (
-            brand.reference_image_2_url
+            generate_brand_reference_read_url(brand.reference_image_2_url)
             or (brand.reference_image_2.url if brand.reference_image_2 else "")
         ),
         "logo_url": brand.logo_url or (brand.logo.url if brand.logo else ""),
