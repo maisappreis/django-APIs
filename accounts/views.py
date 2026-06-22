@@ -109,6 +109,7 @@ class CreateCheckoutSessionView(APIView):
         serializer.is_valid(raise_exception=True)
         plan = serializer.plan
         product = serializer.product
+        currency = serializer.currency
 
         if not settings.STRIPE_SECRET_KEY:
             return Response(
@@ -122,7 +123,12 @@ class CreateCheckoutSessionView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        checkout_session = create_checkout_session(request.user, plan, product)
+        checkout_session = create_checkout_session(
+            request.user,
+            plan,
+            product,
+            currency,
+        )
 
         return Response(
             {"checkout_url": checkout_session.url},

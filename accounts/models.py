@@ -8,15 +8,26 @@ class Plan(models.Model):
         PLUS = "plus", "Plus"
         PRO = "pro", "Pro"
 
+    class Currency(models.TextChoices):
+        BRL = "brl", "Real brasileiro"
+        USD = "usd", "Dólar americano"
+
     name = models.CharField(max_length=120)
     tier = models.CharField(max_length=20, choices=Tier.choices)
     price_brl_cents = models.PositiveIntegerField(default=0)
     price_usd_cents = models.PositiveIntegerField(default=0)
-    stripe_price_id = models.CharField(max_length=255, blank=True)
+    stripe_price_id_brl = models.CharField(max_length=255, blank=True)
+    stripe_price_id_usd = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.name} - {self.get_tier_display()}"
+
+    def get_stripe_price_id(self, currency):
+        if currency == self.Currency.USD:
+            return self.stripe_price_id_usd
+
+        return self.stripe_price_id_brl
     
 
 class Subscription(models.Model):

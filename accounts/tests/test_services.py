@@ -163,6 +163,24 @@ class AccountServiceTest(TestCase):
         self.assertEqual(call_kwargs["metadata"]["user_id"], str(user.id))
         self.assertEqual(call_kwargs["metadata"]["plan_tier"], Plan.Tier.PLUS)
         self.assertEqual(call_kwargs["metadata"]["product"], "axis")
+        self.assertEqual(call_kwargs["metadata"]["currency"], Plan.Currency.BRL)
+
+    @patch("accounts.services.get_stripe_module")
+    def test_create_checkout_session_uses_usd_price(self, get_stripe_module):
+        user = create_user()
+        plan = create_plan(
+            tier=Plan.Tier.PRO,
+            stripe_price_id_brl="price_pro_brl",
+            stripe_price_id_usd="price_pro_usd",
+        )
+        stripe = Mock()
+        get_stripe_module.return_value = stripe
+
+        create_checkout_session(user, plan, "axis", Plan.Currency.USD)
+
+        call_kwargs = stripe.checkout.Session.create.call_args.kwargs
+        self.assertEqual(call_kwargs["line_items"][0]["price"], "price_pro_usd")
+        self.assertEqual(call_kwargs["metadata"]["currency"], Plan.Currency.USD)
 
     @patch("accounts.services.get_stripe_module", return_value=None)
     def test_cancel_subscription_raises_when_stripe_is_missing(self, _stripe):

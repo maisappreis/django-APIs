@@ -92,7 +92,7 @@ def retrieve_stripe_subscription(subscription_id):
         return None
 
 
-def create_checkout_session(user, plan, product):
+def create_checkout_session(user, plan, product, currency=Plan.Currency.BRL):
     stripe = get_stripe_module()
     if not stripe:
         raise RuntimeError("Biblioteca stripe nao instalada.")
@@ -102,7 +102,7 @@ def create_checkout_session(user, plan, product):
         customer_email=user.email,
         line_items=[
             {
-                "price": plan.stripe_price_id,
+                "price": plan.get_stripe_price_id(currency),
                 "quantity": 1,
             }
         ],
@@ -112,12 +112,14 @@ def create_checkout_session(user, plan, product):
             "user_id": str(user.id),
             "plan_tier": plan.tier,
             "product": product,
+            "currency": currency,
         },
         subscription_data={
             "metadata": {
                 "user_id": str(user.id),
                 "plan_tier": plan.tier,
                 "product": product,
+                "currency": currency,
             },
         },
     )

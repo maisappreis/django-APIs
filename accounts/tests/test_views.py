@@ -124,6 +124,49 @@ class AccountViewTest(TestCase):
             response.data["checkout_url"],
             "https://checkout.test/session",
         )
+        create_checkout_session.assert_called_once_with(
+            user,
+            Plan.objects.get(tier=Plan.Tier.PLUS),
+            "axis",
+            Plan.Currency.BRL,
+        )
+
+    @patch("accounts.views.create_checkout_session")
+    @patch("accounts.views.get_stripe_module")
+    def test_checkout_forwards_usd_currency(
+        self,
+        get_stripe_module,
+        create_checkout_session,
+    ):
+        plan = create_plan(
+            tier=Plan.Tier.PRO,
+            stripe_price_id_brl="price_pro_brl",
+            stripe_price_id_usd="price_pro_usd",
+        )
+        user = create_user()
+        self.client.force_authenticate(user=user)
+        get_stripe_module.return_value = Mock()
+        create_checkout_session.return_value = SimpleNamespace(
+            url="https://checkout.test/usd",
+        )
+
+        response = self.client.post(
+            reverse("subscription-checkout"),
+            {
+                "product": "content-agent",
+                "plan_tier": Plan.Tier.PRO,
+                "currency": Plan.Currency.USD,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        create_checkout_session.assert_called_once_with(
+            user,
+            plan,
+            "content-agent",
+            Plan.Currency.USD,
+        )
 
     @override_settings(STRIPE_SECRET_KEY="")
     def test_cancel_returns_503_when_stripe_key_is_missing(self):

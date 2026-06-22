@@ -94,17 +94,21 @@ Run server:
 python manage.py runserver
 ```
 
-Run Stripe listener: (open as administrator)
-```sh
-stripe login
-stripe listen --forward-to localhost:8000/api/accounts/stripe/webhook/
-```
-
 To run migrations:
 ```sh
 python manage.py makemigrations
 python manage.py migrate
 ```
+
+To test the interaction with Stripe, run the following commands in the terminal in administrator mode:
+```sh
+stripe login
+stripe listen --forward-to localhost:8000/api/accounts/stripe/webhook/
+```
+
+I copied the generated webhook to the .env file.
+Test card number: 42424242424242
+Other data can be any number.
 
 ---
 

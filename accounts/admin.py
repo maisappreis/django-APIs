@@ -29,11 +29,17 @@ class PlanAdmin(admin.ModelAdmin):
         "tier",
         "price_brl_cents",
         "price_usd_cents",
-        "stripe_price_id",
+        "stripe_price_id_brl",
+        "stripe_price_id_usd",
         "is_active",
     )
     list_filter = ("tier", "is_active")
-    search_fields = ("name", "tier", "stripe_price_id")
+    search_fields = (
+        "name",
+        "tier",
+        "stripe_price_id_brl",
+        "stripe_price_id_usd",
+    )
 
 
 @admin.register(Subscription)

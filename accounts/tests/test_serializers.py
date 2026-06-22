@@ -91,6 +91,38 @@ class AccountSerializerTest(TestCase):
         self.assertEqual(serializer.validated_data["plan_tier"], Plan.Tier.PLUS)
         self.assertEqual(serializer.plan, plus_plan)
         self.assertEqual(serializer.product, "axis")
+        self.assertEqual(serializer.currency, Plan.Currency.BRL)
+
+    def test_checkout_selects_usd_price(self):
+        plus_plan = create_plan(
+            tier=Plan.Tier.PLUS,
+            stripe_price_id_brl="price_plus_brl",
+            stripe_price_id_usd="price_plus_usd",
+        )
+        serializer = CheckoutSessionSerializer(data={
+            "product": "axis",
+            "plan_tier": Plan.Tier.PLUS,
+            "currency": Plan.Currency.USD,
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.plan, plus_plan)
+        self.assertEqual(serializer.currency, Plan.Currency.USD)
+
+    def test_checkout_rejects_plan_without_price_for_selected_currency(self):
+        create_plan(
+            tier=Plan.Tier.PRO,
+            stripe_price_id_brl="price_pro_brl",
+            stripe_price_id_usd="",
+        )
+        serializer = CheckoutSessionSerializer(data={
+            "product": "axis",
+            "plan_tier": Plan.Tier.PRO,
+            "currency": Plan.Currency.USD,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("non_field_errors", serializer.errors)
 
     def test_checkout_rejects_plan_without_stripe_price_id(self):
         create_plan(tier=Plan.Tier.PRO)

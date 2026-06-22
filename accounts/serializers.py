@@ -23,7 +23,8 @@ class PlanSerializer(serializers.ModelSerializer):
             "tier",
             "price_brl_cents",
             "price_usd_cents",
-            "stripe_price_id",
+            "stripe_price_id_brl",
+            "stripe_price_id_usd",
         ]
 
 
@@ -60,18 +61,27 @@ class CheckoutSessionSerializer(serializers.Serializer):
         required=False,
         write_only=True,
     )
+    currency = serializers.ChoiceField(
+        choices=Plan.Currency.choices,
+        default=Plan.Currency.BRL,
+        write_only=True,
+    )
 
     def validate(self, attrs):
         attrs["plan_tier"] = (
             attrs.get("plan") or attrs.get("plan_tier") or Plan.Tier.PLUS
         )
         plan = self._get_active_plan(attrs["plan_tier"])
+        currency = attrs["currency"]
 
-        if not plan.stripe_price_id:
-            raise serializers.ValidationError("Plano sem price_id da Stripe.")
+        if not plan.get_stripe_price_id(currency):
+            raise serializers.ValidationError(
+                f"Plano sem price_id da Stripe para {currency.upper()}."
+            )
 
         self.plan = plan
         self.product = attrs["product"]
+        self.currency = currency
 
         return attrs
 

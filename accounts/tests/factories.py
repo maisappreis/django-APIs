@@ -3,11 +3,26 @@ from django.contrib.auth.models import User
 from accounts.models import Plan, Subscription
 
 
-def create_plan(tier=Plan.Tier.FREE, stripe_price_id="", is_active=True):
+def create_plan(
+    tier=Plan.Tier.FREE,
+    stripe_price_id="",
+    stripe_price_id_brl=None,
+    stripe_price_id_usd=None,
+    is_active=True,
+):
     return Plan.objects.create(
         name=f"{tier.title()} plan",
         tier=tier,
-        stripe_price_id=stripe_price_id,
+        stripe_price_id_brl=(
+            stripe_price_id
+            if stripe_price_id_brl is None
+            else stripe_price_id_brl
+        ),
+        stripe_price_id_usd=(
+            stripe_price_id
+            if stripe_price_id_usd is None
+            else stripe_price_id_usd
+        ),
         is_active=is_active,
     )
 
