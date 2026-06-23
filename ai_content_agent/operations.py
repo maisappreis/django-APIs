@@ -17,6 +17,7 @@ from .rules import get_ai_image_monthly_limit, get_current_month_range
 from .rules import can_capture_visual_identity, get_max_brands
 from .storage import (
     cleanup_local_files,
+    generate_private_read_url,
     is_firebase_storage_enabled,
     upload_brand_reference_file,
     upload_generated_post_file,
@@ -644,7 +645,10 @@ def prepare_post_download(post_generation):
             "content_type": "image/png",
         }
 
-    image_response = httpx.get(post_generation.image_url, timeout=30)
+    image_response = httpx.get(
+        generate_private_read_url(post_generation.image_url),
+        timeout=30,
+    )
     image_response.raise_for_status()
 
     return {

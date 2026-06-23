@@ -33,6 +33,7 @@ from ai_content_agent.storage import (
     delete_public_file,
     finalize_brand_reference_upload,
     generate_brand_reference_upload_url,
+    generate_private_read_url,
     generate_post_source_upload_url,
     get_object_path_from_public_url,
     get_public_url,
@@ -41,6 +42,7 @@ from ai_content_agent.storage import (
     upload_brand_reference_file,
     upload_generated_post_file,
     upload_local_file,
+    upload_private_local_file,
     upload_logo_file,
 )
 from ai_content_agent.tests.factories import (
@@ -160,6 +162,25 @@ class PresentersTest(TestCase):
         self.assertEqual(batch_data["posts"][0]["id"], earlier_post.id)
         self.assertEqual(batch_data["posts"][1]["id"], later_post.id)
 
+    @patch("ai_content_agent.presenters.generate_private_read_url")
+    def test_serialize_post_generation_signs_private_images(self, generate_read_url):
+        generate_read_url.side_effect = lambda value: f"signed:{value}"
+        post = create_post(
+            base_image_url="gs://bucket/users/1/posts/1/base.png",
+            image_url="gs://bucket/users/1/posts/1/final.png",
+        )
+
+        data = serialize_post_generation(post)
+
+        self.assertEqual(
+            data["base_image_url"],
+            "signed:gs://bucket/users/1/posts/1/base.png",
+        )
+        self.assertEqual(
+            data["image_url"],
+            "signed:gs://bucket/users/1/posts/1/final.png",
+        )
+
     def test_get_download_filename_uses_url_extension_or_png_default(self):
         post = create_post(image_url="https://cdn.test/final.jpg?token=1")
         png_post = create_post(image_url="https://cdn.test/final")
@@ -222,13 +243,19 @@ class StorageTest(TestCase):
             "users/1/private.png",
         )
 
+    @patch("ai_content_agent.storage.upload_private_local_file")
     @patch("ai_content_agent.storage.upload_local_file")
-    def test_upload_helpers_build_expected_object_paths(self, upload_local_file_mock):
+    def test_upload_helpers_build_expected_object_paths(
+        self,
+        upload_local_file_mock,
+        upload_private_local_file_mock,
+    ):
         upload_local_file_mock.return_value = "https://cdn.test/file.png"
+        upload_private_local_file_mock.return_value = "gs://bucket-name/file.png"
 
         self.assertEqual(
             upload_generated_post_file("/tmp/source.jpg", 1, post_id=2, kind="base"),
-            "https://cdn.test/file.png",
+            "gs://bucket-name/file.png",
         )
         self.assertEqual(
             upload_logo_file("/tmp/logo.svg", 1, 3),
@@ -239,9 +266,9 @@ class StorageTest(TestCase):
             "https://cdn.test/file.png",
         )
 
-        generated_path = upload_local_file_mock.call_args_list[0].kwargs["object_path"]
-        logo_path = upload_local_file_mock.call_args_list[1].kwargs["object_path"]
-        reference_path = upload_local_file_mock.call_args_list[2].kwargs["object_path"]
+        generated_path = upload_private_local_file_mock.call_args.kwargs["object_path"]
+        logo_path = upload_local_file_mock.call_args_list[0].kwargs["object_path"]
+        reference_path = upload_local_file_mock.call_args_list[1].kwargs["object_path"]
         self.assertTrue(generated_path.startswith("users/1/posts/2/base-"))
         self.assertTrue(logo_path.startswith("users/1/brands/3/logo-"))
         self.assertTrue(logo_path.endswith(".svg"))
@@ -251,6 +278,31 @@ class StorageTest(TestCase):
             )
         )
         self.assertTrue(reference_path.endswith(".webp"))
+
+    @override_settings(
+        CONTENT_AGENT_STORAGE_BACKEND="firebase",
+        FIREBASE_STORAGE_BUCKET="bucket-name",
+    )
+    @patch("ai_content_agent.storage.get_firebase_bucket")
+    def test_private_upload_and_read_never_make_object_public(self, get_bucket):
+        bucket = Mock()
+        blob = bucket.blob.return_value
+        blob.generate_signed_url.return_value = "https://storage.test/signed"
+        get_bucket.return_value = bucket
+
+        stored_url = upload_private_local_file(
+            "/tmp/post.png",
+            "users/1/posts/2/final.png",
+        )
+        read_url = generate_private_read_url(stored_url)
+
+        self.assertEqual(
+            stored_url,
+            "gs://bucket-name/users/1/posts/2/final.png",
+        )
+        self.assertEqual(read_url, "https://storage.test/signed")
+        blob.make_public.assert_not_called()
+        blob.generate_signed_url.assert_called_once()
 
     @override_settings(FIREBASE_SIGNED_UPLOAD_EXPIRATION_SECONDS=300)
     @patch("ai_content_agent.storage.get_firebase_bucket")

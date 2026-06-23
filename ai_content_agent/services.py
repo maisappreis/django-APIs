@@ -32,6 +32,7 @@ from ai_content_agent.storage import (
     cleanup_local_files,
     consume_post_source_upload,
     generate_brand_reference_read_url,
+    generate_private_read_url,
     is_firebase_storage_enabled,
     upload_generated_post_file,
 )
@@ -500,7 +501,7 @@ def get_remote_image_work_path(image_url, asset_group="generated-posts"):
     work_path = Path(settings.MEDIA_ROOT) / "work" / asset_group / filename
     work_path.parent.mkdir(parents=True, exist_ok=True)
 
-    response = httpx.get(image_url, timeout=30)
+    response = httpx.get(generate_private_read_url(image_url), timeout=30)
     response.raise_for_status()
     work_path.write_bytes(response.content)
 

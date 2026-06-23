@@ -243,7 +243,7 @@ def finalize_brand_reference_upload(
     }
 
 
-def generate_brand_reference_read_url(storage_url):
+def generate_private_read_url(storage_url):
     if (
         not storage_url
         or not storage_url.startswith("gs://")
@@ -265,6 +265,10 @@ def generate_brand_reference_read_url(storage_url):
     )
 
 
+def generate_brand_reference_read_url(storage_url):
+    return generate_private_read_url(storage_url)
+
+
 def upload_local_file(local_path, object_path, content_type="image/png"):
     if not is_firebase_storage_enabled():
         return None
@@ -277,13 +281,23 @@ def upload_local_file(local_path, object_path, content_type="image/png"):
     return get_public_url(object_path)
 
 
+def upload_private_local_file(local_path, object_path, content_type="image/png"):
+    if not is_firebase_storage_enabled():
+        return None
+
+    blob = get_firebase_bucket().blob(object_path)
+    blob.upload_from_filename(str(local_path), content_type=content_type)
+
+    return get_private_storage_uri(object_path)
+
+
 def upload_generated_post_file(local_path, user_id, post_id=None, kind="image"):
     extension = Path(local_path).suffix or ".png"
     filename = f"{kind}-{uuid4()}{extension}"
     post_segment = str(post_id) if post_id else "pending"
     object_path = f"users/{user_id}/posts/{post_segment}/{filename}"
 
-    return upload_local_file(
+    return upload_private_local_file(
         local_path=local_path,
         object_path=object_path,
         content_type="image/png",
