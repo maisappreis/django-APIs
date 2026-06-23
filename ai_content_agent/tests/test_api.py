@@ -1003,10 +1003,10 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertIn("Limite mensal", response.data["detail"])
 
     @override_settings(CONTENT_AGENT_USE_MOCK_CONTENT=True)
-    @patch("ai_content_agent.views.Thread")
+    @patch("ai_content_agent.views.enqueue_post_image_generation")
     def test_generate_posts_returns_review_batch_without_starting_job(
         self,
-        thread_class,
+        enqueue_job,
     ):
         existing_batch = PostBatch.objects.create(
             user=self.user,
@@ -1068,13 +1068,13 @@ class GeneratePostContentAPITestCase(APITestCase):
             response.data["posts"][1]["batch_id"],
             response.data["batch_id"],
         )
-        thread_class.assert_not_called()
+        enqueue_job.assert_not_called()
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
-    @patch("ai_content_agent.views.Thread")
+    @patch("ai_content_agent.views.enqueue_post_image_generation")
     def test_approve_post_prompts_updates_prompts_and_starts_image_jobs(
         self,
-        thread_class,
+        enqueue_job,
     ):
         batch = PostBatch.objects.create(
             user=self.user,
@@ -1134,8 +1134,6 @@ class GeneratePostContentAPITestCase(APITestCase):
             status=GenerationStatus.PENDING_REVIEW,
             scheduled_date="2026-06-10",
         )
-        thread_instance = thread_class.return_value
-
         response = self.client.post(
             reverse("approve-post-prompts", kwargs={"batch_id": batch.id}),
             {
@@ -1165,8 +1163,9 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertEqual(batch.status, GenerationStatus.PENDING)
         self.assertEqual(other_batch.status, GenerationStatus.PENDING)
         self.assertEqual(len(response.data["jobs"]), 2)
-        self.assertEqual(thread_class.call_count, 2)
-        self.assertEqual(thread_instance.start.call_count, 2)
+        self.assertEqual(enqueue_job.call_count, 2)
+        enqueue_job.assert_any_call(self.user.id, batch.id)
+        enqueue_job.assert_any_call(self.user.id, other_batch.id)
 
     def test_pending_review_endpoint_returns_all_pending_review_posts(self):
         batch = PostBatch.objects.create(

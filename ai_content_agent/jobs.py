@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.db import close_old_connections
 from django.shortcuts import get_object_or_404
 
-from .models import PostBatch
+from .models import GenerationStatus, PostBatch
 from .operations import (
     create_post_drafts_from_generation_result,
     ensure_ai_image_quota,
@@ -80,9 +80,13 @@ def run_post_image_generation_job(user_id, batch_id):
     try:
         user = get_user_model().objects.get(id=user_id)
         batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
+        if batch.status == GenerationStatus.COMPLETED:
+            return True
+
         posts = list(
             batch.posts.select_related("brand")
             .filter(user_id=user_id)
+            .exclude(status=GenerationStatus.COMPLETED)
             .order_by("scheduled_date", "post_order", "created_at")
         )
         total_posts = len(posts)
@@ -111,11 +115,13 @@ def run_post_image_generation_job(user_id, batch_id):
             )
 
         mark_batch_completed(batch, batch.strategy_summary)
+        return True
     except Exception as error:
         try:
             batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
             mark_batch_failed(batch, error)
         except PostBatch.DoesNotExist:
             pass
+        return False
     finally:
         close_old_connections()

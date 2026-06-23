@@ -5,10 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 import httpx
-from threading import Thread
 from secrets import compare_digest
 
 from .firebase_cleanup import (
@@ -45,6 +45,7 @@ from .presenters import (
     serialize_post_batch,
     serialize_post_generation,
 )
+from .queue import enqueue_post_image_generation
 from .serializers import (
     BrandInputSerializer,
     BrandOutputSerializer,
@@ -657,11 +658,15 @@ class ApprovePostPromptsAPIView(APIView):
         for batch in batches_by_id.values():
             mark_batch_pending(batch)
 
-            Thread(
-                target=run_post_image_generation_job,
-                args=(request.user.id, batch.id),
-                daemon=True,
-            ).start()
+            try:
+                enqueue_post_image_generation(request.user.id, batch.id)
+            except (httpx.HTTPError, ImproperlyConfigured, RuntimeError) as error:
+                mark_batch_failed(batch, error)
+                return Response(
+                    {"detail": "Nao foi possivel enfileirar a geracao."},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            batch.refresh_from_db()
             jobs.append({
                 "job_id": batch.id,
                 "batch_id": batch.id,
@@ -681,6 +686,39 @@ class ApprovePostPromptsAPIView(APIView):
             },
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+class PostImageGenerationJobAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        expected_token = getattr(settings, "CONTENT_AGENT_JOB_TOKEN", "")
+        received_token = request.headers.get(
+            "X-Content-Agent-Job-Token",
+            "",
+        )
+        if not expected_token or not compare_digest(received_token, expected_token):
+            return Response(
+                {"detail": "Unauthorized job request."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        user_id = request.data.get("user_id")
+        batch_id = request.data.get("batch_id")
+        if not isinstance(user_id, int) or not isinstance(batch_id, int):
+            return Response(
+                {"detail": "Invalid job payload."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not run_post_image_generation_job(user_id, batch_id):
+            return Response(
+                {"detail": "Job processing failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"status": "completed"})
 
 
 class ContentAgentUsageAPIView(APIView):

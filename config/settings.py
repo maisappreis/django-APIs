@@ -54,6 +54,17 @@ CONTENT_AGENT_MAINTENANCE_TOKEN = os.getenv(
     "CONTENT_AGENT_MAINTENANCE_TOKEN",
     os.getenv("CRON_SECRET", ""),
 )
+QSTASH_TOKEN = os.getenv("QSTASH_TOKEN", "")
+CONTENT_AGENT_JOB_TOKEN = os.getenv("CONTENT_AGENT_JOB_TOKEN", "")
+CONTENT_AGENT_PUBLIC_URL = os.getenv("CONTENT_AGENT_PUBLIC_URL", "")
+
+if not CONTENT_AGENT_PUBLIC_URL:
+    vercel_public_host = (
+        os.getenv("VERCEL_PROJECT_PRODUCTION_URL")
+        or os.getenv("VERCEL_URL")
+    )
+    if vercel_public_host:
+        CONTENT_AGENT_PUBLIC_URL = f"https://{vercel_public_host}"
 
 if is_production(): 
     DEBUG = False
@@ -105,6 +116,7 @@ if is_production():
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "false").lower() == "true"
     EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
     FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+    CONTENT_AGENT_QUEUE_BACKEND = os.getenv("CONTENT_AGENT_QUEUE_BACKEND", "qstash")
 else:
     DEBUG = True
     DATABASES = {
@@ -141,6 +153,7 @@ else:
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS_DEV", "false").lower() == "true"
     EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL_DEV", "false").lower() == "true"
     FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+    CONTENT_AGENT_QUEUE_BACKEND = os.getenv("CONTENT_AGENT_QUEUE_BACKEND", "inline")
 
 
 # Application definition

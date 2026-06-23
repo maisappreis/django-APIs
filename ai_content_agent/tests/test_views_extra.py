@@ -515,8 +515,8 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertIsNone(response.data["batch"])
         self.assertEqual(response.data["posts"], [])
 
-    @patch("ai_content_agent.views.Thread")
-    def test_approve_prompts_returns_403_when_ai_quota_is_exceeded(self, thread):
+    @patch("ai_content_agent.views.enqueue_post_image_generation")
+    def test_approve_prompts_returns_403_when_ai_quota_is_exceeded(self, enqueue):
         batch = create_batch(
             user=self.user,
             brand=self.brand,
@@ -549,7 +549,7 @@ class ContentAgentViewExtraTest(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        thread.assert_not_called()
+        enqueue.assert_not_called()
 
     @patch("ai_content_agent.views.rerender_post_image")
     def test_rerender_post_returns_updated_post(self, rerender):
