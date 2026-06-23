@@ -229,7 +229,43 @@ class PasswordResetTest(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("uid=", mail.outbox[0].body)
         self.assertIn("token=", mail.outbox[0].body)
-        self.assertIn("http://localhost:3000/axis/reset-password", mail.outbox[0].body)
+        self.assertIn(
+            "http://localhost:3000/axis/pt/reset-password",
+            mail.outbox[0].body,
+        )
+        self.assertEqual(mail.outbox[0].subject, "Redefina sua senha")
+        self.assertIn(
+            "Recebemos uma solicitação para redefinir sua senha.",
+            mail.outbox[0].body,
+        )
+
+    def test_password_reset_link_uses_requested_locale(self):
+        User.objects.create_user(
+            username="english@test.com",
+            email="english@test.com",
+            password="old-password",
+        )
+
+        response = self.client.post(
+            reverse("password-reset"),
+            {"email": "english@test.com", "locale": "en"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(
+            "http://localhost:3000/axis/en/reset-password",
+            mail.outbox[0].body,
+        )
+        self.assertEqual(mail.outbox[0].subject, "Reset your password")
+        self.assertIn(
+            "We received a request to reset your password.",
+            mail.outbox[0].body,
+        )
+        self.assertIn(
+            "If you did not request this, you can ignore this email.",
+            mail.outbox[0].body,
+        )
 
     def test_confirm_resets_user_password(self):
         user = User.objects.create_user(

@@ -26,6 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+FRONTEND_BASE_PATH = os.getenv("FRONTEND_BASE_PATH", "/axis")
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -89,11 +90,10 @@ if is_production():
             },
         }
     }
-    # TODO: pegar chaves de pagamento reais para produção
-    # STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-    # STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    # STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL", "")
-    # STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL", "")
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL", "")
+    STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL", "")
     CONTENT_AGENT_USE_MOCK_CONTENT = False
     ALLOWED_HOSTS = [
         'django-apis-two.vercel.app',
@@ -105,16 +105,18 @@ if is_production():
         "https://maisappreis.github.io/axis/reset-password",
     )
     DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@axis.com")
+    CONTACT_NOTIFICATION_EMAIL = os.getenv("CONTACT_NOTIFICATION_EMAIL", "")
     EMAIL_BACKEND = os.getenv(
         "EMAIL_BACKEND",
         "django.core.mail.backends.smtp.EmailBackend",
     )
-    EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
-    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+    EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp-relay.brevo.com")
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
     EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "false").lower() == "true"
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
     EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
+    EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
     FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
     CONTENT_AGENT_QUEUE_BACKEND = os.getenv("CONTENT_AGENT_QUEUE_BACKEND", "qstash")
 else:
@@ -142,6 +144,7 @@ else:
         "http://localhost:3000/axis/reset-password",
     )
     DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL_DEV", "no-reply@axis.local")
+    CONTACT_NOTIFICATION_EMAIL = os.getenv("CONTACT_NOTIFICATION_EMAIL_DEV", "")
     EMAIL_BACKEND = os.getenv(
         "EMAIL_BACKEND_DEV",
         "django.core.mail.backends.console.EmailBackend",
@@ -152,6 +155,7 @@ else:
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD_DEV", "")
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS_DEV", "false").lower() == "true"
     EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL_DEV", "false").lower() == "true"
+    EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT_DEV", "10"))
     FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
     CONTENT_AGENT_QUEUE_BACKEND = os.getenv("CONTENT_AGENT_QUEUE_BACKEND", "inline")
 

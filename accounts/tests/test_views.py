@@ -129,6 +129,7 @@ class AccountViewTest(TestCase):
             Plan.objects.get(tier=Plan.Tier.PLUS),
             "axis",
             Plan.Currency.BRL,
+            "pt",
         )
 
     @patch("accounts.views.create_checkout_session")
@@ -156,6 +157,7 @@ class AccountViewTest(TestCase):
                 "product": "content-agent",
                 "plan_tier": Plan.Tier.PRO,
                 "currency": Plan.Currency.USD,
+                "locale": "en",
             },
             format="json",
         )
@@ -166,6 +168,7 @@ class AccountViewTest(TestCase):
             plan,
             "content-agent",
             Plan.Currency.USD,
+            "en",
         )
 
     @override_settings(STRIPE_SECRET_KEY="")

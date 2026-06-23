@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from django.conf import settings
 from .models import Plan, Subscription
+from .urls_utils import localize_frontend_url
 
 
 def stripe_object_to_dict(stripe_object):
@@ -92,7 +93,13 @@ def retrieve_stripe_subscription(subscription_id):
         return None
 
 
-def create_checkout_session(user, plan, product, currency=Plan.Currency.BRL):
+def create_checkout_session(
+    user,
+    plan,
+    product,
+    currency=Plan.Currency.BRL,
+    locale="pt",
+):
     stripe = get_stripe_module()
     if not stripe:
         raise RuntimeError("Biblioteca stripe nao instalada.")
@@ -106,13 +113,22 @@ def create_checkout_session(user, plan, product, currency=Plan.Currency.BRL):
                 "quantity": 1,
             }
         ],
-        success_url=settings.STRIPE_CHECKOUT_SUCCESS_URL,
-        cancel_url=settings.STRIPE_CHECKOUT_CANCEL_URL,
+        success_url=localize_frontend_url(
+            settings.STRIPE_CHECKOUT_SUCCESS_URL,
+            locale,
+            getattr(settings, "FRONTEND_BASE_PATH", "/axis"),
+        ),
+        cancel_url=localize_frontend_url(
+            settings.STRIPE_CHECKOUT_CANCEL_URL,
+            locale,
+            getattr(settings, "FRONTEND_BASE_PATH", "/axis"),
+        ),
         metadata={
             "user_id": str(user.id),
             "plan_tier": plan.tier,
             "product": product,
             "currency": currency,
+            "locale": locale,
         },
         subscription_data={
             "metadata": {
@@ -120,6 +136,7 @@ def create_checkout_session(user, plan, product, currency=Plan.Currency.BRL):
                 "plan_tier": plan.tier,
                 "product": product,
                 "currency": currency,
+                "locale": locale,
             },
         },
     )

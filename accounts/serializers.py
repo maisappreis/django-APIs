@@ -9,6 +9,8 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
+
+from .urls_utils import localize_frontend_url
 from urllib.parse import urlencode
 
 from .models import Plan, Subscription
@@ -47,6 +49,11 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 
 
 class CheckoutSessionSerializer(serializers.Serializer):
+    locale = serializers.ChoiceField(
+        choices=("pt", "en"),
+        default="pt",
+        write_only=True,
+    )
     plan = serializers.ChoiceField(
         choices=Plan.Tier.choices,
         required=False,
@@ -82,6 +89,7 @@ class CheckoutSessionSerializer(serializers.Serializer):
         self.plan = plan
         self.product = attrs["product"]
         self.currency = currency
+        self.locale = attrs["locale"]
 
         return attrs
 
@@ -217,6 +225,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
+    locale = serializers.ChoiceField(choices=("pt", "en"), default="pt")
 
     def validate_email(self, value):
         return value.strip().lower()
@@ -231,15 +240,34 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         query = urlencode({"uid": uid, "token": token})
-        reset_url = f"{settings.PASSWORD_RESET_CONFIRM_URL}?{query}"
+        reset_base_url = localize_frontend_url(
+            settings.PASSWORD_RESET_CONFIRM_URL,
+            self.validated_data["locale"],
+            getattr(settings, "FRONTEND_BASE_PATH", "/axis"),
+        )
+        reset_url = f"{reset_base_url}?{query}"
+
+        locale = self.validated_data["locale"]
+        if locale == "en":
+            subject = "Reset your password"
+            message = (
+                "We received a request to reset your password.\n\n"
+                "Use the link below to create a new password:\n"
+                f"{reset_url}\n\n"
+                "If you did not request this, you can ignore this email."
+            )
+        else:
+            subject = "Redefina sua senha"
+            message = (
+                "Recebemos uma solicitação para redefinir sua senha.\n\n"
+                "Acesse o link abaixo para criar uma nova senha:\n"
+                f"{reset_url}\n\n"
+                "Se você não solicitou isso, ignore este email."
+            )
 
         send_mail(
-            subject="Redefina sua senha",
-            message=(
-                "Recebemos uma solicitação para redefinir sua senha.\n\n"
-                f"Acesse o link abaixo para criar uma nova senha:\n{reset_url}\n\n"
-                "Se você não solicitou isso, ignore este email."
-            ),
+            subject=subject,
+            message=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
             fail_silently=False,

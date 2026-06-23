@@ -164,6 +164,9 @@ class AccountServiceTest(TestCase):
         self.assertEqual(call_kwargs["metadata"]["plan_tier"], Plan.Tier.PLUS)
         self.assertEqual(call_kwargs["metadata"]["product"], "axis")
         self.assertEqual(call_kwargs["metadata"]["currency"], Plan.Currency.BRL)
+        self.assertEqual(call_kwargs["metadata"]["locale"], "pt")
+        self.assertEqual(call_kwargs["success_url"], "https://example.com/pt/success")
+        self.assertEqual(call_kwargs["cancel_url"], "https://example.com/pt/cancel")
 
     @patch("accounts.services.get_stripe_module")
     def test_create_checkout_session_uses_usd_price(self, get_stripe_module):
@@ -176,11 +179,14 @@ class AccountServiceTest(TestCase):
         stripe = Mock()
         get_stripe_module.return_value = stripe
 
-        create_checkout_session(user, plan, "axis", Plan.Currency.USD)
+        create_checkout_session(user, plan, "axis", Plan.Currency.USD, "en")
 
         call_kwargs = stripe.checkout.Session.create.call_args.kwargs
         self.assertEqual(call_kwargs["line_items"][0]["price"], "price_pro_usd")
         self.assertEqual(call_kwargs["metadata"]["currency"], Plan.Currency.USD)
+        self.assertEqual(call_kwargs["metadata"]["locale"], "en")
+        self.assertEqual(call_kwargs["success_url"], "https://example.com/en/success")
+        self.assertEqual(call_kwargs["cancel_url"], "https://example.com/en/cancel")
 
     @patch("accounts.services.get_stripe_module", return_value=None)
     def test_cancel_subscription_raises_when_stripe_is_missing(self, _stripe):

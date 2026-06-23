@@ -110,6 +110,7 @@ class CreateCheckoutSessionView(APIView):
         plan = serializer.plan
         product = serializer.product
         currency = serializer.currency
+        locale = serializer.locale
 
         if not settings.STRIPE_SECRET_KEY:
             return Response(
@@ -128,6 +129,7 @@ class CreateCheckoutSessionView(APIView):
             plan,
             product,
             currency,
+            locale,
         )
 
         return Response(
