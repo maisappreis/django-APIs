@@ -14,7 +14,7 @@ import tempfile
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
-from utils.env import is_production
+from utils.env import get_neon_pooler_host, is_production
 
 load_dotenv()
 
@@ -66,8 +66,13 @@ if is_production():
             'NAME': os.getenv('NEON_DB_NAME'),
             'USER': os.getenv('NEON_DB_USER'),
             'PASSWORD': os.getenv('NEON_DB_PASSWORD'),
-            'HOST': os.getenv('NEON_DB_HOST'),
+            'HOST': (
+                os.getenv('NEON_DB_POOL_HOST')
+                or get_neon_pooler_host(os.getenv('NEON_DB_HOST'))
+            ),
             'PORT': os.getenv('NEON_DB_PORT', '5432'),
+            'CONN_MAX_AGE': 0,
+            'DISABLE_SERVER_SIDE_CURSORS': True,
             'OPTIONS': {
                 'sslmode': 'require',
             },
