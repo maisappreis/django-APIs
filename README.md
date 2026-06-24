@@ -8,6 +8,8 @@ https://maisappreis.github.io/dental-clinic/
 🌐 **Live demo: Front-end 2**  
 https://maisappreis.github.io/upfit-gym/
 
+**Docs**
+https://django-apis-two.vercel.app/api/swagger/
 
 ---
 
