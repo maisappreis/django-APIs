@@ -571,7 +571,36 @@ class PostDraftOperationTestCase(TestCase):
 
 class PostSchedulingTestCase(TestCase):
     @patch("ai_content_agent.operations.timezone.localdate")
-    def test_pending_review_posts_do_not_block_available_dates(
+    def test_different_brands_can_use_the_same_date(self, localdate):
+        localdate.return_value = date(2026, 6, 11)
+        user = User.objects.create_user(
+            username="multi-brand-schedule-owner",
+            password="password",
+        )
+        first_brand = Brand.objects.create(
+            user=user,
+            business_name="First Brand",
+            niche="Fitness",
+        )
+        second_brand = Brand.objects.create(
+            user=user,
+            business_name="Second Brand",
+            niche="Food",
+        )
+        Post.objects.create(
+            user=user,
+            brand=first_brand,
+            scheduled_date=date(2026, 6, 11),
+            status=GenerationStatus.COMPLETED,
+        )
+
+        self.assertEqual(
+            get_available_post_dates(user, second_brand, 1),
+            [date(2026, 6, 11)],
+        )
+
+    @patch("ai_content_agent.operations.timezone.localdate")
+    def test_all_scheduled_brand_posts_block_available_dates(
         self,
         localdate,
     ):
@@ -580,28 +609,36 @@ class PostSchedulingTestCase(TestCase):
             username="schedule-owner",
             password="password",
         )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Schedule Brand",
+            niche="Fitness",
+        )
         Post.objects.create(
             user=user,
+            brand=brand,
             scheduled_date=date(2026, 6, 11),
             status=GenerationStatus.COMPLETED,
         )
         Post.objects.create(
             user=user,
+            brand=brand,
             scheduled_date=date(2026, 6, 12),
             status=GenerationStatus.PENDING_REVIEW,
         )
         Post.objects.create(
             user=user,
+            brand=brand,
             scheduled_date=date(2026, 6, 13),
             status=GenerationStatus.PENDING,
         )
 
         self.assertEqual(
-            get_available_post_dates(user, 3),
+            get_available_post_dates(user, brand, 3),
             [
-                date(2026, 6, 12),
-                date(2026, 6, 13),
                 date(2026, 6, 14),
+                date(2026, 6, 15),
+                date(2026, 6, 16),
             ],
         )
 
@@ -612,8 +649,14 @@ class PostSchedulingTestCase(TestCase):
             username="delete-schedule-owner",
             password="password",
         )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Delete Schedule Brand",
+            niche="Fitness",
+        )
         post = Post.objects.create(
             user=user,
+            brand=brand,
             scheduled_date=date(2026, 6, 11),
             status=GenerationStatus.COMPLETED,
         )
@@ -621,7 +664,7 @@ class PostSchedulingTestCase(TestCase):
         delete_post_generation(post)
 
         self.assertEqual(
-            get_available_post_dates(user, 2),
+            get_available_post_dates(user, brand, 2),
             [
                 date(2026, 6, 11),
                 date(2026, 6, 12),
@@ -673,6 +716,7 @@ class PostGenerationInputSerializerTestCase(SimpleTestCase):
         from ..serializers import PostGenerationInputSerializer
 
         serializer = PostGenerationInputSerializer(data={
+            "brand_id": 1,
             "business_name": "Brand",
             "niche": "Fitness",
             "objective": "Attract leads",

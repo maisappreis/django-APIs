@@ -13,8 +13,7 @@ from accounts.tests.factories import create_plan, create_subscription, create_us
 @override_settings(
     STRIPE_SECRET_KEY="sk_test",
     STRIPE_WEBHOOK_SECRET="whsec_test",
-    STRIPE_CHECKOUT_SUCCESS_URL="https://example.com/success",
-    STRIPE_CHECKOUT_CANCEL_URL="https://example.com/cancel",
+    FRONTEND_URL="https://example.com",
 )
 class AccountViewTest(TestCase):
     def setUp(self):

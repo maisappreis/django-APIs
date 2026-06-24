@@ -114,14 +114,14 @@ def create_checkout_session(
             }
         ],
         success_url=localize_frontend_url(
-            settings.STRIPE_CHECKOUT_SUCCESS_URL,
+            f"{settings.FRONTEND_URL.rstrip('/')}/billing/success/",
             locale,
-            getattr(settings, "FRONTEND_BASE_PATH", "/axis"),
+            "",
         ),
         cancel_url=localize_frontend_url(
-            settings.STRIPE_CHECKOUT_CANCEL_URL,
+            f"{settings.FRONTEND_URL.rstrip('/')}/billing/cancel/",
             locale,
-            getattr(settings, "FRONTEND_BASE_PATH", "/axis"),
+            "",
         ),
         metadata={
             "user_id": str(user.id),

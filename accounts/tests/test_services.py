@@ -22,8 +22,7 @@ from accounts.tests.factories import create_plan, create_subscription, create_us
 
 @override_settings(
     STRIPE_SECRET_KEY="sk_test",
-    STRIPE_CHECKOUT_SUCCESS_URL="https://example.com/success",
-    STRIPE_CHECKOUT_CANCEL_URL="https://example.com/cancel",
+    FRONTEND_URL="https://example.com",
 )
 class AccountServiceTest(TestCase):
     def test_stripe_object_to_dict_supports_dict_and_stripe_like_objects(self):
@@ -165,8 +164,14 @@ class AccountServiceTest(TestCase):
         self.assertEqual(call_kwargs["metadata"]["product"], "axis")
         self.assertEqual(call_kwargs["metadata"]["currency"], Plan.Currency.BRL)
         self.assertEqual(call_kwargs["metadata"]["locale"], "pt")
-        self.assertEqual(call_kwargs["success_url"], "https://example.com/pt/success")
-        self.assertEqual(call_kwargs["cancel_url"], "https://example.com/pt/cancel")
+        self.assertEqual(
+            call_kwargs["success_url"],
+            "https://example.com/pt/billing/success/",
+        )
+        self.assertEqual(
+            call_kwargs["cancel_url"],
+            "https://example.com/pt/billing/cancel/",
+        )
 
     @patch("accounts.services.get_stripe_module")
     def test_create_checkout_session_uses_usd_price(self, get_stripe_module):
@@ -185,8 +190,14 @@ class AccountServiceTest(TestCase):
         self.assertEqual(call_kwargs["line_items"][0]["price"], "price_pro_usd")
         self.assertEqual(call_kwargs["metadata"]["currency"], Plan.Currency.USD)
         self.assertEqual(call_kwargs["metadata"]["locale"], "en")
-        self.assertEqual(call_kwargs["success_url"], "https://example.com/en/success")
-        self.assertEqual(call_kwargs["cancel_url"], "https://example.com/en/cancel")
+        self.assertEqual(
+            call_kwargs["success_url"],
+            "https://example.com/en/billing/success/",
+        )
+        self.assertEqual(
+            call_kwargs["cancel_url"],
+            "https://example.com/en/billing/cancel/",
+        )
 
     @patch("accounts.services.get_stripe_module", return_value=None)
     def test_cancel_subscription_raises_when_stripe_is_missing(self, _stripe):

@@ -241,9 +241,9 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         token = default_token_generator.make_token(user)
         query = urlencode({"uid": uid, "token": token})
         reset_base_url = localize_frontend_url(
-            settings.PASSWORD_RESET_CONFIRM_URL,
+            f"{settings.FRONTEND_URL.rstrip('/')}/reset-password/",
             self.validated_data["locale"],
-            getattr(settings, "FRONTEND_BASE_PATH", "/axis"),
+            "",
         )
         reset_url = f"{reset_base_url}?{query}"
 

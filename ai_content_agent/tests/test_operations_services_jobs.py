@@ -166,12 +166,13 @@ class OperationsTest(TestCase):
         create_post(
             user=user,
             brand=brand,
-            scheduled_date=date(2026, 6, 20),
+            scheduled_date=date(2026, 6, 21),
             status=GenerationStatus.PENDING,
         )
 
         start_date, posts = get_future_scheduled_posts(
             user,
+            brand,
             start_date=date(2026, 6, 14),
             end_date=date(2026, 7, 17),
         )

@@ -196,7 +196,7 @@ class AccountSerializerTest(TestCase):
 
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    PASSWORD_RESET_CONFIRM_URL="http://localhost:3000/axis/reset-password",
+    FRONTEND_URL="http://localhost:3000",
 )
 class PasswordResetTest(TestCase):
     def setUp(self):
@@ -230,7 +230,7 @@ class PasswordResetTest(TestCase):
         self.assertIn("uid=", mail.outbox[0].body)
         self.assertIn("token=", mail.outbox[0].body)
         self.assertIn(
-            "http://localhost:3000/axis/pt/reset-password",
+            "http://localhost:3000/pt/reset-password/",
             mail.outbox[0].body,
         )
         self.assertEqual(mail.outbox[0].subject, "Redefina sua senha")
@@ -254,7 +254,7 @@ class PasswordResetTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn(
-            "http://localhost:3000/axis/en/reset-password",
+            "http://localhost:3000/en/reset-password/",
             mail.outbox[0].body,
         )
         self.assertEqual(mail.outbox[0].subject, "Reset your password")

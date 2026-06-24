@@ -138,6 +138,8 @@ def apply_brand_defaults(data, brand, request_data):
 
     data["brand_visual_identity"] = brand.visual_identity_prompt
     data["content_language"] = brand.content_language
+    data["business_name"] = brand.business_name
+    data["niche"] = brand.niche
 
     return data
 
@@ -146,10 +148,11 @@ def get_user_brands(user):
     return Brand.objects.filter(user=user).order_by("-updated_at")
 
 
-def get_future_scheduled_posts(user, start_date=None, end_date=None):
+def get_future_scheduled_posts(user, brand, start_date=None, end_date=None):
     start_date = start_date or timezone.localdate()
     filters = {
         "user": user,
+        "brand": brand,
         "scheduled_date__gte": start_date,
         "status": GenerationStatus.COMPLETED,
     }
@@ -189,13 +192,13 @@ def serialize_pending_review_posts_for_user(user):
     ]
 
 
-def get_available_post_dates(user, quantity):
+def get_available_post_dates(user, brand, quantity):
     current_date = timezone.localdate()
     occupied_dates = set(
         Post.objects.filter(
             user=user,
+            brand=brand,
             scheduled_date__gte=current_date,
-            status=GenerationStatus.COMPLETED,
         )
         .exclude(scheduled_date__isnull=True)
         .values_list("scheduled_date", flat=True)
@@ -424,7 +427,11 @@ def sync_brand_logo(brand, data, user):
 
 def create_posts_from_generation_result(user, brand, batch, data, result):
     saved_posts = []
-    available_dates = get_available_post_dates(user, len(result["posts"]))
+    available_dates = get_available_post_dates(
+        user,
+        brand,
+        len(result["posts"]),
+    )
     total_posts = len(result["posts"])
 
     for index, post_data in enumerate(result["posts"]):
@@ -494,7 +501,11 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
 
 def create_post_drafts_from_generation_result(user, brand, batch, result, data=None):
     saved_posts = []
-    available_dates = get_available_post_dates(user, len(result["posts"]))
+    available_dates = get_available_post_dates(
+        user,
+        brand,
+        len(result["posts"]),
+    )
     total_posts = len(result["posts"])
     image_files = (data or {}).get("image_files") or []
 

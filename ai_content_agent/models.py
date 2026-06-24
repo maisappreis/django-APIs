@@ -163,6 +163,20 @@ class Post(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["brand", "scheduled_date", "status"],
+                name="ai_content__brand_i_61ef91_idx",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["brand", "scheduled_date"],
+                name="unique_scheduled_post_per_brand_date",
+            ),
+        ]
+
     def __str__(self):
         brand_name = self.brand.business_name if self.brand else "No brand"
         return f"{brand_name} - post {self.post_order}"

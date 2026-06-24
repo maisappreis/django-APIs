@@ -26,7 +26,6 @@ from .operations import (
     ensure_ai_image_quota,
     ensure_visual_identity_capture_allowed,
     get_brand_by_id_for_user,
-    get_brand_for_user,
     get_future_scheduled_posts,
     get_monthly_ai_image_usage,
     get_or_create_brand,
@@ -397,6 +396,12 @@ class BrandDetailAPIView(APIView):
 
         return Response(output_serializer.data)
 
+    def delete(self, request, brand_id):
+        return Response(
+            {"detail": "Marcas não podem ser excluídas; apenas atualizadas."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
 
 class CalendarPostsAPIView(APIView):
     def get(self, request):
@@ -404,8 +409,13 @@ class CalendarPostsAPIView(APIView):
         input_serializer.is_valid(raise_exception=True)
 
         data = input_serializer.validated_data
+        brand = get_object_or_404(
+            get_user_brands(request.user),
+            id=data["brand_id"],
+        )
         start_date, posts = get_future_scheduled_posts(
             request.user,
+            brand,
             start_date=data.get("start_date"),
             end_date=data.get("end_date"),
         )
@@ -451,20 +461,13 @@ class GeneratePostContentAPIView(APIView):
         data = input_serializer.validated_data
         brand = get_brand_by_id_for_user(
             request.user,
-            data.get("brand_id"),
-        ) or get_brand_for_user(
-            user=request.user,
-            business_name=data["business_name"],
-            niche=data["niche"],
+            data["brand_id"],
         )
 
         if not brand:
             return Response(
                 {
-                    "detail": (
-                        "Voce precisa cadastrar uma marca antes de gerar "
-                        "conteudo."
-                    ),
+                    "detail": "Marca não encontrada.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

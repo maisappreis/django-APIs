@@ -109,6 +109,7 @@ class BrandReferenceUploadCompleteOutputSerializer(serializers.Serializer):
 
 
 class CalendarPostsQuerySerializer(serializers.Serializer):
+    brand_id = serializers.IntegerField(min_value=1)
     start_date = serializers.DateField(required=False)
     end_date = serializers.DateField(required=False)
 
@@ -167,9 +168,9 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("landscape", "Landscape"),
     ]
 
-    brand_id = serializers.IntegerField(required=False, allow_null=True)
-    business_name = serializers.CharField(max_length=120)
-    niche = serializers.CharField(max_length=120)
+    brand_id = serializers.IntegerField(min_value=1)
+    business_name = serializers.CharField(max_length=120, required=False)
+    niche = serializers.CharField(max_length=120, required=False)
     objective = serializers.CharField(max_length=160)
     tone = serializers.CharField(max_length=80)
     theme = serializers.CharField(max_length=160)

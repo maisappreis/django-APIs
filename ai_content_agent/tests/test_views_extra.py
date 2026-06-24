@@ -343,6 +343,7 @@ class ContentAgentViewExtraTest(APITestCase):
         response = self.client.get(
             reverse("calendar-posts"),
             {
+                "brand_id": self.brand.id,
                 "start_date": "2026-06-14",
                 "end_date": "2026-07-17",
             },
@@ -351,6 +352,7 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         get_future_posts.assert_called_once_with(
             self.user,
+            self.brand,
             start_date=date(2026, 6, 14),
             end_date=date(2026, 7, 17),
         )
@@ -361,12 +363,36 @@ class ContentAgentViewExtraTest(APITestCase):
         response = self.client.get(
             reverse("calendar-posts"),
             {
+                "brand_id": self.brand.id,
                 "start_date": "2026-07-17",
                 "end_date": "2026-06-14",
             },
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_calendar_requires_brand_id(self):
+        response = self.client.get(reverse("calendar-posts"))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_calendar_does_not_expose_another_users_brand(self):
+        another_brand = create_brand(user=create_user())
+
+        response = self.client.get(
+            reverse("calendar-posts"),
+            {"brand_id": another_brand.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_brand_delete_is_not_allowed(self):
+        response = self.client.delete(
+            reverse("brand-detail", kwargs={"brand_id": self.brand.id}),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertTrue(type(self.brand).objects.filter(id=self.brand.id).exists())
 
     @override_settings(CONTENT_AGENT_MAINTENANCE_TOKEN="secret-token")
     @patch("ai_content_agent.views.cleanup_post_images_outside_retention_window")
@@ -395,6 +421,18 @@ class ContentAgentViewExtraTest(APITestCase):
         response = self.client.post(
             reverse("generate-post-content"),
             self.get_generation_payload(brand_id=999, business_name="Missing"),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_generate_posts_requires_brand_id(self):
+        payload = self.get_generation_payload()
+        payload.pop("brand_id")
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            payload,
             format="multipart",
         )
 

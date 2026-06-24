@@ -26,7 +26,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-FRONTEND_BASE_PATH = os.getenv("FRONTEND_BASE_PATH", "/axis")
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -58,6 +57,21 @@ CONTENT_AGENT_MAINTENANCE_TOKEN = os.getenv(
 QSTASH_TOKEN = os.getenv("QSTASH_TOKEN", "")
 CONTENT_AGENT_JOB_TOKEN = os.getenv("CONTENT_AGENT_JOB_TOKEN", "")
 CONTENT_AGENT_PUBLIC_URL = os.getenv("CONTENT_AGENT_PUBLIC_URL", "")
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp-relay.brevo.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@axis.com")
+CONTACT_NOTIFICATION_EMAIL = os.getenv("CONTACT_NOTIFICATION_EMAIL", "")
 
 if not CONTENT_AGENT_PUBLIC_URL:
     vercel_public_host = (
@@ -92,31 +106,13 @@ if is_production():
     }
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL", "")
-    STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL", "")
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "")
     CONTENT_AGENT_USE_MOCK_CONTENT = False
     ALLOWED_HOSTS = [
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
         '.vercel.app',
     ]
-    PASSWORD_RESET_CONFIRM_URL = os.getenv(
-        "PASSWORD_RESET_CONFIRM_URL",
-        "https://maisappreis.github.io/axis/reset-password",
-    )
-    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@axis.com")
-    CONTACT_NOTIFICATION_EMAIL = os.getenv("CONTACT_NOTIFICATION_EMAIL", "")
-    EMAIL_BACKEND = os.getenv(
-        "EMAIL_BACKEND",
-        "django.core.mail.backends.smtp.EmailBackend",
-    )
-    EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp-relay.brevo.com")
-    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
-    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
-    EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
     FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
     CONTENT_AGENT_QUEUE_BACKEND = os.getenv("CONTENT_AGENT_QUEUE_BACKEND", "qstash")
 else:
@@ -133,29 +129,11 @@ else:
     }
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_DEV", "")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_DEV", "")
-    STRIPE_CHECKOUT_SUCCESS_URL = os.getenv("STRIPE_CHECKOUT_SUCCESS_URL_DEV", "")
-    STRIPE_CHECKOUT_CANCEL_URL = os.getenv("STRIPE_CHECKOUT_CANCEL_URL_DEV", "")
+    FRONTEND_URL = os.getenv("FRONTEND_URL_DEV", "http://localhost:3000")
     CONTENT_AGENT_USE_MOCK_CONTENT = (
         os.getenv("CONTENT_AGENT_USE_MOCK_CONTENT", "true").lower() == "true"
     )
     ALLOWED_HOSTS = ['*']
-    PASSWORD_RESET_CONFIRM_URL = os.getenv(
-        "PASSWORD_RESET_CONFIRM_URL_DEV",
-        "http://localhost:3000/axis/reset-password",
-    )
-    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL_DEV", "no-reply@axis.local")
-    CONTACT_NOTIFICATION_EMAIL = os.getenv("CONTACT_NOTIFICATION_EMAIL_DEV", "")
-    EMAIL_BACKEND = os.getenv(
-        "EMAIL_BACKEND_DEV",
-        "django.core.mail.backends.console.EmailBackend",
-    )
-    EMAIL_HOST = os.getenv("EMAIL_HOST_DEV", "localhost")
-    EMAIL_PORT = int(os.getenv("EMAIL_PORT_DEV", "25"))
-    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER_DEV", "")
-    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD_DEV", "")
-    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS_DEV", "false").lower() == "true"
-    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL_DEV", "false").lower() == "true"
-    EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT_DEV", "10"))
     FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
     CONTENT_AGENT_QUEUE_BACKEND = os.getenv("CONTENT_AGENT_QUEUE_BACKEND", "inline")
 
@@ -199,12 +177,13 @@ MIDDLEWARE = [
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "https://maisappreis.github.io"
+    'http://localhost:8080',
+    'http://localhost:8081',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'https://maisappreis.github.io',
+    'https://axis-frontend-one.vercel.app'
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -232,7 +211,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://localhost:5173',
     'http://localhost:3000',
-    'https://maisappreis.github.io'
+    'https://maisappreis.github.io',
+    'https://axis-frontend-one.vercel.app'
 ]
 
 TEMPLATES = [
