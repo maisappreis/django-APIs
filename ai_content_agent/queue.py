@@ -32,13 +32,14 @@ def publish_qstash_job(callback_url, payload):
         "QSTASH_URL",
         "https://qstash.upstash.io",
     ).rstrip("/")
+    qstash_retries = str(getattr(settings, "QSTASH_RETRIES", "0"))
     publish_url = f"{qstash_url}/v2/publish/{callback_url}"
     response = httpx.post(
         publish_url,
         json=payload,
         headers={
             "Authorization": f"Bearer {qstash_token}",
-            "Upstash-Retries": "3",
+            "Upstash-Retries": qstash_retries,
             "Upstash-Forward-X-Content-Agent-Job-Token": job_token,
         },
         timeout=15,

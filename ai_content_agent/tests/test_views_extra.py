@@ -1,11 +1,12 @@
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import httpx
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 
@@ -452,7 +453,8 @@ class ContentAgentViewExtraTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertEqual(response.data["status"], GenerationStatus.PENDING)
-        self.assertEqual(response.data["progress"], 0)
+        self.assertGreaterEqual(response.data["progress"], 5)
+        self.assertEqual(response.data["raw_progress"], 0)
         self.assertIn("job_id", response.data)
         enqueue_generation.assert_called_once()
 
@@ -564,11 +566,71 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.data["batch_id"], batch.id)
         self.assertIn("posts", response.data)
 
+    def test_generation_status_includes_raw_progress(self):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING,
+            progress=0,
+        )
+
+        response = self.client.get(
+            reverse("post-generation-status", kwargs={"batch_id": batch.id}),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["batch_id"], batch.id)
+        self.assertEqual(response.data["status"], GenerationStatus.PENDING)
+        self.assertGreaterEqual(response.data["progress"], 5)
+        self.assertEqual(response.data["raw_progress"], 0)
+
+    @override_settings(CONTENT_AGENT_PENDING_BATCH_TIMEOUT_SECONDS=60)
+    def test_generation_status_marks_stale_pending_batch_failed(self):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING,
+            progress=10,
+        )
+        stale_created_at = timezone.now() - timedelta(minutes=5)
+        type(batch).objects.filter(id=batch.id).update(
+            created_at=stale_created_at,
+        )
+
+        response = self.client.get(
+            reverse("post-generation-status", kwargs={"batch_id": batch.id}),
+        )
+
+        batch.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], GenerationStatus.FAILED)
+        self.assertEqual(batch.status, GenerationStatus.FAILED)
+        self.assertIn("limite esperado", response.data["error_message"])
+
     def test_pending_review_returns_empty_payload_when_no_posts(self):
         response = self.client.get(reverse("pending-review-post-batch"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(response.data["batch"])
+        self.assertEqual(response.data["posts"], [])
+
+    def test_pending_review_returns_pending_batch_when_generation_is_running(self):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING,
+            progress=0,
+        )
+
+        response = self.client.get(reverse("pending-review-post-batch"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["batch"]["batch_id"], batch.id)
+        self.assertEqual(response.data["batch"]["status"], GenerationStatus.PENDING)
+        self.assertGreaterEqual(response.data["batch"]["progress"], 5)
+        self.assertEqual(response.data["batch"]["raw_progress"], 0)
+        self.assertEqual(response.data["batch"]["posts"], [])
         self.assertEqual(response.data["posts"], [])
 
     @patch("ai_content_agent.views.enqueue_post_image_generation")

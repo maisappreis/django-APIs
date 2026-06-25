@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny
@@ -8,6 +10,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 import httpx
 import logging
 from secrets import compare_digest
@@ -80,6 +83,61 @@ from .services import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_batch_display_progress(batch):
+    if batch.status == GenerationStatus.PENDING:
+        elapsed_seconds = max(
+            0,
+            int((timezone.now() - batch.created_at).total_seconds()),
+        )
+        estimated_progress = min(90, 5 + elapsed_seconds // 3)
+
+        return max(batch.progress, estimated_progress)
+
+    return batch.progress
+
+
+def serialize_batch_status(batch):
+    progress = get_batch_display_progress(batch)
+
+    return {
+        "job_id": batch.id,
+        "batch_id": batch.id,
+        "status": batch.status,
+        "progress": progress,
+        "raw_progress": batch.progress,
+        "error_message": batch.error_message,
+        "quantity": batch.quantity,
+        "image_format": batch.image_format,
+        "strategy_summary": batch.strategy_summary,
+    }
+
+
+def fail_stale_pending_batch(batch):
+    if batch.status != GenerationStatus.PENDING:
+        return batch
+
+    timeout_seconds = getattr(
+        settings,
+        "CONTENT_AGENT_PENDING_BATCH_TIMEOUT_SECONDS",
+        600,
+    )
+    elapsed = timezone.now() - batch.created_at
+
+    if elapsed < timedelta(seconds=timeout_seconds):
+        return batch
+
+    mark_batch_failed(
+        batch,
+        TimeoutError(
+            "A geracao demorou mais que o limite esperado. "
+            "Tente novamente com menos posts ou aguarde alguns minutos."
+        ),
+    )
+    batch.refresh_from_db()
+
+    return batch
 
 
 def is_valid_maintenance_request(request):
@@ -574,12 +632,7 @@ class GeneratePostContentAPIView(APIView):
                 )
 
             return Response(
-                {
-                    "job_id": batch.id,
-                    "batch_id": batch.id,
-                    "status": batch.status,
-                    "progress": batch.progress,
-                },
+                serialize_batch_status(batch),
                 status=status.HTTP_202_ACCEPTED,
             )
 
@@ -624,13 +677,8 @@ class PostGenerationStatusAPIView(APIView):
             id=batch_id,
             user=request.user,
         )
-        response_data = {
-            "job_id": batch.id,
-            "batch_id": batch.id,
-            "status": batch.status,
-            "progress": batch.progress,
-            "error_message": batch.error_message,
-        }
+        batch = fail_stale_pending_batch(batch)
+        response_data = serialize_batch_status(batch)
 
         if batch.status in {"completed", "pending_review"}:
             response_data.update(serialize_post_batch(batch))
@@ -643,6 +691,30 @@ class PendingReviewPostBatchAPIView(APIView):
         posts = list(get_pending_review_posts_for_user(request.user))
 
         if not posts:
+            active_batch = (
+                PostBatch.objects.filter(
+                    user=request.user,
+                    status__in=[
+                        GenerationStatus.PENDING,
+                        GenerationStatus.FAILED,
+                    ],
+                )
+                .order_by("-created_at")
+                .first()
+            )
+
+            if active_batch:
+                active_batch = fail_stale_pending_batch(active_batch)
+                return Response(
+                    {
+                        "batch": {
+                            **serialize_batch_status(active_batch),
+                            "posts": [],
+                        },
+                        "posts": [],
+                    }
+                )
+
             return Response({"batch": None, "posts": []})
 
         latest_batch = max(posts, key=lambda post: post.batch.created_at).batch
@@ -653,10 +725,8 @@ class PendingReviewPostBatchAPIView(APIView):
 
         return Response({
             "batch": {
-                "batch_id": latest_batch.id,
+                **serialize_batch_status(latest_batch),
                 "quantity": len(serialized_posts),
-                "image_format": latest_batch.image_format,
-                "strategy_summary": latest_batch.strategy_summary,
                 "posts": serialized_posts,
             },
             "posts": serialized_posts,
@@ -733,21 +803,13 @@ class ApprovePostPromptsAPIView(APIView):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             batch.refresh_from_db()
-            jobs.append({
-                "job_id": batch.id,
-                "batch_id": batch.id,
-                "status": batch.status,
-                "progress": batch.progress,
-            })
+            jobs.append(serialize_batch_status(batch))
 
         anchor_batch.refresh_from_db()
 
         return Response(
             {
-                "job_id": anchor_batch.id,
-                "batch_id": anchor_batch.id,
-                "status": anchor_batch.status,
-                "progress": anchor_batch.progress,
+                **serialize_batch_status(anchor_batch),
                 "jobs": jobs,
             },
             status=status.HTTP_202_ACCEPTED,

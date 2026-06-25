@@ -57,6 +57,10 @@ class QStashPublisherTest(SimpleTestCase):
             ],
             "job-secret",
         )
+        self.assertEqual(
+            post.call_args.kwargs["headers"]["Upstash-Retries"],
+            "0",
+        )
         response.raise_for_status.assert_called_once_with()
 
     @override_settings(
@@ -97,6 +101,10 @@ class QStashPublisherTest(SimpleTestCase):
                 "Upstash-Forward-X-Content-Agent-Job-Token"
             ],
             "job-secret",
+        )
+        self.assertEqual(
+            post.call_args.kwargs["headers"]["Upstash-Retries"],
+            "0",
         )
         response.raise_for_status.assert_called_once_with()
 
