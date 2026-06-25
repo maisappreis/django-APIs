@@ -15,7 +15,11 @@ from .firebase_cleanup import (
     cleanup_post_images_outside_retention_window,
     delete_replaced_firebase_file,
 )
-from .jobs import generate_post_review_batch, run_post_image_generation_job
+from .jobs import (
+    generate_post_review_batch,
+    run_post_generation_job,
+    run_post_image_generation_job,
+)
 from .models import GenerationStatus, Post, PostBatch
 from .operations import (
     apply_brand_defaults,
@@ -44,7 +48,7 @@ from .presenters import (
     serialize_post_batch,
     serialize_post_generation,
 )
-from .queue import enqueue_post_image_generation
+from .queue import enqueue_post_generation, enqueue_post_image_generation
 from .serializers import (
     BrandInputSerializer,
     BrandOutputSerializer,
@@ -492,6 +496,8 @@ class GeneratePostContentAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        queue_backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
+
         if data["my_images_or_ai"] == "ai":
             try:
                 ensure_ai_image_quota(request.user, data["quantity"])
@@ -501,28 +507,73 @@ class GeneratePostContentAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
-            try:
-                data["image_files"] = (
-                    prepare_private_post_source_image_files(
-                        request.user.id,
-                        image_object_paths,
-                    )
-                    if image_object_paths
-                    else prepare_uploaded_post_image_files(data["images"])
-                )
-            except FileNotFoundError as error:
+            if queue_backend == "qstash" and not image_object_paths:
                 return Response(
-                    {"detail": str(error)},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-            except ValueError as error:
-                return Response(
-                    {"detail": str(error)},
+                    {
+                        "detail": (
+                            "Envie as imagens usando upload assinado antes "
+                            "de gerar posts em producao."
+                        )
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            if queue_backend == "qstash":
+                data["image_object_paths"] = list(image_object_paths)
+            else:
+                try:
+                    data["image_files"] = (
+                        prepare_private_post_source_image_files(
+                            request.user.id,
+                            image_object_paths,
+                        )
+                        if image_object_paths
+                        else prepare_uploaded_post_image_files(data["images"])
+                    )
+                except FileNotFoundError as error:
+                    return Response(
+                        {"detail": str(error)},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+                except ValueError as error:
+                    return Response(
+                        {"detail": str(error)},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
         batch = create_post_batch(request.user, brand, data)
         sync_brand_logo(brand, data, request.user)
+
+        if queue_backend == "qstash":
+            job_data = {
+                key: value
+                for key, value in data.items()
+                if key not in {"images", "image_files"}
+            }
+
+            try:
+                enqueue_post_generation(
+                    request.user.id,
+                    brand.id,
+                    batch.id,
+                    job_data,
+                )
+            except (httpx.HTTPError, ImproperlyConfigured, RuntimeError) as error:
+                mark_batch_failed(batch, error)
+                return Response(
+                    {"detail": "Nao foi possivel enfileirar a geracao."},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+            return Response(
+                {
+                    "job_id": batch.id,
+                    "batch_id": batch.id,
+                    "status": batch.status,
+                    "progress": batch.progress,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
 
         try:
             batch = generate_post_review_batch(
@@ -689,6 +740,46 @@ class ApprovePostPromptsAPIView(APIView):
             },
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+class PostGenerationJobAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        expected_token = getattr(settings, "CONTENT_AGENT_JOB_TOKEN", "")
+        received_token = request.headers.get(
+            "X-Content-Agent-Job-Token",
+            "",
+        )
+        if not expected_token or not compare_digest(received_token, expected_token):
+            return Response(
+                {"detail": "Unauthorized job request."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        user_id = request.data.get("user_id")
+        brand_id = request.data.get("brand_id")
+        batch_id = request.data.get("batch_id")
+        data = request.data.get("data")
+        if (
+            not isinstance(user_id, int)
+            or not isinstance(brand_id, int)
+            or not isinstance(batch_id, int)
+            or not isinstance(data, dict)
+        ):
+            return Response(
+                {"detail": "Invalid job payload."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not run_post_generation_job(user_id, brand_id, batch_id, data):
+            return Response(
+                {"detail": "Job processing failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"status": "completed"})
 
 
 class PostImageGenerationJobAPIView(APIView):

@@ -13,6 +13,64 @@ def get_post_image_job_url():
     return f"{public_url}/api/content-agent/jobs/post-images/"
 
 
+def get_post_generation_job_url():
+    public_url = getattr(settings, "CONTENT_AGENT_PUBLIC_URL", "").rstrip("/")
+    if not public_url:
+        raise ImproperlyConfigured("CONTENT_AGENT_PUBLIC_URL is required.")
+
+    return f"{public_url}/api/content-agent/jobs/post-generation/"
+
+
+def publish_qstash_job(callback_url, payload):
+    qstash_token = getattr(settings, "QSTASH_TOKEN", "")
+    job_token = getattr(settings, "CONTENT_AGENT_JOB_TOKEN", "")
+    if not qstash_token or not job_token:
+        raise ImproperlyConfigured(
+            "QSTASH_TOKEN and CONTENT_AGENT_JOB_TOKEN are required."
+        )
+
+    publish_url = (
+        "https://qstash.upstash.io/v2/publish/"
+        f"{quote(callback_url, safe='')}"
+    )
+    response = httpx.post(
+        publish_url,
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {qstash_token}",
+            "Upstash-Retries": "3",
+            "Upstash-Forward-X-Content-Agent-Job-Token": job_token,
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def enqueue_post_generation(user_id, brand_id, batch_id, data):
+    backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
+    if backend == "inline":
+        from .jobs import run_post_generation_job
+
+        run_post_generation_job(user_id, brand_id, batch_id, data)
+        return {"backend": "inline"}
+
+    if backend != "qstash":
+        raise ImproperlyConfigured(
+            f"Unsupported content agent queue backend: {backend}."
+        )
+
+    return publish_qstash_job(
+        get_post_generation_job_url(),
+        {
+            "user_id": user_id,
+            "brand_id": brand_id,
+            "batch_id": batch_id,
+            "data": data,
+        },
+    )
+
+
 def enqueue_post_image_generation(user_id, batch_id):
     backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
     if backend == "inline":
@@ -27,27 +85,7 @@ def enqueue_post_image_generation(user_id, batch_id):
             f"Unsupported content agent queue backend: {backend}."
         )
 
-    qstash_token = getattr(settings, "QSTASH_TOKEN", "")
-    job_token = getattr(settings, "CONTENT_AGENT_JOB_TOKEN", "")
-    if not qstash_token or not job_token:
-        raise ImproperlyConfigured(
-            "QSTASH_TOKEN and CONTENT_AGENT_JOB_TOKEN are required."
-        )
-
-    callback_url = get_post_image_job_url()
-    publish_url = (
-        "https://qstash.upstash.io/v2/publish/"
-        f"{quote(callback_url, safe='')}"
+    return publish_qstash_job(
+        get_post_image_job_url(),
+        {"user_id": user_id, "batch_id": batch_id},
     )
-    response = httpx.post(
-        publish_url,
-        json={"user_id": user_id, "batch_id": batch_id},
-        headers={
-            "Authorization": f"Bearer {qstash_token}",
-            "Upstash-Retries": "3",
-            "Upstash-Forward-X-Content-Agent-Job-Token": job_token,
-        },
-        timeout=15,
-    )
-    response.raise_for_status()
-    return response.json()

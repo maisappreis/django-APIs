@@ -16,6 +16,7 @@ from .operations import (
 )
 from .services import (
     generate_post_batch_draft_content,
+    prepare_private_post_source_image_files,
     render_approved_post_image,
 )
 
@@ -62,14 +63,27 @@ def run_post_generation_job(user_id, brand_id, batch_id, data):
         user = get_user_model().objects.get(id=user_id)
         batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
         brand = get_object_or_404(get_user_brands(user), id=brand_id)
+        image_object_paths = data.get("image_object_paths") or []
+
+        if (
+            data.get("my_images_or_ai") == "user"
+            and image_object_paths
+            and not data.get("image_files")
+        ):
+            data["image_files"] = prepare_private_post_source_image_files(
+                user_id,
+                image_object_paths,
+            )
 
         generate_post_review_batch(user, brand, batch, data)
+        return True
     except Exception as error:
         try:
             batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
             mark_batch_failed(batch, error)
         except PostBatch.DoesNotExist:
             pass
+        return False
     finally:
         close_old_connections()
 

@@ -438,6 +438,24 @@ class ContentAgentViewExtraTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    @override_settings(CONTENT_AGENT_QUEUE_BACKEND="qstash")
+    @patch("ai_content_agent.views.enqueue_post_generation")
+    def test_generate_posts_enqueues_generation_in_qstash_backend(
+        self,
+        enqueue_generation,
+    ):
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertEqual(response.data["status"], GenerationStatus.PENDING)
+        self.assertEqual(response.data["progress"], 0)
+        self.assertIn("job_id", response.data)
+        enqueue_generation.assert_called_once()
+
     @patch("ai_content_agent.views.prepare_uploaded_post_image_files")
     @patch("ai_content_agent.views.generate_post_review_batch")
     def test_generate_posts_with_user_images_prepares_images_and_returns_batch(

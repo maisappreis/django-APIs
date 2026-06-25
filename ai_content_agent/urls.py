@@ -13,6 +13,7 @@ from .views import (
     FirebaseCleanupMaintenanceAPIView,
     GeneratePostContentAPIView,
     PendingReviewPostBatchAPIView,
+    PostGenerationJobAPIView,
     PostImageGenerationJobAPIView,
     PostGenerationStatusAPIView,
     PostSourceUploadSignAPIView,
@@ -20,6 +21,11 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "jobs/post-generation/",
+        PostGenerationJobAPIView.as_view(),
+        name="post-generation-job",
+    ),
     path(
         "jobs/post-images/",
         PostImageGenerationJobAPIView.as_view(),
