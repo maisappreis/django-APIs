@@ -9,6 +9,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 import httpx
+import logging
 from secrets import compare_digest
 
 from .firebase_cleanup import (
@@ -76,6 +77,9 @@ from .services import (
     prepare_uploaded_post_image_files,
     rerender_post_image,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def is_valid_maintenance_request(request):
@@ -559,6 +563,10 @@ class GeneratePostContentAPIView(APIView):
                     job_data,
                 )
             except (httpx.HTTPError, ImproperlyConfigured, RuntimeError) as error:
+                logger.exception(
+                    "Failed to enqueue post generation batch %s.",
+                    batch.id,
+                )
                 mark_batch_failed(batch, error)
                 return Response(
                     {"detail": "Nao foi possivel enfileirar a geracao."},
@@ -715,6 +723,10 @@ class ApprovePostPromptsAPIView(APIView):
             try:
                 enqueue_post_image_generation(request.user.id, batch.id)
             except (httpx.HTTPError, ImproperlyConfigured, RuntimeError) as error:
+                logger.exception(
+                    "Failed to enqueue post image generation batch %s.",
+                    batch.id,
+                )
                 mark_batch_failed(batch, error)
                 return Response(
                     {"detail": "Nao foi possivel enfileirar a geracao."},

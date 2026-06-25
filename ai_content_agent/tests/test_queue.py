@@ -33,8 +33,14 @@ class QStashPublisherTest(SimpleTestCase):
 
         self.assertEqual(result, {"messageId": "msg-1"})
         publish_url = post.call_args.args[0]
-        self.assertIn("qstash.upstash.io/v2/publish/", publish_url)
-        self.assertIn("post-generation", publish_url)
+        self.assertEqual(
+            publish_url,
+            (
+                "https://qstash.upstash.io/v2/publish/"
+                "https://api.example.com/api/content-agent/jobs/"
+                "post-generation/"
+            ),
+        )
         self.assertEqual(
             post.call_args.kwargs["json"],
             {
@@ -68,8 +74,14 @@ class QStashPublisherTest(SimpleTestCase):
 
         self.assertEqual(result, {"messageId": "msg-1"})
         publish_url = post.call_args.args[0]
-        self.assertIn("qstash.upstash.io/v2/publish/", publish_url)
-        self.assertIn("api.example.com", publish_url)
+        self.assertEqual(
+            publish_url,
+            (
+                "https://qstash.upstash.io/v2/publish/"
+                "https://api.example.com/api/content-agent/jobs/"
+                "post-images/"
+            ),
+        )
         self.assertEqual(
             post.call_args.kwargs["json"],
             {"user_id": 7, "batch_id": 11},

@@ -1,5 +1,3 @@
-from urllib.parse import quote
-
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 import httpx
@@ -29,10 +27,7 @@ def publish_qstash_job(callback_url, payload):
             "QSTASH_TOKEN and CONTENT_AGENT_JOB_TOKEN are required."
         )
 
-    publish_url = (
-        "https://qstash.upstash.io/v2/publish/"
-        f"{quote(callback_url, safe='')}"
-    )
+    publish_url = f"https://qstash.upstash.io/v2/publish/{callback_url}"
     response = httpx.post(
         publish_url,
         json=payload,
@@ -43,7 +38,14 @@ def publish_qstash_job(callback_url, payload):
         },
         timeout=15,
     )
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as error:
+        response_text = error.response.text[:500]
+        raise RuntimeError(
+            "QStash publish failed with "
+            f"{error.response.status_code}: {response_text}"
+        ) from error
     return response.json()
 
 
