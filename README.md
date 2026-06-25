@@ -183,3 +183,44 @@ python manage.py check --deploy
 ```
 
 These commands should run in a release job or pipeline with serialized concurrency.
+
+## Content Agent worker on Cloud Run
+
+The public API can stay on Vercel while QStash delivers long-running content
+generation jobs to Cloud Run.
+
+Set these variables on Vercel:
+
+```env
+CONTENT_AGENT_QUEUE_BACKEND=qstash
+CONTENT_AGENT_PUBLIC_URL=https://your-vercel-app.vercel.app
+CONTENT_AGENT_WORKER_URL=https://your-cloud-run-service.run.app
+QSTASH_TOKEN=...
+CONTENT_AGENT_JOB_TOKEN=...
+```
+
+Set the same production secrets on Cloud Run that the job needs to run:
+
+```env
+ENVIRONMENT=production
+DJANGO_SECRET_KEY=...
+OPENAI_API_KEY=...
+QSTASH_TOKEN=...
+CONTENT_AGENT_JOB_TOKEN=...
+CONTENT_AGENT_STORAGE_BACKEND=firebase
+FIREBASE_STORAGE_BUCKET=...
+FIREBASE_CREDENTIALS_JSON=...
+NEON_DB_NAME=...
+NEON_DB_USER=...
+NEON_DB_PASSWORD=...
+NEON_DB_HOST=...
+NEON_DB_PORT=5432
+```
+
+Cloud Run exposes the same Django routes as Vercel, but QStash should call only
+the authenticated worker endpoints:
+
+```text
+/api/content-agent/jobs/post-generation/
+/api/content-agent/jobs/post-images/
+```

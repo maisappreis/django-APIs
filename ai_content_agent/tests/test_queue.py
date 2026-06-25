@@ -18,6 +18,7 @@ class QStashPublisherTest(SimpleTestCase):
         QSTASH_URL="https://qstash-us-east-1.upstash.io/",
         CONTENT_AGENT_JOB_TOKEN="job-secret",
         CONTENT_AGENT_PUBLIC_URL="https://api.example.com/",
+        CONTENT_AGENT_WORKER_URL="",
     )
     @patch("ai_content_agent.queue.httpx.post")
     def test_enqueue_post_generation_publishes_authenticated_job(self, post):
@@ -69,6 +70,7 @@ class QStashPublisherTest(SimpleTestCase):
         QSTASH_URL="https://qstash-us-east-1.upstash.io/",
         CONTENT_AGENT_JOB_TOKEN="job-secret",
         CONTENT_AGENT_PUBLIC_URL="https://api.example.com/",
+        CONTENT_AGENT_WORKER_URL="",
     )
     @patch("ai_content_agent.queue.httpx.post")
     def test_enqueue_publishes_authenticated_job(self, post):
@@ -110,9 +112,36 @@ class QStashPublisherTest(SimpleTestCase):
 
     @override_settings(
         CONTENT_AGENT_QUEUE_BACKEND="qstash",
+        QSTASH_TOKEN="qstash-secret",
+        QSTASH_URL="https://qstash-us-east-1.upstash.io/",
+        CONTENT_AGENT_JOB_TOKEN="job-secret",
+        CONTENT_AGENT_PUBLIC_URL="https://api.example.com/",
+        CONTENT_AGENT_WORKER_URL="https://content-agent-worker.run.app/",
+    )
+    @patch("ai_content_agent.queue.httpx.post")
+    def test_enqueue_prefers_worker_url_for_generation_jobs(self, post):
+        response = Mock()
+        response.json.return_value = {"messageId": "msg-1"}
+        post.return_value = response
+
+        enqueue_post_generation(7, 3, 11, {"quantity": 1})
+
+        self.assertEqual(
+            post.call_args.args[0],
+            (
+                "https://qstash-us-east-1.upstash.io/v2/publish/"
+                "https://content-agent-worker.run.app/api/content-agent/"
+                "jobs/post-generation/"
+            ),
+        )
+        response.raise_for_status.assert_called_once_with()
+
+    @override_settings(
+        CONTENT_AGENT_QUEUE_BACKEND="qstash",
         QSTASH_TOKEN="",
         CONTENT_AGENT_JOB_TOKEN="",
         CONTENT_AGENT_PUBLIC_URL="",
+        CONTENT_AGENT_WORKER_URL="",
     )
     def test_enqueue_requires_queue_configuration(self):
         with self.assertRaises(ImproperlyConfigured):

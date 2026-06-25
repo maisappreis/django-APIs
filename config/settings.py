@@ -83,6 +83,14 @@ if not CONTENT_AGENT_PUBLIC_URL:
     if vercel_public_host:
         CONTENT_AGENT_PUBLIC_URL = f"https://{vercel_public_host}"
 
+
+def get_csv_env(name):
+    return [
+        value.strip()
+        for value in os.getenv(name, "").split(",")
+        if value.strip()
+    ]
+
 if is_production(): 
     DEBUG = False
     # Vercel Functions only provide ephemeral writable storage. Persistent
@@ -115,9 +123,12 @@ if is_production():
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
         '.vercel.app',
+        '.run.app',
+        *get_csv_env("DJANGO_ALLOWED_HOSTS"),
     ]
     FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
     CONTENT_AGENT_QUEUE_BACKEND = os.getenv("CONTENT_AGENT_QUEUE_BACKEND", "qstash")
+    CONTENT_AGENT_WORKER_URL = os.getenv("CONTENT_AGENT_WORKER_URL", "")
 else:
     DEBUG = True
     DATABASES = {

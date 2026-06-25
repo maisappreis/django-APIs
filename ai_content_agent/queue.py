@@ -3,18 +3,27 @@ from django.core.exceptions import ImproperlyConfigured
 import httpx
 
 
+def get_content_agent_job_base_url():
+    base_url = (
+        getattr(settings, "CONTENT_AGENT_WORKER_URL", "")
+        or getattr(settings, "CONTENT_AGENT_PUBLIC_URL", "")
+    ).rstrip("/")
+    if not base_url:
+        raise ImproperlyConfigured(
+            "CONTENT_AGENT_WORKER_URL or CONTENT_AGENT_PUBLIC_URL is required."
+        )
+
+    return base_url
+
+
 def get_post_image_job_url():
-    public_url = getattr(settings, "CONTENT_AGENT_PUBLIC_URL", "").rstrip("/")
-    if not public_url:
-        raise ImproperlyConfigured("CONTENT_AGENT_PUBLIC_URL is required.")
+    public_url = get_content_agent_job_base_url()
 
     return f"{public_url}/api/content-agent/jobs/post-images/"
 
 
 def get_post_generation_job_url():
-    public_url = getattr(settings, "CONTENT_AGENT_PUBLIC_URL", "").rstrip("/")
-    if not public_url:
-        raise ImproperlyConfigured("CONTENT_AGENT_PUBLIC_URL is required.")
+    public_url = get_content_agent_job_base_url()
 
     return f"{public_url}/api/content-agent/jobs/post-generation/"
 

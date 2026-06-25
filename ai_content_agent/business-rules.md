@@ -37,3 +37,10 @@ Talvez, futuramente, limitar a quantidade de vezes que o usuário captura identi
 - Manter caption/dados no bancopara ter histórico textual.
 
 - Vercel Cron chama endpoint de limpeza 1x por semana. Se tiver muitos usuários, chamar 1x por dia.
+
+
+# Processo de criação de posts
+
+Vercel recebe a request do usuário e responde rápido.
+QStash publica o job.
+QStash chama o worker no Cloud Run
