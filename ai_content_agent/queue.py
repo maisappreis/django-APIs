@@ -27,7 +27,12 @@ def publish_qstash_job(callback_url, payload):
             "QSTASH_TOKEN and CONTENT_AGENT_JOB_TOKEN are required."
         )
 
-    publish_url = f"https://qstash.upstash.io/v2/publish/{callback_url}"
+    qstash_url = getattr(
+        settings,
+        "QSTASH_URL",
+        "https://qstash.upstash.io",
+    ).rstrip("/")
+    publish_url = f"{qstash_url}/v2/publish/{callback_url}"
     response = httpx.post(
         publish_url,
         json=payload,

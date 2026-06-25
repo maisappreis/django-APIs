@@ -55,6 +55,7 @@ CONTENT_AGENT_MAINTENANCE_TOKEN = os.getenv(
     os.getenv("CRON_SECRET", ""),
 )
 QSTASH_TOKEN = os.getenv("QSTASH_TOKEN", "")
+QSTASH_URL = os.getenv("QSTASH_URL", "https://qstash.upstash.io")
 CONTENT_AGENT_JOB_TOKEN = os.getenv("CONTENT_AGENT_JOB_TOKEN", "")
 CONTENT_AGENT_PUBLIC_URL = os.getenv("CONTENT_AGENT_PUBLIC_URL", "")
 

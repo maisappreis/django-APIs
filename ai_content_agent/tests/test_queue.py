@@ -15,6 +15,7 @@ class QStashPublisherTest(SimpleTestCase):
     @override_settings(
         CONTENT_AGENT_QUEUE_BACKEND="qstash",
         QSTASH_TOKEN="qstash-secret",
+        QSTASH_URL="https://qstash-us-east-1.upstash.io/",
         CONTENT_AGENT_JOB_TOKEN="job-secret",
         CONTENT_AGENT_PUBLIC_URL="https://api.example.com/",
     )
@@ -36,7 +37,7 @@ class QStashPublisherTest(SimpleTestCase):
         self.assertEqual(
             publish_url,
             (
-                "https://qstash.upstash.io/v2/publish/"
+                "https://qstash-us-east-1.upstash.io/v2/publish/"
                 "https://api.example.com/api/content-agent/jobs/"
                 "post-generation/"
             ),
@@ -61,6 +62,7 @@ class QStashPublisherTest(SimpleTestCase):
     @override_settings(
         CONTENT_AGENT_QUEUE_BACKEND="qstash",
         QSTASH_TOKEN="qstash-secret",
+        QSTASH_URL="https://qstash-us-east-1.upstash.io/",
         CONTENT_AGENT_JOB_TOKEN="job-secret",
         CONTENT_AGENT_PUBLIC_URL="https://api.example.com/",
     )
@@ -77,7 +79,7 @@ class QStashPublisherTest(SimpleTestCase):
         self.assertEqual(
             publish_url,
             (
-                "https://qstash.upstash.io/v2/publish/"
+                "https://qstash-us-east-1.upstash.io/v2/publish/"
                 "https://api.example.com/api/content-agent/jobs/"
                 "post-images/"
             ),
