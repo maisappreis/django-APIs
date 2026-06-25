@@ -31,9 +31,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
-CONTENT_AGENT_USE_MOCK_IMAGES = (
-    os.getenv("CONTENT_AGENT_USE_MOCK_IMAGES", "true").lower() == "true"
-)
+
 CONTENT_AGENT_STORAGE_BACKEND = os.getenv(
     "CONTENT_AGENT_STORAGE_BACKEND",
     "local",
@@ -62,7 +60,6 @@ CONTENT_AGENT_PUBLIC_URL = os.getenv("CONTENT_AGENT_PUBLIC_URL", "")
 CONTENT_AGENT_PENDING_BATCH_TIMEOUT_SECONDS = int(
     os.getenv("CONTENT_AGENT_PENDING_BATCH_TIMEOUT_SECONDS", "600")
 )
-
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
     "django.core.mail.backends.smtp.EmailBackend",
@@ -113,6 +110,7 @@ if is_production():
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     FRONTEND_URL = os.getenv("FRONTEND_URL", "")
     CONTENT_AGENT_USE_MOCK_CONTENT = False
+    CONTENT_AGENT_USE_MOCK_IMAGES = False
     ALLOWED_HOSTS = [
         'django-apis-two.vercel.app',
         '.maisappreis-projects.vercel.app',
@@ -137,6 +135,9 @@ else:
     FRONTEND_URL = os.getenv("FRONTEND_URL_DEV", "http://localhost:3000")
     CONTENT_AGENT_USE_MOCK_CONTENT = (
         os.getenv("CONTENT_AGENT_USE_MOCK_CONTENT", "true").lower() == "true"
+    )
+    CONTENT_AGENT_USE_MOCK_IMAGES = (
+        os.getenv("CONTENT_AGENT_USE_MOCK_IMAGES", "true").lower() == "true"
     )
     ALLOWED_HOSTS = ['*']
     FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
