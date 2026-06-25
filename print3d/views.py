@@ -115,9 +115,14 @@ from rest_framework.permissions import AllowAny
 from stl import mesh
 from supabase import create_client
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+def get_supabase_client():
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_KEY")
+
+    if not supabase_url or not supabase_key:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY are required.")
+
+    return create_client(supabase_url, supabase_key)
 
 class GenerateUploadURL(APIView):
     permission_classes = [AllowAny]
@@ -128,6 +133,7 @@ class GenerateUploadURL(APIView):
             return Response({"error": "Filename obrigatório"}, status=400)
 
         try:
+            supabase = get_supabase_client()
             signed_url = supabase.storage.from_("stl-files").create_signed_upload_url(path=filename)
             return Response({"upload_url": signed_url})
         except Exception as e:
@@ -168,6 +174,7 @@ class EstimateView(APIView):
 
         # Baixa o arquivo do bucket
         try:
+            supabase = get_supabase_client()
             file_bytes = supabase.storage.from_("stl-files").download(file_name)
         except Exception as e:
             return Response({"error": f"Erro ao baixar arquivo do bucket: {str(e)}"}, status=400)

@@ -1,6 +1,10 @@
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 import httpx
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_content_agent_job_base_url():
@@ -43,6 +47,7 @@ def publish_qstash_job(callback_url, payload):
     ).rstrip("/")
     qstash_retries = str(getattr(settings, "QSTASH_RETRIES", "0"))
     publish_url = f"{qstash_url}/v2/publish/{callback_url}"
+    logger.info("Publishing content agent job to QStash callback: %s", callback_url)
     response = httpx.post(
         publish_url,
         json=payload,
