@@ -455,6 +455,8 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.data["status"], GenerationStatus.PENDING)
         self.assertGreaterEqual(response.data["progress"], 5)
         self.assertEqual(response.data["raw_progress"], 0)
+        self.assertTrue(response.data["is_processing"])
+        self.assertTrue(response.data["should_poll"])
         self.assertIn("job_id", response.data)
         enqueue_generation.assert_called_once()
 
@@ -583,6 +585,8 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.data["status"], GenerationStatus.PENDING)
         self.assertGreaterEqual(response.data["progress"], 5)
         self.assertEqual(response.data["raw_progress"], 0)
+        self.assertTrue(response.data["is_processing"])
+        self.assertTrue(response.data["should_poll"])
 
     @override_settings(CONTENT_AGENT_PENDING_BATCH_TIMEOUT_SECONDS=60)
     def test_generation_status_marks_stale_pending_batch_failed(self):
@@ -605,6 +609,8 @@ class ContentAgentViewExtraTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], GenerationStatus.FAILED)
+        self.assertFalse(response.data["is_processing"])
+        self.assertFalse(response.data["should_poll"])
         self.assertEqual(batch.status, GenerationStatus.FAILED)
         self.assertIn("limite esperado", response.data["error_message"])
 
@@ -613,6 +619,7 @@ class ContentAgentViewExtraTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(response.data["batch"])
+        self.assertIsNone(response.data["failed_batch"])
         self.assertEqual(response.data["posts"], [])
 
     def test_pending_review_returns_pending_batch_when_generation_is_running(self):
@@ -630,7 +637,35 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.data["batch"]["status"], GenerationStatus.PENDING)
         self.assertGreaterEqual(response.data["batch"]["progress"], 5)
         self.assertEqual(response.data["batch"]["raw_progress"], 0)
+        self.assertTrue(response.data["batch"]["is_processing"])
+        self.assertTrue(response.data["batch"]["should_poll"])
+        self.assertIsNone(response.data["failed_batch"])
         self.assertEqual(response.data["batch"]["posts"], [])
+        self.assertEqual(response.data["posts"], [])
+
+    def test_pending_review_returns_failed_batch_separately(self):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.FAILED,
+            progress=10,
+        )
+        batch.error_message = "QStash failed"
+        batch.save(update_fields=["error_message"])
+
+        response = self.client.get(reverse("pending-review-post-batch"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data["batch"])
+        self.assertEqual(
+            response.data["failed_batch"]["batch_id"],
+            batch.id,
+        )
+        self.assertEqual(
+            response.data["failed_batch"]["status"],
+            GenerationStatus.FAILED,
+        )
+        self.assertFalse(response.data["failed_batch"]["should_poll"])
         self.assertEqual(response.data["posts"], [])
 
     @patch("ai_content_agent.views.enqueue_post_image_generation")

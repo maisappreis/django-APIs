@@ -100,6 +100,7 @@ def get_batch_display_progress(batch):
 
 def serialize_batch_status(batch):
     progress = get_batch_display_progress(batch)
+    is_processing = batch.status == GenerationStatus.PENDING
 
     return {
         "job_id": batch.id,
@@ -107,6 +108,8 @@ def serialize_batch_status(batch):
         "status": batch.status,
         "progress": progress,
         "raw_progress": batch.progress,
+        "is_processing": is_processing,
+        "should_poll": is_processing,
         "error_message": batch.error_message,
         "quantity": batch.quantity,
         "image_format": batch.image_format,
@@ -691,7 +694,7 @@ class PendingReviewPostBatchAPIView(APIView):
         posts = list(get_pending_review_posts_for_user(request.user))
 
         if not posts:
-            active_batch = (
+            latest_batch = (
                 PostBatch.objects.filter(
                     user=request.user,
                     status__in=[
@@ -703,19 +706,31 @@ class PendingReviewPostBatchAPIView(APIView):
                 .first()
             )
 
-            if active_batch:
-                active_batch = fail_stale_pending_batch(active_batch)
+            if latest_batch:
+                latest_batch = fail_stale_pending_batch(latest_batch)
+                serialized_batch = {
+                    **serialize_batch_status(latest_batch),
+                    "posts": [],
+                }
+
+                if latest_batch.status == GenerationStatus.PENDING:
+                    return Response(
+                        {
+                            "batch": serialized_batch,
+                            "failed_batch": None,
+                            "posts": [],
+                        }
+                    )
+
                 return Response(
                     {
-                        "batch": {
-                            **serialize_batch_status(active_batch),
-                            "posts": [],
-                        },
+                        "batch": None,
+                        "failed_batch": serialized_batch,
                         "posts": [],
                     }
                 )
 
-            return Response({"batch": None, "posts": []})
+            return Response({"batch": None, "failed_batch": None, "posts": []})
 
         latest_batch = max(posts, key=lambda post: post.batch.created_at).batch
         serialized_posts = [
@@ -729,6 +744,7 @@ class PendingReviewPostBatchAPIView(APIView):
                 "quantity": len(serialized_posts),
                 "posts": serialized_posts,
             },
+            "failed_batch": None,
             "posts": serialized_posts,
         })
 
