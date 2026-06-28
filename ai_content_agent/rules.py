@@ -10,9 +10,15 @@ except ImportError:  # pragma: no cover
 
 
 AI_IMAGE_MONTHLY_LIMITS = {
-    "free": 2,
+    "free": 3,
     "plus": 30,
-    "pro": 50,
+    "pro": 60,
+}
+
+USER_IMAGE_MONTHLY_LIMITS = {
+    "free": 10,
+    "plus": 60,
+    "pro": 60,
 }
 
 PLAN_RULES = {
@@ -52,7 +58,11 @@ def get_user_plan_tier(user):
 
 
 def get_ai_image_monthly_limit(user):
-    return AI_IMAGE_MONTHLY_LIMITS.get(get_user_plan_tier(user), 2)
+    return AI_IMAGE_MONTHLY_LIMITS.get(get_user_plan_tier(user), 3)
+
+
+def get_user_image_monthly_limit(user):
+    return USER_IMAGE_MONTHLY_LIMITS.get(get_user_plan_tier(user), 10)
 
 
 def get_plan_rules(user):

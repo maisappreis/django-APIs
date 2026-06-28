@@ -18,10 +18,12 @@ from ai_content_agent.operations import (
     delete_post_generation,
     ensure_ai_image_quota,
     ensure_brand_quota,
+    ensure_user_image_quota,
     ensure_visual_identity_capture_allowed,
     get_future_scheduled_posts,
     get_brand_by_id_for_user,
     get_monthly_ai_image_usage,
+    get_monthly_user_image_usage,
     get_or_create_brand,
     mark_batch_completed,
     mark_batch_failed,
@@ -30,6 +32,7 @@ from ai_content_agent.operations import (
     mark_post_completed,
     prepare_post_download,
     record_ai_image_usage,
+    record_user_image_usage,
     save_brand_reference_images,
     sync_brand_logo,
     update_batch_progress,
@@ -287,13 +290,19 @@ class OperationsTest(TestCase):
 
         self.assertEqual(batch.quantity, 3)
         self.assertEqual(get_monthly_ai_image_usage(user)["used"], 0)
-        self.assertEqual(ensure_ai_image_quota(user, 1)["remaining"], 2)
+        self.assertEqual(get_monthly_user_image_usage(user)["used"], 0)
+        self.assertEqual(ensure_ai_image_quota(user, 1)["remaining"], 3)
+        self.assertEqual(ensure_user_image_quota(user, 1)["remaining"], 10)
         with self.assertRaises(ValueError):
-            ensure_ai_image_quota(user, 3)
+            ensure_ai_image_quota(user, 4)
+        with self.assertRaises(ValueError):
+            ensure_user_image_quota(user, 11)
 
         self.assertIsNone(record_ai_image_usage(user, quantity=0))
         event = record_ai_image_usage(user, quantity=1, batch=batch)
         self.assertEqual(event.kind, UsageEvent.Kind.AI_POST_IMAGE)
+        event = record_user_image_usage(user, quantity=1, batch=batch)
+        self.assertEqual(event.kind, UsageEvent.Kind.USER_POST_IMAGE)
 
         update_batch_progress(batch, 150)
         batch.refresh_from_db()
@@ -922,6 +931,10 @@ class JobsTest(TestCase):
         self.assertEqual(result["posts"][0]["image_prompt"], "")
         self.assertEqual(batch.status, GenerationStatus.COMPLETED)
         self.assertEqual(post.status, GenerationStatus.COMPLETED)
+        self.assertEqual(
+            get_monthly_user_image_usage(user)["used"],
+            1,
+        )
         render_image.assert_called_once_with(post, use_existing_base=True)
 
     @patch("ai_content_agent.jobs.generate_post_review_batch")

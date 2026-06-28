@@ -973,6 +973,32 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
+    def test_generate_posts_rejects_more_than_seven_posts_per_batch(self):
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "8",
+                "my_images_or_ai": "ai",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "bottom_right",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("quantity", response.data)
+
     def test_generate_posts_requires_one_user_image_per_post(self):
         response = self.client.post(
             reverse("generate-post-content"),
@@ -1006,19 +1032,27 @@ class GeneratePostContentAPITestCase(APITestCase):
             kind=UsageEvent.Kind.AI_POST_IMAGE,
             quantity=1,
         )
+        UsageEvent.objects.create(
+            user=self.user,
+            kind=UsageEvent.Kind.USER_POST_IMAGE,
+            quantity=2,
+        )
 
         response = self.client.get(reverse("content-agent-usage"))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["ai_images"]["used"], 1)
-        self.assertEqual(response.data["ai_images"]["limit"], 2)
-        self.assertEqual(response.data["ai_images"]["remaining"], 1)
+        self.assertEqual(response.data["ai_images"]["limit"], 3)
+        self.assertEqual(response.data["ai_images"]["remaining"], 2)
+        self.assertEqual(response.data["user_images"]["used"], 2)
+        self.assertEqual(response.data["user_images"]["limit"], 10)
+        self.assertEqual(response.data["user_images"]["remaining"], 8)
 
     def test_generate_posts_blocks_ai_images_when_monthly_quota_is_exceeded(self):
         UsageEvent.objects.create(
             user=self.user,
             kind=UsageEvent.Kind.AI_POST_IMAGE,
-            quantity=1,
+            quantity=2,
         )
 
         response = self.client.post(
@@ -1045,6 +1079,42 @@ class GeneratePostContentAPITestCase(APITestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertIn("Limite mensal", response.data["detail"])
+
+    def test_generate_posts_blocks_user_images_when_monthly_quota_is_exceeded(self):
+        UsageEvent.objects.create(
+            user=self.user,
+            kind=UsageEvent.Kind.USER_POST_IMAGE,
+            quantity=9,
+        )
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "2",
+                "my_images_or_ai": "user",
+                "images": [
+                    get_test_image("post-1.gif"),
+                    get_test_image("post-2.gif"),
+                ],
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "bottom_right",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("imagens proprias", response.data["detail"])
 
     @override_settings(CONTENT_AGENT_USE_MOCK_CONTENT=True)
     @patch("ai_content_agent.views.enqueue_post_image_generation")

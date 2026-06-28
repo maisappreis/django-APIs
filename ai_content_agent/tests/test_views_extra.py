@@ -685,7 +685,7 @@ class ContentAgentViewExtraTest(APITestCase):
         UsageEvent.objects.create(
             user=self.user,
             kind=UsageEvent.Kind.AI_POST_IMAGE,
-            quantity=2,
+            quantity=3,
         )
 
         response = self.client.post(

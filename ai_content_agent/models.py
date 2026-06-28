@@ -185,6 +185,7 @@ class Post(models.Model):
 class UsageEvent(models.Model):
     class Kind(models.TextChoices):
         AI_POST_IMAGE = "ai_post_image", "AI post image"
+        USER_POST_IMAGE = "user_post_image", "User post image"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

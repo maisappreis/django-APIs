@@ -175,14 +175,7 @@ In production, use:
 ENVIRONMENT=production
 ```
 
-Before publishing a version, apply the migrations to the production database only once, using the Neon variables:
-
-```powershell
-python manage.py migrate --noinput
-python manage.py check --deploy
-```
-
-These commands should run in a release job or pipeline with serialized concurrency.
+Before publishing a version, apply the migrations to the production database only once, using the Neon variables. Instructions in db_migrate.md
 
 ## Content Agent worker on Cloud Run
 

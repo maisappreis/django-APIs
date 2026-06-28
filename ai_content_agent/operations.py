@@ -13,7 +13,11 @@ from .firebase_cleanup import (
 )
 from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
 from .presenters import get_download_filename, serialize_post_generation
-from .rules import get_ai_image_monthly_limit, get_current_month_range
+from .rules import (
+    get_ai_image_monthly_limit,
+    get_current_month_range,
+    get_user_image_monthly_limit,
+)
 from .rules import can_capture_visual_identity, get_max_brands
 from .storage import (
     cleanup_local_files,
@@ -317,12 +321,12 @@ def create_post_batch(user, brand, data):
     )
 
 
-def get_monthly_ai_image_usage(user):
+def get_monthly_usage(user, kind, limit):
     start, end = get_current_month_range()
     used = (
         UsageEvent.objects.filter(
             user=user,
-            kind=UsageEvent.Kind.AI_POST_IMAGE,
+            kind=kind,
             created_at__gte=start,
             created_at__lt=end,
         )
@@ -330,13 +334,28 @@ def get_monthly_ai_image_usage(user):
         .get("total")
         or 0
     )
-    limit = get_ai_image_monthly_limit(user)
 
     return {
         "used": used,
         "limit": limit,
         "remaining": max(0, limit - used),
     }
+
+
+def get_monthly_ai_image_usage(user):
+    return get_monthly_usage(
+        user,
+        UsageEvent.Kind.AI_POST_IMAGE,
+        get_ai_image_monthly_limit(user),
+    )
+
+
+def get_monthly_user_image_usage(user):
+    return get_monthly_usage(
+        user,
+        UsageEvent.Kind.USER_POST_IMAGE,
+        get_user_image_monthly_limit(user),
+    )
 
 
 def ensure_ai_image_quota(user, requested_quantity):
@@ -351,15 +370,45 @@ def ensure_ai_image_quota(user, requested_quantity):
     return usage
 
 
-def record_ai_image_usage(user, quantity=1, batch=None):
+def ensure_user_image_quota(user, requested_quantity):
+    usage = get_monthly_user_image_usage(user)
+
+    if requested_quantity > usage["remaining"]:
+        raise ValueError(
+            "Limite mensal de posts com imagens proprias excedido. "
+            f"Voce ainda pode gerar {usage['remaining']} post(s) este mes."
+        )
+
+    return usage
+
+
+def record_usage_event(user, kind, quantity=1, batch=None):
     if quantity <= 0:
         return None
 
     return UsageEvent.objects.create(
         user=user,
         batch=batch,
-        kind=UsageEvent.Kind.AI_POST_IMAGE,
+        kind=kind,
         quantity=quantity,
+    )
+
+
+def record_ai_image_usage(user, quantity=1, batch=None):
+    return record_usage_event(
+        user,
+        UsageEvent.Kind.AI_POST_IMAGE,
+        quantity=quantity,
+        batch=batch,
+    )
+
+
+def record_user_image_usage(user, quantity=1, batch=None):
+    return record_usage_event(
+        user,
+        UsageEvent.Kind.USER_POST_IMAGE,
+        quantity=quantity,
+        batch=batch,
     )
 
 

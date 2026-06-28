@@ -32,10 +32,12 @@ from .operations import (
     delete_post_generation,
     ensure_brand_quota,
     ensure_ai_image_quota,
+    ensure_user_image_quota,
     ensure_visual_identity_capture_allowed,
     get_brand_by_id_for_user,
     get_future_scheduled_posts,
     get_monthly_ai_image_usage,
+    get_monthly_user_image_usage,
     get_or_create_brand,
     get_pending_review_posts_for_user,
     get_user_brands,
@@ -572,6 +574,14 @@ class GeneratePostContentAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
+            try:
+                ensure_user_image_quota(request.user, data["quantity"])
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             if queue_backend == "qstash" and not image_object_paths:
                 return Response(
                     {
@@ -910,6 +920,7 @@ class ContentAgentUsageAPIView(APIView):
         return Response(
             {
                 "ai_images": get_monthly_ai_image_usage(request.user),
+                "user_images": get_monthly_user_image_usage(request.user),
             }
         )
 

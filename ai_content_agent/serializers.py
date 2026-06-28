@@ -27,6 +27,7 @@ ALLOWED_BRAND_LOGO_FORMATS = {"JPEG", "PNG", "WEBP"}
 BRAND_REFERENCE_CONTENT_TYPES = tuple(
     BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS
 )
+MAX_POSTS_PER_GENERATION_BATCH = 7
 
 
 def validate_brand_image(uploaded_file):
@@ -252,7 +253,7 @@ class PostGenerationInputSerializer(serializers.Serializer):
     )
     quantity = serializers.IntegerField(
         min_value=1,
-        max_value=30,
+        max_value=MAX_POSTS_PER_GENERATION_BATCH,
         required=False,
         default=DEFAULT_QUANTITY,
     )

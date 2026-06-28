@@ -26,6 +26,7 @@ from ai_content_agent.rules import (
     get_ai_image_monthly_limit,
     get_current_month_range,
     get_max_brands,
+    get_user_image_monthly_limit,
     get_user_plan_tier,
 )
 from ai_content_agent.storage import (
@@ -61,7 +62,8 @@ class RulesTest(TestCase):
 
         self.assertEqual(get_user_plan_tier(anonymous), "free")
         self.assertEqual(get_user_plan_tier(user), "free")
-        self.assertEqual(get_ai_image_monthly_limit(user), 2)
+        self.assertEqual(get_ai_image_monthly_limit(user), 3)
+        self.assertEqual(get_user_image_monthly_limit(user), 10)
         self.assertEqual(get_max_brands(user), 1)
         self.assertFalse(can_capture_visual_identity(user))
 
@@ -70,7 +72,8 @@ class RulesTest(TestCase):
         create_subscription(user, tier=Plan.Tier.PRO)
 
         self.assertEqual(get_user_plan_tier(user), Plan.Tier.PRO)
-        self.assertEqual(get_ai_image_monthly_limit(user), 50)
+        self.assertEqual(get_ai_image_monthly_limit(user), 60)
+        self.assertEqual(get_user_image_monthly_limit(user), 60)
         self.assertEqual(get_max_brands(user), 3)
         self.assertTrue(can_capture_visual_identity(user))
 

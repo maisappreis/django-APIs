@@ -6,12 +6,14 @@ from .models import GenerationStatus, PostBatch
 from .operations import (
     create_post_drafts_from_generation_result,
     ensure_ai_image_quota,
+    ensure_user_image_quota,
     get_user_brands,
     mark_batch_completed,
     mark_batch_failed,
     mark_batch_pending_review,
     mark_post_completed,
     record_ai_image_usage,
+    record_user_image_usage,
     update_batch_progress,
 )
 from .services import (
@@ -42,8 +44,10 @@ def generate_post_review_batch(user, brand, batch, data):
         total_posts = len(posts)
 
         for index, post in enumerate(posts):
+            ensure_user_image_quota(user, 1)
             render_approved_post_image(post, use_existing_base=True)
             mark_post_completed(post)
+            record_user_image_usage(user, quantity=1, batch=batch)
             update_batch_progress(
                 batch,
                 70 + int((index + 1) / total_posts * 25),
