@@ -80,6 +80,7 @@ from .services import (
     rerender_post_image,
 )
 from .view_helpers import (
+    delete_expired_incomplete_batches,
     fail_stale_pending_batch,
     is_valid_maintenance_request,
     restore_manual_font_choices,
@@ -625,6 +626,12 @@ class PostGenerationStatusAPIView(APIView):
             user=request.user,
         )
         batch = fail_stale_pending_batch(batch)
+        if batch is None:
+            return Response(
+                {"detail": "Geracao nao encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         response_data = serialize_batch_status(batch)
 
         if batch.status in {"completed", "pending_review"}:
@@ -638,6 +645,7 @@ class PendingReviewPostBatchAPIView(APIView):
         posts = list(get_pending_review_posts_for_user(request.user))
 
         if not posts:
+            delete_expired_incomplete_batches(request.user)
             latest_batch = (
                 PostBatch.objects.filter(
                     user=request.user,
@@ -652,6 +660,13 @@ class PendingReviewPostBatchAPIView(APIView):
 
             if latest_batch:
                 latest_batch = fail_stale_pending_batch(latest_batch)
+                if latest_batch is None:
+                    return Response({
+                        "batch": None,
+                        "failed_batch": None,
+                        "posts": [],
+                    })
+
                 serialized_batch = {
                     **serialize_batch_status(latest_batch),
                     "posts": [],

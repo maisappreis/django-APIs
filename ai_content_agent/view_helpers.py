@@ -8,6 +8,23 @@ from .models import GenerationStatus
 from .operations import mark_batch_failed, update_brand_manual_identity
 
 
+INCOMPLETE_BATCH_STATUSES = (
+    GenerationStatus.PENDING,
+    GenerationStatus.FAILED,
+)
+
+PENDING_TIMEOUT_MESSAGES = {
+    "en-US": (
+        "Generation took longer than expected. "
+        "Try again with fewer posts or wait a few minutes."
+    ),
+    "pt-BR": (
+        "A geracao demorou mais que o limite esperado. "
+        "Tente novamente com menos posts ou aguarde alguns minutos."
+    ),
+}
+
+
 def get_batch_display_progress(batch):
     if batch.status == GenerationStatus.PENDING:
         elapsed_seconds = max(
@@ -40,7 +57,45 @@ def serialize_batch_status(batch):
     }
 
 
+def get_batch_content_language(batch):
+    brand = getattr(batch, "brand", None)
+    return getattr(brand, "content_language", "pt-BR") or "pt-BR"
+
+
+def get_pending_timeout_message(batch):
+    content_language = get_batch_content_language(batch)
+    return PENDING_TIMEOUT_MESSAGES.get(
+        content_language,
+        PENDING_TIMEOUT_MESSAGES["pt-BR"],
+    )
+
+
+def get_incomplete_batch_retention_delta():
+    retention_days = getattr(
+        settings,
+        "CONTENT_AGENT_INCOMPLETE_BATCH_RETENTION_DAYS",
+        2,
+    )
+    return timedelta(days=retention_days)
+
+
+def delete_if_expired_incomplete_batch(batch):
+    if batch.status not in INCOMPLETE_BATCH_STATUSES:
+        return False
+
+    elapsed = timezone.now() - batch.created_at
+
+    if elapsed < get_incomplete_batch_retention_delta():
+        return False
+
+    batch.delete()
+    return True
+
+
 def fail_stale_pending_batch(batch):
+    if delete_if_expired_incomplete_batch(batch):
+        return None
+
     if batch.status != GenerationStatus.PENDING:
         return batch
 
@@ -56,14 +111,19 @@ def fail_stale_pending_batch(batch):
 
     mark_batch_failed(
         batch,
-        TimeoutError(
-            "A geracao demorou mais que o limite esperado. "
-            "Tente novamente com menos posts ou aguarde alguns minutos."
-        ),
+        TimeoutError(get_pending_timeout_message(batch)),
     )
     batch.refresh_from_db()
 
     return batch
+
+
+def delete_expired_incomplete_batches(user):
+    cutoff = timezone.now() - get_incomplete_batch_retention_delta()
+    return user.post_batches.filter(
+        status__in=INCOMPLETE_BATCH_STATUSES,
+        created_at__lt=cutoff,
+    ).delete()
 
 
 def is_valid_maintenance_request(request):

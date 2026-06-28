@@ -662,6 +662,51 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(batch.status, GenerationStatus.FAILED)
         self.assertIn("limite esperado", response.data["error_message"])
 
+    @override_settings(CONTENT_AGENT_PENDING_BATCH_TIMEOUT_SECONDS=60)
+    def test_generation_status_uses_brand_language_for_timeout_message(self):
+        self.brand.content_language = "en-US"
+        self.brand.save(update_fields=["content_language"])
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING,
+            progress=10,
+        )
+        stale_created_at = timezone.now() - timedelta(minutes=5)
+        type(batch).objects.filter(id=batch.id).update(
+            created_at=stale_created_at,
+        )
+
+        response = self.client.get(
+            reverse("post-generation-status", kwargs={"batch_id": batch.id}),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(
+            "Generation took longer than expected",
+            response.data["error_message"],
+        )
+
+    @override_settings(CONTENT_AGENT_INCOMPLETE_BATCH_RETENTION_DAYS=2)
+    def test_generation_status_deletes_expired_incomplete_batch(self):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING,
+            progress=10,
+        )
+        expired_created_at = timezone.now() - timedelta(days=3)
+        type(batch).objects.filter(id=batch.id).update(
+            created_at=expired_created_at,
+        )
+
+        response = self.client.get(
+            reverse("post-generation-status", kwargs={"batch_id": batch.id}),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(type(batch).objects.filter(id=batch.id).exists())
+
     def test_pending_review_returns_empty_payload_when_no_posts(self):
         response = self.client.get(reverse("pending-review-post-batch"))
 
@@ -715,6 +760,29 @@ class ContentAgentViewExtraTest(APITestCase):
         )
         self.assertFalse(response.data["failed_batch"]["should_poll"])
         self.assertEqual(response.data["posts"], [])
+
+    @override_settings(CONTENT_AGENT_INCOMPLETE_BATCH_RETENTION_DAYS=2)
+    def test_pending_review_deletes_old_failed_batch(self):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.FAILED,
+            progress=10,
+        )
+        batch.error_message = "QStash failed"
+        batch.save(update_fields=["error_message"])
+        expired_created_at = timezone.now() - timedelta(days=3)
+        type(batch).objects.filter(id=batch.id).update(
+            created_at=expired_created_at,
+        )
+
+        response = self.client.get(reverse("pending-review-post-batch"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data["batch"])
+        self.assertIsNone(response.data["failed_batch"])
+        self.assertEqual(response.data["posts"], [])
+        self.assertFalse(type(batch).objects.filter(id=batch.id).exists())
 
     @patch("ai_content_agent.views.enqueue_post_image_generation")
     def test_approve_prompts_returns_403_when_ai_quota_is_exceeded(self, enqueue):
