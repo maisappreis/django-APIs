@@ -228,6 +228,10 @@ class BrandCreateAPITestCase(APITestCase):
         brand = Brand.objects.get(user=self.user, business_name="No Logo Brand")
         self.assertFalse(brand.logo)
         self.assertEqual(brand.logo_url, "")
+        self.assertEqual(brand.title_font, "inter")
+        self.assertEqual(brand.subtitle_font, "inter")
+        self.assertEqual(response.data["title_font"], "inter")
+        self.assertEqual(response.data["subtitle_font"], "inter")
 
     def test_free_plan_blocks_second_brand(self):
         Brand.objects.create(

@@ -319,6 +319,54 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
         self.assertIn("error", response.data)
 
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.views.analyze_brand_visual_identity")
+    def test_brand_create_keeps_manual_fonts_after_visual_identity_analysis(
+        self,
+        analyze,
+    ):
+        self.brand.delete()
+        create_subscription(self.user, tier=Plan.Tier.PLUS)
+
+        def update_visual_identity(brand):
+            brand.title_font = "ai-title-font"
+            brand.subtitle_font = "ai-subtitle-font"
+            brand.save(update_fields=["title_font", "subtitle_font"])
+            return brand
+
+        analyze.side_effect = update_visual_identity
+
+        response = self.client.post(
+            reverse("brand-list"),
+            {
+                "business_name": "Reference Brand",
+                "niche": "Food",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "manual-title-font",
+                "subtitle_font": "manual-subtitle-font",
+                "logo_position": "bottom_right",
+                "image_format": "square",
+                "reference_image_1": get_uploaded_image("reference.gif"),
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        brand = type(self.brand).objects.get(
+            user=self.user,
+            business_name="Reference Brand",
+        )
+        self.assertEqual(brand.title_font, "manual-title-font")
+        self.assertEqual(brand.subtitle_font, "manual-subtitle-font")
+        self.assertEqual(response.data["title_font"], "manual-title-font")
+        self.assertEqual(
+            response.data["subtitle_font"],
+            "manual-subtitle-font",
+        )
+
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local", DEBUG=True)
     @patch("ai_content_agent.views.analyze_brand_visual_identity")
     def test_brand_patch_returns_502_when_visual_identity_analysis_fails(self, analyze):
