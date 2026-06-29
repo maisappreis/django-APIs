@@ -202,7 +202,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'https://maisappreis.github.io',
     'https://axis-frontend-one.vercel.app',
-    'https://axis3daisolutions.com'
+    'https://axis3daisolutions.com',
+    'https://www.axis3daisolutions.com',
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -232,7 +233,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'https://maisappreis.github.io',
     'https://axis-frontend-one.vercel.app',
-    'https://axis3daisolutions.com'
+    'https://axis3daisolutions.com',
+    'https://www.axis3daisolutions.com'
 ]
 
 TEMPLATES = [
