@@ -775,19 +775,39 @@ def generate_post_batch_draft_content(data):
             content_language=data.get("content_language", "pt-BR"),
         )
 
-    content_posts = sorted(content["posts"], key=lambda post: post["order"])
-
-    if len(content_posts) != quantity:
-        raise ValueError(
-            f"Expected {quantity} generated posts, received {len(content_posts)}."
-        )
-
     expected_orders = list(range(1, quantity + 1))
+    content_posts = sorted(content["posts"], key=lambda post: post["order"])
     received_orders = [post["order"] for post in content_posts]
-    if received_orders != expected_orders:
+    posts_by_order = {}
+    duplicate_expected_orders = []
+
+    for post in content_posts:
+        order = post["order"]
+
+        if order not in expected_orders:
+            continue
+
+        if order in posts_by_order:
+            duplicate_expected_orders.append(order)
+            continue
+
+        posts_by_order[order] = post
+
+    missing_orders = [
+        order
+        for order in expected_orders
+        if order not in posts_by_order
+    ]
+
+    if missing_orders or duplicate_expected_orders:
         raise ValueError(
             f"Expected post orders {expected_orders}, received {received_orders}."
         )
+
+    content_posts = [
+        posts_by_order[order]
+        for order in expected_orders
+    ]
 
     posts = [
         build_post_draft_content(

@@ -794,6 +794,36 @@ class ServicesTest(SimpleTestCase):
         with self.assertRaises(ValueError):
             generate_post_batch_draft_content(get_visual_data(quantity=1))
 
+    @override_settings(CONTENT_AGENT_USE_MOCK_CONTENT=False)
+    @patch("ai_content_agent.services.generate_structured_content")
+    def test_generate_post_batch_draft_content_ignores_extra_generated_posts(
+        self,
+        generate,
+    ):
+        idea = {
+            "title": "Idea",
+            "theme": "Summer",
+            "objective": "Sell",
+            "format": "educativo",
+            "angle": "Angle",
+            "visual_direction": "Visual",
+        }
+        generate.side_effect = [
+            {"strategy_summary": "Strategy", "posts": [idea]},
+            {
+                "posts": [
+                    get_post_result(order=1, caption="Expected"),
+                    get_post_result(order=2, caption="Extra"),
+                ],
+            },
+        ]
+
+        result = generate_post_batch_draft_content(get_visual_data(quantity=1))
+
+        self.assertEqual(len(result["posts"]), 1)
+        self.assertEqual(result["posts"][0]["order"], 1)
+        self.assertEqual(result["posts"][0]["caption"], "Expected")
+
     @patch("ai_content_agent.services.render_post_content", return_value={"order": 1})
     @patch("ai_content_agent.services.generate_post_batch_draft_content")
     def test_generate_post_batch_content_renders_each_draft(self, draft_content, render):
