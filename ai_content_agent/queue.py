@@ -97,9 +97,16 @@ def enqueue_post_image_generation(user_id, batch_id):
     backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
     if backend == "inline":
         from .jobs import run_post_image_generation_job
+        from .models import PostBatch
 
         if not run_post_image_generation_job(user_id, batch_id):
-            raise RuntimeError("Inline post image generation failed.")
+            error_message = (
+                PostBatch.objects.filter(id=batch_id, user_id=user_id)
+                .values_list("error_message", flat=True)
+                .first()
+            )
+            detail = error_message or "Inline post image generation failed."
+            raise RuntimeError(detail)
         return {"backend": "inline"}
 
     if backend != "qstash":

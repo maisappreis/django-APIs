@@ -209,6 +209,15 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         default="ai",
     )
+    edit_image_with_ai = serializers.BooleanField(
+        required=False,
+        default=False,
+    )
+    image_editing_prompt = serializers.CharField(
+        max_length=1000,
+        required=False,
+        allow_blank=True,
+    )
     image_format = serializers.ChoiceField(
         choices=IMAGE_FORMAT_CHOICES,
         required=False,
@@ -529,6 +538,7 @@ class PostPromptApprovalSerializer(serializers.Serializer):
 class PostBatchOutputSerializer(serializers.Serializer):
     batch_id = serializers.IntegerField()
     quantity = serializers.IntegerField()
+    image_source = serializers.CharField(required=False)
     image_format = serializers.CharField(required=False)
     strategy_summary = serializers.CharField(allow_blank=True)
     posts = PostGenerationOutputSerializer(many=True)

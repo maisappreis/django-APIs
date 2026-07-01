@@ -63,6 +63,7 @@ def serialize_post_batch(batch):
     return {
         "batch_id": batch.id,
         "quantity": batch.quantity,
+        "image_source": batch.image_source,
         "image_format": batch.image_format,
         "strategy_summary": batch.strategy_summary,
         "posts": [

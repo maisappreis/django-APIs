@@ -11,28 +11,43 @@ except ImportError:  # pragma: no cover
 
 AI_IMAGE_MONTHLY_LIMITS = {
     "free": 3,
-    "plus": 30,
-    "pro": 60,
+    "plus": 15,
+    "pro": 30,
 }
 
 USER_IMAGE_MONTHLY_LIMITS = {
-    "free": 10,
-    "plus": 60,
-    "pro": 60,
+    "free": 5,
+    "plus": 30,
+    "pro": 30,
+}
+
+AI_IMAGE_EDIT_MONTHLY_LIMITS = {
+    "free": 3,
+    "plus": 15,
+    "pro": 30,
+}
+
+POST_BATCH_LIMITS = {
+    "free": 1,
+    "plus": 7,
+    "pro": 7,
 }
 
 PLAN_RULES = {
     "free": {
         "max_brands": 1,
         "can_capture_visual_identity": False,
+        "can_edit_user_images_with_ai": True,
     },
     "plus": {
         "max_brands": 1,
         "can_capture_visual_identity": True,
+        "can_edit_user_images_with_ai": True,
     },
     "pro": {
         "max_brands": 3,
         "can_capture_visual_identity": True,
+        "can_edit_user_images_with_ai": True,
     },
 }
 
@@ -65,6 +80,14 @@ def get_user_image_monthly_limit(user):
     return USER_IMAGE_MONTHLY_LIMITS.get(get_user_plan_tier(user), 10)
 
 
+def get_ai_image_edit_monthly_limit(user):
+    return AI_IMAGE_EDIT_MONTHLY_LIMITS.get(get_user_plan_tier(user), 3)
+
+
+def get_post_batch_limit(user):
+    return POST_BATCH_LIMITS.get(get_user_plan_tier(user), 1)
+
+
 def get_plan_rules(user):
     return PLAN_RULES.get(get_user_plan_tier(user), PLAN_RULES["free"])
 
@@ -75,6 +98,10 @@ def get_max_brands(user):
 
 def can_capture_visual_identity(user):
     return get_plan_rules(user)["can_capture_visual_identity"]
+
+
+def can_edit_user_images_with_ai(user):
+    return get_plan_rules(user)["can_edit_user_images_with_ai"]
 
 
 def get_current_month_range():

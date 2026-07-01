@@ -49,3 +49,14 @@ def build_image_generation_prompt(
         prompt,
         image_format,
     )
+
+
+def build_user_image_edit_prompt(
+    prompt,
+    brand_visual_identity="",
+    content_language="pt-BR",
+):
+    return get_prompt_set(content_language).build_user_image_edit_prompt(
+        prompt,
+        brand_visual_identity,
+    )

@@ -36,6 +36,23 @@ def mock_generate_image_files():
     }
 
 
+def mock_edit_image_files():
+    image_id = uuid4()
+    base_relative_path = Path("generated_posts") / f"edited-base-{image_id}.png"
+    final_relative_path = Path("generated_posts") / f"edited-final-{image_id}.png"
+    base_data = _build_generated_image_data(base_relative_path)
+    final_data = _build_generated_image_data(final_relative_path)
+
+    Path(base_data["absolute_path"]).parent.mkdir(parents=True, exist_ok=True)
+    copyfile(MOCK_IMAGE_PATH, base_data["absolute_path"])
+    copyfile(MOCK_IMAGE_PATH, final_data["absolute_path"])
+
+    return {
+        "base": base_data,
+        "final": final_data,
+    }
+
+
 def mock_generate_post_plan(data):
     posts = []
 

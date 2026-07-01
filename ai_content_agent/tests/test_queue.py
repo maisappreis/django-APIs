@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 
 from django.core.exceptions import ImproperlyConfigured
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -9,9 +9,10 @@ from ai_content_agent.queue import (
     enqueue_post_generation,
     enqueue_post_image_generation,
 )
+from ai_content_agent.tests.factories import create_batch, create_user
 
 
-class QStashPublisherTest(SimpleTestCase):
+class QStashPublisherTest(TestCase):
     @override_settings(
         CONTENT_AGENT_QUEUE_BACKEND="qstash",
         QSTASH_TOKEN="qstash-secret",
@@ -168,6 +169,20 @@ class QStashPublisherTest(SimpleTestCase):
 
         self.assertEqual(result, {"backend": "inline"})
         run_job.assert_called_once_with(7, 11)
+
+    @override_settings(CONTENT_AGENT_QUEUE_BACKEND="inline")
+    @patch(
+        "ai_content_agent.jobs.run_post_image_generation_job",
+        return_value=False,
+    )
+    def test_inline_backend_raises_saved_job_error(self, run_job):
+        user = create_user()
+        batch = create_batch(user=user, error_message="OpenAI image edit failed")
+
+        with self.assertRaisesMessage(RuntimeError, "OpenAI image edit failed"):
+            enqueue_post_image_generation(user.id, batch.id)
+
+        run_job.assert_called_once_with(user.id, batch.id)
 
     @override_settings(CONTENT_AGENT_QUEUE_BACKEND="unknown")
     def test_unknown_backend_is_rejected(self):

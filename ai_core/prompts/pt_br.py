@@ -15,9 +15,32 @@ IMAGE_FORMAT_LABELS = {
 }
 
 
+def _format_brand_visual_identity(value):
+    value = (value or "").strip()
+
+    if not value:
+        return ""
+
+    return f"        Identidade visual da marca: {value}\n"
+
+
+def _format_brand_visual_identity_block(value):
+    value = (value or "").strip()
+
+    if not value:
+        return ""
+
+    return f"""
+        Identidade visual da marca:
+        {value}
+"""
+
+
 def build_post_plan_prompt(data):
     quantity = data["quantity"]
-    brand_visual_identity = data.get("brand_visual_identity", "")
+    brand_visual_identity = _format_brand_visual_identity(
+        data.get("brand_visual_identity", "")
+    )
 
     return f"""
         Crie um calendário editorial com exatamente {quantity} ideias distintas
@@ -28,7 +51,7 @@ def build_post_plan_prompt(data):
         Objetivo geral: {data["objective"]}
         Tom de voz: {data["tone"]}
         Tema/campanha principal: {data["theme"]}
-        Identidade visual da marca: {brand_visual_identity}
+        {brand_visual_identity}
 
         Prioridade estratégica:
         - O tema/campanha principal deve guiar todos os posts.
@@ -64,6 +87,10 @@ def build_post_plan_prompt(data):
 
 
 def build_post_from_idea_prompt(data, idea, index, total):
+    brand_visual_identity = _format_brand_visual_identity(
+        data.get("brand_visual_identity", "")
+    )
+
     return f"""
         Transforme a ideia editorial abaixo em um post pronto para publicação.
 
@@ -72,7 +99,7 @@ def build_post_from_idea_prompt(data, idea, index, total):
         Objetivo geral: {data["objective"]}
         Tom de voz: {data["tone"]}
         Campanha principal: {data["theme"]}
-        Identidade visual da marca: {data.get("brand_visual_identity", "")}
+        {brand_visual_identity}
 
         Post {index} de {total}
         Título da ideia: {idea["title"]}
@@ -123,6 +150,10 @@ def _format_plan(ideas):
 
 def build_posts_from_plan_prompt(data, ideas):
     quantity = data["quantity"]
+    brand_visual_identity = _format_brand_visual_identity(
+        data.get("brand_visual_identity", "")
+    )
+
     return f"""
         Transforme o plano editorial abaixo em exatamente {quantity} posts
         prontos para publicação.
@@ -132,7 +163,7 @@ def build_posts_from_plan_prompt(data, ideas):
         Objetivo geral: {data["objective"]}
         Tom de voz: {data["tone"]}
         Campanha principal: {data["theme"]}
-        Identidade visual da marca: {data.get("brand_visual_identity", "")}
+        {brand_visual_identity}
 
         Plano editorial:
         {_format_plan(ideas)}
@@ -234,4 +265,43 @@ def build_image_generation_prompt(prompt, image_format="square"):
         - Preserve textura, luz, contraste e cores naturais.
         - Reserve espaço limpo no centro para o texto aplicado pelo backend.
         - Priorize composição profissional, moderna e coerente com o negócio.
+        """
+
+
+def build_user_image_edit_prompt(prompt, brand_visual_identity=""):
+    brand_visual_identity_block = _format_brand_visual_identity_block(
+        brand_visual_identity
+    )
+
+    return f"""
+        Edite a imagem enviada pelo usuario em modo conservador para uso em um
+        post de rede social. Esta e uma tarefa de retoque localizado, nao de
+        recriacao da imagem.
+
+        Pedido do usuario:
+        {prompt}
+        {brand_visual_identity_block}
+
+        Instrucoes obrigatorias:
+        - Preserve o conteudo principal da imagem enviada com alta fidelidade.
+        - Nao recrie a foto do zero, nao substitua o sujeito principal e nao
+          transforme a imagem em uma nova cena.
+        - Se houver uma pessoa, preserve identidade, rosto, idade aparente,
+          tom de pele, corpo, pose, expressao, e cabelo. Nao transforme
+          a pessoa em outra pessoa.
+        - Se houver produto, ambiente, objeto principal, logo ou texto
+          essencial, preserve sua forma, posicao e informacao.
+        - Altere somente o fundo, a iluminacao, contraste, cor, nitidez,
+          exposicao, sombras, acabamento visual ou elementos perifericos que
+          nao sejam o sujeito principal.
+        - Nao edite rosto, cabelo, corpo, roupa, maos, produto ou objeto
+          principal, mesmo que o pedido do usuario seja amplo.
+        - Use a identidade visual apenas como referencia sutil de clima,
+          acabamento, temperatura de cor e acentos no fundo.
+        - Nao adicione objetos novos ao redor do sujeito principal, salvo se o
+          pedido mencionar claramente elementos de fundo.
+        - Nao adicione titulo, chamada, slogan ou texto promocional.
+        - Mantenha aparencia natural, profissional e adequada para publicidade.
+        - Se o pedido do usuario exigir alterar o sujeito principal, ignore
+          essa parte e preserve a imagem original.
         """

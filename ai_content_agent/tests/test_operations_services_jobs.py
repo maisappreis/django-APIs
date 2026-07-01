@@ -16,12 +16,15 @@ from ai_content_agent.operations import (
     create_post_batch,
     create_posts_from_generation_result,
     delete_post_generation,
+    ensure_ai_image_edit_quota,
     ensure_ai_image_quota,
     ensure_brand_quota,
+    ensure_post_batch_quantity_allowed,
     ensure_user_image_quota,
     ensure_visual_identity_capture_allowed,
     get_future_scheduled_posts,
     get_brand_by_id_for_user,
+    get_monthly_ai_image_edit_usage,
     get_monthly_ai_image_usage,
     get_monthly_user_image_usage,
     get_or_create_brand,
@@ -31,6 +34,7 @@ from ai_content_agent.operations import (
     mark_batch_pending_review,
     mark_post_completed,
     prepare_post_download,
+    record_ai_image_edit_usage,
     record_ai_image_usage,
     record_user_image_usage,
     save_brand_reference_images,
@@ -43,8 +47,10 @@ from ai_content_agent.services import (
     _clean_hex_color,
     _get_template_color_kwargs,
     analyze_brand_visual_identity,
+    build_user_image_edit_review_prompt,
     build_post_draft_content,
     create_final_image_from_base,
+    edit_user_post_image_files,
     generate_post_batch_content,
     generate_post_batch_draft_content,
     generate_post_image_files,
@@ -59,6 +65,7 @@ from ai_content_agent.services import (
     get_template_name_for_post,
     prepare_uploaded_post_image_files,
     render_image_file,
+    render_approved_post_image,
     rerender_post_image,
     save_uploaded_post_image_file,
 )
@@ -291,18 +298,27 @@ class OperationsTest(TestCase):
         self.assertEqual(batch.quantity, 3)
         self.assertEqual(get_monthly_ai_image_usage(user)["used"], 0)
         self.assertEqual(get_monthly_user_image_usage(user)["used"], 0)
+        self.assertEqual(get_monthly_ai_image_edit_usage(user)["used"], 0)
         self.assertEqual(ensure_ai_image_quota(user, 1)["remaining"], 3)
-        self.assertEqual(ensure_user_image_quota(user, 1)["remaining"], 10)
+        self.assertEqual(ensure_user_image_quota(user, 1)["remaining"], 5)
+        self.assertEqual(ensure_ai_image_edit_quota(user, 1)["remaining"], 3)
+        self.assertEqual(ensure_post_batch_quantity_allowed(user, 1)["limit"], 1)
         with self.assertRaises(ValueError):
             ensure_ai_image_quota(user, 4)
         with self.assertRaises(ValueError):
-            ensure_user_image_quota(user, 11)
+            ensure_user_image_quota(user, 6)
+        with self.assertRaises(ValueError):
+            ensure_ai_image_edit_quota(user, 4)
+        with self.assertRaises(ValueError):
+            ensure_post_batch_quantity_allowed(user, 2)
 
         self.assertIsNone(record_ai_image_usage(user, quantity=0))
         event = record_ai_image_usage(user, quantity=1, batch=batch)
         self.assertEqual(event.kind, UsageEvent.Kind.AI_POST_IMAGE)
         event = record_user_image_usage(user, quantity=1, batch=batch)
         self.assertEqual(event.kind, UsageEvent.Kind.USER_POST_IMAGE)
+        event = record_ai_image_edit_usage(user, quantity=1, batch=batch)
+        self.assertEqual(event.kind, UsageEvent.Kind.AI_IMAGE_EDIT)
 
         update_batch_progress(batch, 150)
         batch.refresh_from_db()
@@ -617,6 +633,28 @@ class ServicesTest(SimpleTestCase):
             image_format="portrait",
             content_language="pt-BR",
         )
+
+    @override_settings(CONTENT_AGENT_USE_MOCK_IMAGES=True)
+    def test_edit_user_post_image_files_uses_mock_when_enabled(self):
+        with override_settings(MEDIA_ROOT=self.media_root):
+            image_files = edit_user_post_image_files(
+                "/tmp/source.png",
+                "Improve lighting",
+            )
+
+        self.assertIn("edited-base-", image_files["base"]["image_url"])
+        self.assertTrue(Path(image_files["base"]["absolute_path"]).exists())
+
+    def test_build_user_image_edit_review_prompt_uses_language_and_brand(self):
+        prompt = build_user_image_edit_review_prompt({
+            "image_editing_prompt": "Improve lighting",
+            "brand_visual_identity": "Use green accents.",
+            "content_language": "en-US",
+        })
+
+        self.assertIn("Improve lighting", prompt)
+        self.assertIn("Use green accents.", prompt)
+        self.assertIn("Preserve the main content", prompt)
 
     @patch("ai_content_agent.services.apply_logo_to_image")
     @patch("ai_content_agent.services.apply_center_text_to_image")
@@ -967,6 +1005,51 @@ class JobsTest(TestCase):
         )
         render_image.assert_called_once_with(post, use_existing_base=True)
 
+    @patch("ai_content_agent.jobs.render_approved_post_image")
+    @patch("ai_content_agent.jobs.create_post_drafts_from_generation_result")
+    @patch("ai_content_agent.jobs.generate_post_batch_draft_content")
+    def test_user_image_ai_edit_goes_to_prompt_review(
+        self,
+        generate_draft,
+        create_drafts,
+        render_image,
+    ):
+        user = create_user()
+        brand = create_brand(user=user, visual_identity_prompt="Use green accents.")
+        batch = create_batch(user=user, brand=brand, image_source="user")
+        post = create_post(
+            user=user,
+            brand=brand,
+            batch=batch,
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        result = {
+            "strategy_summary": "Strategy",
+            "posts": [get_post_result(order=1)],
+        }
+        data = get_visual_data(
+            quantity=1,
+            edit_image_with_ai=True,
+            image_editing_prompt="Improve lighting",
+            brand_visual_identity="Use green accents.",
+            content_language="en-US",
+        )
+        generate_draft.return_value = result
+        create_drafts.return_value = [post]
+
+        from ai_content_agent.jobs import generate_post_review_batch
+
+        generate_post_review_batch(user, brand, batch, data)
+
+        batch.refresh_from_db()
+        self.assertEqual(batch.status, GenerationStatus.PENDING_REVIEW)
+        self.assertIn("Improve lighting", result["posts"][0]["image_prompt"])
+        self.assertIn(
+            "Preserve the main content",
+            result["posts"][0]["image_prompt"],
+        )
+        render_image.assert_not_called()
+
     @patch("ai_content_agent.jobs.generate_post_review_batch")
     def test_run_post_generation_job_success_and_failure(self, generate_review):
         user = create_user()
@@ -1018,6 +1101,7 @@ class JobsTest(TestCase):
     @patch("ai_content_agent.jobs.render_approved_post_image")
     def test_run_post_image_generation_job_uses_existing_base_for_user_batch(self, render):
         user = create_user()
+        create_subscription(user, tier=Plan.Tier.PRO)
         brand = create_brand(user=user)
         batch = create_batch(user=user, brand=brand, image_source="user")
         post = create_post(user=user, brand=brand, batch=batch)
@@ -1027,6 +1111,18 @@ class JobsTest(TestCase):
         run_post_image_generation_job(user.id, batch.id)
 
         render.assert_called_once_with(post, use_existing_base=True)
+        self.assertEqual(
+            get_monthly_ai_image_usage(user)["used"],
+            0,
+        )
+        self.assertEqual(
+            get_monthly_ai_image_edit_usage(user)["used"],
+            1,
+        )
+        self.assertEqual(
+            get_monthly_user_image_usage(user)["used"],
+            1,
+        )
 
     def test_run_post_image_generation_job_marks_failed_when_no_posts(self):
         user = create_user()

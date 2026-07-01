@@ -52,6 +52,7 @@ def serialize_batch_status(batch):
         "should_poll": is_processing,
         "error_message": batch.error_message,
         "quantity": batch.quantity,
+        "image_source": batch.image_source,
         "image_format": batch.image_format,
         "strategy_summary": batch.strategy_summary,
     }

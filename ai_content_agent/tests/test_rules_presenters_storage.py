@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from io import BytesIO
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -23,9 +23,12 @@ from ai_content_agent.presenters import (
 )
 from ai_content_agent.rules import (
     can_capture_visual_identity,
+    can_edit_user_images_with_ai,
+    get_ai_image_edit_monthly_limit,
     get_ai_image_monthly_limit,
     get_current_month_range,
     get_max_brands,
+    get_post_batch_limit,
     get_user_image_monthly_limit,
     get_user_plan_tier,
 )
@@ -63,19 +66,35 @@ class RulesTest(TestCase):
         self.assertEqual(get_user_plan_tier(anonymous), "free")
         self.assertEqual(get_user_plan_tier(user), "free")
         self.assertEqual(get_ai_image_monthly_limit(user), 3)
-        self.assertEqual(get_user_image_monthly_limit(user), 10)
+        self.assertEqual(get_user_image_monthly_limit(user), 5)
+        self.assertEqual(get_ai_image_edit_monthly_limit(user), 3)
+        self.assertEqual(get_post_batch_limit(user), 1)
         self.assertEqual(get_max_brands(user), 1)
         self.assertFalse(can_capture_visual_identity(user))
+        self.assertTrue(can_edit_user_images_with_ai(user))
 
     def test_active_subscription_uses_plan_rules(self):
         user = create_user()
         create_subscription(user, tier=Plan.Tier.PRO)
 
         self.assertEqual(get_user_plan_tier(user), Plan.Tier.PRO)
-        self.assertEqual(get_ai_image_monthly_limit(user), 60)
-        self.assertEqual(get_user_image_monthly_limit(user), 60)
+        self.assertEqual(get_ai_image_monthly_limit(user), 30)
+        self.assertEqual(get_user_image_monthly_limit(user), 30)
+        self.assertEqual(get_ai_image_edit_monthly_limit(user), 30)
+        self.assertEqual(get_post_batch_limit(user), 7)
         self.assertEqual(get_max_brands(user), 3)
         self.assertTrue(can_capture_visual_identity(user))
+        self.assertTrue(can_edit_user_images_with_ai(user))
+
+    def test_plus_subscription_has_intermediate_ai_edit_limit(self):
+        user = create_user()
+        create_subscription(user, tier=Plan.Tier.PLUS)
+
+        self.assertEqual(get_ai_image_monthly_limit(user), 15)
+        self.assertEqual(get_user_image_monthly_limit(user), 30)
+        self.assertEqual(get_ai_image_edit_monthly_limit(user), 15)
+        self.assertEqual(get_post_batch_limit(user), 7)
+        self.assertTrue(can_edit_user_images_with_ai(user))
 
     def test_inactive_subscription_falls_back_to_free(self):
         user = create_user()
@@ -386,6 +405,35 @@ class StorageTest(TestCase):
             )
         )
         self.assertEqual(consumed["content"], content)
+        blob.delete.assert_called_once_with()
+
+    @patch("ai_content_agent.storage.Image.open")
+    @patch("ai_content_agent.storage.get_firebase_bucket")
+    def test_post_source_upload_accepts_iphone_jpeg_mpo(
+        self,
+        get_firebase_bucket,
+        image_open,
+    ):
+        content = b"iphone-jpeg-compatible-content"
+        bucket = Mock()
+        blob = bucket.blob.return_value
+        blob.size = len(content)
+        blob.content_type = "image/jpeg"
+        blob.download_as_bytes.return_value = content
+        get_firebase_bucket.return_value = bucket
+        image = MagicMock()
+        image.format = "MPO"
+        image_open.return_value.__enter__.return_value = image
+        object_path = (
+            "users/7/pending/post-source-images/"
+            "00000000-0000-0000-0000-000000000000.jpg"
+        )
+
+        consumed = consume_post_source_upload(7, object_path)
+
+        self.assertEqual(consumed["content"], content)
+        self.assertEqual(consumed["content_type"], "image/jpeg")
+        image.verify.assert_called_once_with()
         blob.delete.assert_called_once_with()
 
     @override_settings(

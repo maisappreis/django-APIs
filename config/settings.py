@@ -31,6 +31,29 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+FAL_KEY = os.getenv("FAL_KEY", os.getenv("BFL_API_KEY"))
+FAL_QUEUE_BASE_URL = os.getenv("FAL_QUEUE_BASE_URL", "https://queue.fal.run")
+FAL_IMAGE_EDIT_MODEL = os.getenv(
+    "FAL_IMAGE_EDIT_MODEL",
+    os.getenv("FLUX_IMAGE_EDIT_MODEL", "fal-ai/flux-pro/kontext"),
+)
+FAL_IMAGE_EDIT_ENHANCE_PROMPT = (
+    os.getenv("FAL_IMAGE_EDIT_ENHANCE_PROMPT", "true").lower() == "true"
+)
+FAL_IMAGE_EDIT_ASPECT_RATIO = os.getenv("FAL_IMAGE_EDIT_ASPECT_RATIO", "")
+FAL_IMAGE_EDIT_SEED = os.getenv("FAL_IMAGE_EDIT_SEED", "")
+FAL_IMAGE_EDIT_GUIDANCE_SCALE = float(
+    os.getenv("FAL_IMAGE_EDIT_GUIDANCE_SCALE", "3.5")
+)
+FAL_IMAGE_EDIT_SAFETY_TOLERANCE = str(
+    os.getenv("FAL_IMAGE_EDIT_SAFETY_TOLERANCE", "5")
+)
+FAL_IMAGE_EDIT_POLL_INTERVAL_SECONDS = float(
+    os.getenv("FAL_IMAGE_EDIT_POLL_INTERVAL_SECONDS", "0.5")
+)
+FAL_IMAGE_EDIT_TIMEOUT_SECONDS = int(
+    os.getenv("FAL_IMAGE_EDIT_TIMEOUT_SECONDS", "120")
+)
 
 CONTENT_AGENT_STORAGE_BACKEND = os.getenv(
     "CONTENT_AGENT_STORAGE_BACKEND",

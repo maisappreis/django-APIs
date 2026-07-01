@@ -1,6 +1,7 @@
 from ai_core.clients import (
     POST_BATCH_CONTENT_SCHEMA,
     POST_PLAN_SCHEMA,
+    edit_image_files,
     generate_brand_visual_identity,
     generate_image_files,
     generate_structured_content,
@@ -21,8 +22,13 @@ from ai_content_agent.templates.text_overlay import (
 from ai_content_agent.defaults import DEFAULT_TEXT_FONT
 from ai_content_agent.firebase_cleanup import delete_replaced_firebase_file
 
-from ai_core.prompts import build_post_plan_prompt, build_posts_from_plan_prompt
+from ai_core.prompts import (
+    build_post_plan_prompt,
+    build_posts_from_plan_prompt,
+    build_user_image_edit_prompt,
+)
 from ai_content_agent.mocks import (
+    mock_edit_image_files,
     mock_generate_batch_content,
     mock_generate_image_files,
     mock_generate_post_plan,
@@ -72,6 +78,31 @@ def generate_post_image_files(
         result["image_prompt"],
         image_format=image_format,
         content_language=content_language,
+    )
+
+
+def edit_user_post_image_files(
+    source_image_path,
+    prompt,
+    image_format="square",
+    content_language="pt-BR",
+):
+    if getattr(settings, "CONTENT_AGENT_USE_MOCK_IMAGES", True):
+        return mock_edit_image_files()
+
+    return edit_image_files(
+        source_image_path,
+        prompt,
+        image_format=image_format,
+        content_language=content_language,
+    )
+
+
+def build_user_image_edit_review_prompt(data):
+    return build_user_image_edit_prompt(
+        data.get("image_editing_prompt", ""),
+        data.get("brand_visual_identity", ""),
+        data.get("content_language", "pt-BR"),
     )
 
 
@@ -552,13 +583,30 @@ def render_approved_post_image(post, use_existing_base=False):
         if not post.base_image_url:
             raise ValueError("Post base image file was not found.")
 
-        final_data = create_final_image_from_base(post.base_image_url)
-        image_data = {
-            "base": {
-                "image_url": post.base_image_url,
-            },
-            "final": final_data,
-        }
+        if post.image_prompt:
+            source_path = get_image_work_path(post.base_image_url)
+            temporary_source_path = (
+                str(source_path)
+                if not post.base_image_url.startswith(settings.MEDIA_URL)
+                else None
+            )
+            image_data = edit_user_post_image_files(
+                source_path,
+                post.image_prompt,
+                image_format=post.image_format,
+                content_language=(
+                    post.brand.content_language if post.brand else "pt-BR"
+                ),
+            )
+            image_data["final"]["temporary_source_path"] = temporary_source_path
+        else:
+            final_data = create_final_image_from_base(post.base_image_url)
+            image_data = {
+                "base": {
+                    "image_url": post.base_image_url,
+                },
+                "final": final_data,
+            }
     else:
         image_data = generate_post_image_files(
             {"image_prompt": post.image_prompt},
@@ -605,7 +653,7 @@ def render_approved_post_image(post, use_existing_base=False):
 
     if is_firebase_storage_enabled():
         try:
-            if not use_existing_base:
+            if not use_existing_base or post.image_prompt:
                 post.base_image_url = upload_generated_post_file(
                     local_path=image_data["base"]["absolute_path"],
                     user_id=post.user_id,

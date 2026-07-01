@@ -14,11 +14,13 @@ from .firebase_cleanup import (
 from .models import Brand, GenerationStatus, Post, PostBatch, UsageEvent
 from .presenters import get_download_filename, serialize_post_generation
 from .rules import (
+    get_ai_image_edit_monthly_limit,
     get_ai_image_monthly_limit,
     get_current_month_range,
+    get_post_batch_limit,
     get_user_image_monthly_limit,
 )
-from .rules import can_capture_visual_identity, get_max_brands
+from .rules import can_capture_visual_identity, can_edit_user_images_with_ai, get_max_brands
 from .storage import (
     cleanup_local_files,
     generate_private_read_url,
@@ -94,6 +96,30 @@ def ensure_visual_identity_capture_allowed(user):
 
     raise ValueError(
         "Seu plano nao permite capturar identidade visual por IA."
+    )
+
+
+def ensure_post_batch_quantity_allowed(user, requested_quantity):
+    limit = get_post_batch_limit(user)
+
+    if requested_quantity > limit:
+        raise ValueError(
+            "Limite de posts por geracao excedido. "
+            f"Seu plano permite criar ate {limit} post(s) por vez."
+        )
+
+    return {
+        "limit": limit,
+        "requested": requested_quantity,
+    }
+
+
+def ensure_user_image_ai_edit_allowed(user):
+    if can_edit_user_images_with_ai(user):
+        return
+
+    raise ValueError(
+        "Seu plano nao permite editar imagens proprias com IA."
     )
 
 
@@ -358,6 +384,14 @@ def get_monthly_user_image_usage(user):
     )
 
 
+def get_monthly_ai_image_edit_usage(user):
+    return get_monthly_usage(
+        user,
+        UsageEvent.Kind.AI_IMAGE_EDIT,
+        get_ai_image_edit_monthly_limit(user),
+    )
+
+
 def ensure_ai_image_quota(user, requested_quantity):
     usage = get_monthly_ai_image_usage(user)
 
@@ -365,6 +399,18 @@ def ensure_ai_image_quota(user, requested_quantity):
         raise ValueError(
             "Limite mensal de imagens com IA excedido. "
             f"Você ainda pode gerar {usage['remaining']} imagem(ns) este mês."
+        )
+
+    return usage
+
+
+def ensure_ai_image_edit_quota(user, requested_quantity):
+    usage = get_monthly_ai_image_edit_usage(user)
+
+    if requested_quantity > usage["remaining"]:
+        raise ValueError(
+            "Limite mensal de edicoes de imagem com IA excedido. "
+            f"Voce ainda pode editar {usage['remaining']} imagem(ns) este mes."
         )
 
     return usage
@@ -407,6 +453,15 @@ def record_user_image_usage(user, quantity=1, batch=None):
     return record_usage_event(
         user,
         UsageEvent.Kind.USER_POST_IMAGE,
+        quantity=quantity,
+        batch=batch,
+    )
+
+
+def record_ai_image_edit_usage(user, quantity=1, batch=None):
+    return record_usage_event(
+        user,
+        UsageEvent.Kind.AI_IMAGE_EDIT,
         quantity=quantity,
         batch=batch,
     )
