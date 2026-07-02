@@ -304,3 +304,44 @@ def build_user_image_edit_prompt(prompt, brand_visual_identity=""):
         - If the user's request requires changing the main subject, ignore that
           part and preserve the original image.
         """
+
+
+def build_user_background_replace_prompt(
+    prompt,
+    idea,
+    image_prompt,
+    brand_visual_identity="",
+):
+    brand_visual_identity_block = _format_brand_visual_identity_block(
+        brand_visual_identity
+    )
+
+    return f"""
+        Create a new background for the user-provided image while keeping the
+        original main subject ready to be composited on top afterward.
+
+        User's overall request:
+        {prompt}
+
+        Context for this post:
+        - Idea title: {idea.get("title", "")}
+        - Specific theme: {idea.get("theme", "")}
+        - Specific objective: {idea.get("objective", "")}
+        - Editorial format: {idea.get("format", "")}
+        - Creative angle: {idea.get("angle", "")}
+        - Visual direction: {idea.get("visual_direction", "")}
+
+        Post visual prompt:
+        {image_prompt}
+        {brand_visual_identity_block}
+
+        Background instructions:
+        - Generate only the setting/background, without people, faces, bodies,
+          hands, the main product, logos, text, or promotional copy.
+        - Vary the setting, composition, distance, supporting objects, and mood
+          according to this specific post idea.
+        - Stay coherent with the overall request and the brand identity.
+        - Use brand colors only as subtle accents in the environment.
+        - Leave natural space for the original subject to sit in the foreground.
+        - Avoid generic backdrops; create a specific setting for this post.
+        """

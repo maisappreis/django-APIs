@@ -305,3 +305,45 @@ def build_user_image_edit_prompt(prompt, brand_visual_identity=""):
         - Se o pedido do usuario exigir alterar o sujeito principal, ignore
           essa parte e preserve a imagem original.
         """
+
+
+def build_user_background_replace_prompt(
+    prompt,
+    idea,
+    image_prompt,
+    brand_visual_identity="",
+):
+    brand_visual_identity_block = _format_brand_visual_identity_block(
+        brand_visual_identity
+    )
+
+    return f"""
+        Crie um fundo novo para a imagem enviada pelo usuario, mantendo o
+        sujeito principal para ser aplicado por cima depois.
+
+        Pedido geral do usuario:
+        {prompt}
+
+        Contexto deste post:
+        - Titulo da ideia: {idea.get("title", "")}
+        - Tema especifico: {idea.get("theme", "")}
+        - Objetivo especifico: {idea.get("objective", "")}
+        - Formato editorial: {idea.get("format", "")}
+        - Angulo criativo: {idea.get("angle", "")}
+        - Direcao visual: {idea.get("visual_direction", "")}
+
+        Prompt visual do post:
+        {image_prompt}
+        {brand_visual_identity_block}
+
+        Instrucoes para o fundo:
+        - Gere somente o cenario/fundo, sem pessoas, rostos, corpos, maos,
+          produto principal, logos, textos ou chamadas promocionais.
+        - Varie o ambiente, composicao, distancia, objetos de apoio e clima
+          visual de acordo com a ideia deste post.
+        - Preserve coerencia com o pedido geral e com a identidade visual.
+        - Use cores da marca apenas como acentos sutis no ambiente.
+        - Deixe espaco natural para o sujeito original ser colocado em primeiro
+          plano.
+        - Evite fundos genericos; crie um cenario especifico para este post.
+        """

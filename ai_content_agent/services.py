@@ -25,6 +25,7 @@ from ai_content_agent.firebase_cleanup import delete_replaced_firebase_file
 from ai_core.prompts import (
     build_post_plan_prompt,
     build_posts_from_plan_prompt,
+    build_user_background_replace_prompt,
     build_user_image_edit_prompt,
 )
 from ai_content_agent.mocks import (
@@ -105,6 +106,72 @@ def build_user_image_edit_review_prompt(data):
         data.get("image_editing_prompt", ""),
         data.get("brand_visual_identity", ""),
         data.get("content_language", "pt-BR"),
+    )
+
+
+def _build_post_specific_edit_request(data, post_data):
+    idea = post_data.get("idea") or {}
+
+    if data.get("content_language") == "en-US":
+        return f"""
+            User's overall request:
+            {data.get("image_editing_prompt", "")}
+
+            Context for this post:
+            - Idea title: {idea.get("title", "")}
+            - Specific theme: {idea.get("theme", "")}
+            - Specific objective: {idea.get("objective", "")}
+            - Editorial format: {idea.get("format", "")}
+            - Creative angle: {idea.get("angle", "")}
+            - Visual direction: {idea.get("visual_direction", "")}
+
+            Post visual prompt:
+            {post_data.get("image_prompt", "")}
+
+            Adapt the edit to this specific post while keeping the original
+            image recognizable. Use the editorial context only to guide the
+            background, lighting, mood, finish, and peripheral elements.
+            """
+
+    return f"""
+        Pedido geral do usuario:
+        {data.get("image_editing_prompt", "")}
+
+        Contexto deste post:
+        - Titulo da ideia: {idea.get("title", "")}
+        - Tema especifico: {idea.get("theme", "")}
+        - Objetivo especifico: {idea.get("objective", "")}
+        - Formato editorial: {idea.get("format", "")}
+        - Angulo criativo: {idea.get("angle", "")}
+        - Direcao visual: {idea.get("visual_direction", "")}
+
+        Prompt visual do post:
+        {post_data.get("image_prompt", "")}
+
+        Adapte a edicao a este post especifico, mantendo a imagem original
+        reconhecivel e usando o contexto editorial apenas para orientar fundo,
+        luz, clima visual, acabamento e elementos perifericos.
+        """
+
+
+def build_user_post_image_edit_review_prompt(data, post_data):
+    idea = post_data.get("idea") or {}
+    content_language = data.get("content_language", "pt-BR")
+    brand_visual_identity = data.get("brand_visual_identity", "")
+
+    if data.get("image_edit_mode") == "background_replace":
+        return build_user_background_replace_prompt(
+            data.get("image_editing_prompt", ""),
+            idea,
+            post_data.get("image_prompt", ""),
+            brand_visual_identity,
+            content_language,
+        )
+
+    return build_user_image_edit_prompt(
+        _build_post_specific_edit_request(data, post_data),
+        brand_visual_identity,
+        content_language,
     )
 
 
