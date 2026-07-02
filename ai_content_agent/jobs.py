@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from .models import GenerationStatus, PostBatch
 from .operations import (
     create_post_drafts_from_generation_result,
+    ensure_ai_image_edit_quota,
     ensure_ai_image_quota,
     ensure_user_image_quota,
     get_user_brands,
@@ -12,11 +13,13 @@ from .operations import (
     mark_batch_failed,
     mark_batch_pending_review,
     mark_post_completed,
+    record_ai_image_edit_usage,
     record_ai_image_usage,
     record_user_image_usage,
     update_batch_progress,
 )
 from .services import (
+    build_user_image_edit_review_prompt,
     generate_post_batch_draft_content,
     prepare_private_post_source_image_files,
     render_approved_post_image,
@@ -28,9 +31,19 @@ def generate_post_review_batch(user, brand, batch, data):
     result = generate_post_batch_draft_content(data)
     update_batch_progress(batch, 70)
 
+    image_edit_mode = data.get("image_edit_mode", "none")
+    edit_user_image_with_ai = image_edit_mode != "none"
+
     if batch.image_source == "user":
+        image_prompt = ""
+        if edit_user_image_with_ai:
+            if image_edit_mode == "background_replace":
+                image_prompt = data.get("image_editing_prompt", "")
+            else:
+                image_prompt = build_user_image_edit_review_prompt(data)
+
         for post_data in result["posts"]:
-            post_data["image_prompt"] = ""
+            post_data["image_prompt"] = image_prompt
 
     posts = create_post_drafts_from_generation_result(
         user=user,
@@ -40,7 +53,7 @@ def generate_post_review_batch(user, brand, batch, data):
         result=result,
     )
 
-    if batch.image_source == "user":
+    if batch.image_source == "user" and not edit_user_image_with_ai:
         total_posts = len(posts)
 
         for index, post in enumerate(posts):
@@ -54,6 +67,10 @@ def generate_post_review_batch(user, brand, batch, data):
             )
 
         mark_batch_completed(batch, result["strategy_summary"])
+        return batch
+
+    if batch.image_source == "user":
+        mark_batch_pending_review(batch, result["strategy_summary"])
         return batch
 
     mark_batch_pending_review(batch, result["strategy_summary"])
@@ -115,8 +132,18 @@ def run_post_image_generation_job(user_id, batch_id):
             raise ValueError("No posts found for image generation.")
 
         for index, post in enumerate(posts):
-            if batch.image_source == "ai":
-                ensure_ai_image_quota(user, 1)
+            user_image_ai_edit = (
+                batch.image_source == "user"
+                and bool(post.image_prompt)
+            )
+
+            if batch.image_source == "ai" or user_image_ai_edit:
+                if user_image_ai_edit:
+                    ensure_ai_image_edit_quota(user, 1)
+                else:
+                    ensure_ai_image_quota(user, 1)
+            if batch.image_source == "user":
+                ensure_user_image_quota(user, 1)
 
             render_approved_post_image(
                 post,
@@ -124,8 +151,13 @@ def run_post_image_generation_job(user_id, batch_id):
             )
             mark_post_completed(post)
 
-            if batch.image_source == "ai":
-                record_ai_image_usage(user, quantity=1, batch=batch)
+            if batch.image_source == "ai" or user_image_ai_edit:
+                if user_image_ai_edit:
+                    record_ai_image_edit_usage(user, quantity=1, batch=batch)
+                else:
+                    record_ai_image_usage(user, quantity=1, batch=batch)
+            if batch.image_source == "user":
+                record_user_image_usage(user, quantity=1, batch=batch)
 
             update_batch_progress(
                 batch,

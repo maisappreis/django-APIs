@@ -2,6 +2,7 @@ import shutil
 import tempfile
 from datetime import date
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -866,7 +867,7 @@ class ApprovedPostImageRenderTestCase(TestCase):
             brand=brand,
             user=user,
             base_image_url="/media/generated_posts/uploads/user-base.png",
-            image_prompt="Reviewed prompt",
+            image_prompt="",
             image_title="TEXT",
             template="none",
             primary_color="#111111",
@@ -901,6 +902,77 @@ class ApprovedPostImageRenderTestCase(TestCase):
         self.assertEqual(
             rendered_post.image_url,
             "/media/generated_posts/final.png",
+        )
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.get_image_work_path")
+    @patch("ai_content_agent.services.edit_user_post_image_files")
+    def test_render_approved_post_image_edits_uploaded_base_when_prompt_exists(
+        self,
+        edit_user_post_image_files,
+        get_image_work_path,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="edited-upload-owner",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Image Brand",
+            niche="Fitness",
+            content_language="en-US",
+        )
+        post = Post.objects.create(
+            brand=brand,
+            user=user,
+            base_image_url="/media/generated_posts/uploads/user-base.png",
+            image_prompt="Edit prompt",
+            image_title="TEXT",
+            template="none",
+            primary_color="#111111",
+            secondary_color="#222222",
+            tertiary_color="#333333",
+            text_color="#FFFFFF",
+            title_font="inter",
+            subtitle_font="inter",
+            logo_position="",
+            image_format="portrait",
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        get_image_work_path.return_value = Path("/tmp/source.png")
+        edit_user_post_image_files.return_value = {
+            "base": {
+                "image_url": "/media/generated_posts/edited-base.png",
+                "absolute_path": "/tmp/edited-base.png",
+            },
+            "final": {
+                "image_url": "/media/generated_posts/edited-final.png",
+                "absolute_path": "/tmp/edited-final.png",
+            },
+        }
+
+        rendered_post = render_approved_post_image(
+            post,
+            use_existing_base=True,
+        )
+
+        edit_user_post_image_files.assert_called_once_with(
+            Path("/tmp/source.png"),
+            "Edit prompt",
+            image_format="portrait",
+            content_language="en-US",
+            image_edit_mode="full_ai_edit",
+        )
+        render_image_file.assert_called_once()
+        self.assertEqual(
+            rendered_post.base_image_url,
+            "/media/generated_posts/edited-base.png",
+        )
+        self.assertEqual(
+            rendered_post.image_url,
+            "/media/generated_posts/edited-final.png",
         )
 
 
@@ -977,6 +1049,19 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
+    def create_subscription(self, tier):
+        plan = Plan.objects.create(
+            tier=tier,
+            name=tier.title(),
+            price_brl_cents=1000,
+            price_usd_cents=200,
+        )
+        return Subscription.objects.create(
+            user=self.user,
+            plan=plan,
+            status=Subscription.Status.ACTIVE,
+        )
+
     def test_generate_posts_rejects_more_than_seven_posts_per_batch(self):
         response = self.client.post(
             reverse("generate-post-content"),
@@ -1003,7 +1088,35 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("quantity", response.data)
 
+    def test_generate_posts_rejects_multiple_posts_for_free_plan(self):
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "2",
+                "my_images_or_ai": "ai",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "bottom_right",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("posts por geracao", response.data["detail"])
+
     def test_generate_posts_requires_one_user_image_per_post(self):
+        self.create_subscription(Plan.Tier.PLUS)
+
         response = self.client.post(
             reverse("generate-post-content"),
             {
@@ -1041,6 +1154,11 @@ class GeneratePostContentAPITestCase(APITestCase):
             kind=UsageEvent.Kind.USER_POST_IMAGE,
             quantity=2,
         )
+        UsageEvent.objects.create(
+            user=self.user,
+            kind=UsageEvent.Kind.AI_IMAGE_EDIT,
+            quantity=1,
+        )
 
         response = self.client.get(reverse("content-agent-usage"))
 
@@ -1049,14 +1167,18 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertEqual(response.data["ai_images"]["limit"], 3)
         self.assertEqual(response.data["ai_images"]["remaining"], 2)
         self.assertEqual(response.data["user_images"]["used"], 2)
-        self.assertEqual(response.data["user_images"]["limit"], 10)
-        self.assertEqual(response.data["user_images"]["remaining"], 8)
+        self.assertEqual(response.data["user_images"]["limit"], 5)
+        self.assertEqual(response.data["user_images"]["remaining"], 3)
+        self.assertEqual(response.data["ai_image_edits"]["used"], 1)
+        self.assertEqual(response.data["ai_image_edits"]["limit"], 3)
+        self.assertEqual(response.data["ai_image_edits"]["remaining"], 2)
 
     def test_generate_posts_blocks_ai_images_when_monthly_quota_is_exceeded(self):
+        self.create_subscription(Plan.Tier.PLUS)
         UsageEvent.objects.create(
             user=self.user,
             kind=UsageEvent.Kind.AI_POST_IMAGE,
-            quantity=2,
+            quantity=14,
         )
 
         response = self.client.post(
@@ -1085,10 +1207,11 @@ class GeneratePostContentAPITestCase(APITestCase):
         self.assertIn("Limite mensal", response.data["detail"])
 
     def test_generate_posts_blocks_user_images_when_monthly_quota_is_exceeded(self):
+        self.create_subscription(Plan.Tier.PLUS)
         UsageEvent.objects.create(
             user=self.user,
             kind=UsageEvent.Kind.USER_POST_IMAGE,
-            quantity=9,
+            quantity=29,
         )
 
         response = self.client.post(

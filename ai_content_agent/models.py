@@ -136,6 +136,7 @@ class Post(models.Model):
     caption = models.TextField(blank=True)
     hashtags = models.JSONField(default=list, blank=True)
     image_prompt = models.TextField(blank=True)
+    image_edit_mode = models.CharField(max_length=30, default="none")
     image_title = models.CharField(max_length=120, blank=True)
     image_subtitle = models.CharField(max_length=180, blank=True)
     base_image_url = models.CharField(max_length=500, blank=True)
@@ -186,6 +187,7 @@ class UsageEvent(models.Model):
     class Kind(models.TextChoices):
         AI_POST_IMAGE = "ai_post_image", "AI post image"
         USER_POST_IMAGE = "user_post_image", "User post image"
+        AI_IMAGE_EDIT = "ai_image_edit", "AI image edit"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

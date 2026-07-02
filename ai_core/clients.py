@@ -1,12 +1,17 @@
 import json
 import base64
 import mimetypes
+import os
+import time
 from copy import deepcopy
+from io import BytesIO
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from openai import OpenAI
+from PIL import Image, ImageOps
 from pathlib import Path
+import requests
 from shutil import copyfile
 from uuid import uuid4
 
@@ -21,14 +26,21 @@ from ai_core.prompts import (
 IMAGE_FORMATS = {
     "square": {
         "size": "1024x1024",
+        "aspect_ratio": "1:1",
     },
     "portrait": {
         "size": "1024x1536",
+        "aspect_ratio": "2:3",
     },
     "landscape": {
         "size": "1536x1024",
+        "aspect_ratio": "3:2",
     },
 }
+
+IMAGE_EDIT_MODE_NONE = "none"
+IMAGE_EDIT_MODE_FULL_AI_EDIT = "full_ai_edit"
+IMAGE_EDIT_MODE_BACKGROUND_REPLACE = "background_replace"
 
 
 POST_CONTENT_SCHEMA = {
@@ -241,6 +253,43 @@ def get_openai_client():
     return OpenAI(api_key=api_key)
 
 
+def _get_fal_api_key():
+    api_key = getattr(settings, "FAL_KEY", None)
+
+    if not api_key:
+        raise ImproperlyConfigured("FAL_KEY is not configured.")
+
+    return api_key
+
+
+def _get_fal_headers():
+    return {
+        "accept": "application/json",
+        "Authorization": f"Key {_get_fal_api_key()}",
+        "Content-Type": "application/json",
+    }
+
+
+def _upload_fal_image(image_bytes, content_type="image/png"):
+    try:
+        import fal_client
+    except ImportError as error:
+        raise ImproperlyConfigured(
+            "fal-client is required for FLUX image editing via fal.ai."
+        ) from error
+
+    previous_key = os.environ.get("FAL_KEY")
+    os.environ["FAL_KEY"] = _get_fal_api_key()
+
+    try:
+        return fal_client.upload(image_bytes, content_type)
+    finally:
+        if previous_key is None:
+            os.environ.pop("FAL_KEY", None)
+        else:
+            os.environ["FAL_KEY"] = previous_key
+
+
 def _get_language_neutral_schema(schema):
     schema = deepcopy(schema)
 
@@ -390,6 +439,316 @@ def _generate_image_bytes(
     return base64.b64decode(image_base64)
 
 
+def _prepare_image_edit_source(source_image_path):
+    source_image_path = Path(source_image_path)
+    edit_source_path = (
+        Path(settings.MEDIA_ROOT)
+        / "work"
+        / "image-edits"
+        / f"source-{uuid4()}.png"
+    )
+    edit_source_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with Image.open(source_image_path) as image:
+        image = ImageOps.exif_transpose(image)
+        image.convert("RGBA").save(edit_source_path, format="PNG")
+
+    return edit_source_path
+
+
+def _submit_flux_image_edit(image_data_url, prompt, format_config):
+    base_url = getattr(settings, "FAL_QUEUE_BASE_URL", "https://queue.fal.run").rstrip("/")
+    model = getattr(settings, "FAL_IMAGE_EDIT_MODEL", "fal-ai/flux-pro/kontext")
+    payload = {
+        "prompt": prompt,
+        "image_url": image_data_url,
+        "output_format": "png",
+        "guidance_scale": getattr(settings, "FAL_IMAGE_EDIT_GUIDANCE_SCALE", 3.5),
+        "num_images": 1,
+        "enhance_prompt": getattr(
+            settings,
+            "FAL_IMAGE_EDIT_ENHANCE_PROMPT",
+            True,
+        ),
+        "safety_tolerance": getattr(
+            settings,
+            "FAL_IMAGE_EDIT_SAFETY_TOLERANCE",
+            "5",
+        ),
+    }
+    aspect_ratio = getattr(settings, "FAL_IMAGE_EDIT_ASPECT_RATIO", "")
+    seed = getattr(settings, "FAL_IMAGE_EDIT_SEED", "")
+
+    if aspect_ratio:
+        payload["aspect_ratio"] = aspect_ratio
+    if seed:
+        payload["seed"] = int(seed)
+
+    response = requests.post(
+        f"{base_url}/{model}",
+        headers=_get_fal_headers(),
+        json=payload,
+        timeout=30,
+    )
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise RuntimeError(
+            f"FLUX image edit request failed via fal.ai: {response.status_code} "
+            f"{response.text[:500]}"
+        ) from error
+    return response.json()
+
+
+def _build_flux_generation_payload(prompt):
+    payload = {
+        "prompt": prompt,
+        "output_format": "png",
+        "guidance_scale": getattr(settings, "FAL_IMAGE_EDIT_GUIDANCE_SCALE", 3.5),
+        "num_images": 1,
+        "enhance_prompt": getattr(
+            settings,
+            "FAL_IMAGE_EDIT_ENHANCE_PROMPT",
+            True,
+        ),
+        "safety_tolerance": getattr(
+            settings,
+            "FAL_IMAGE_EDIT_SAFETY_TOLERANCE",
+            "5",
+        ),
+    }
+    aspect_ratio = getattr(settings, "FAL_IMAGE_EDIT_ASPECT_RATIO", "")
+    seed = getattr(settings, "FAL_IMAGE_EDIT_SEED", "")
+
+    if aspect_ratio:
+        payload["aspect_ratio"] = aspect_ratio
+    if seed:
+        payload["seed"] = int(seed)
+
+    return payload
+
+
+def _submit_flux_image_generation(prompt, format_config):
+    base_url = getattr(settings, "FAL_QUEUE_BASE_URL", "https://queue.fal.run").rstrip("/")
+    model = getattr(settings, "FAL_BACKGROUND_GENERATION_MODEL", "fal-ai/flux-pro")
+    response = requests.post(
+        f"{base_url}/{model}",
+        headers=_get_fal_headers(),
+        json=_build_flux_generation_payload(prompt),
+        timeout=30,
+    )
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise RuntimeError(
+            f"FLUX background request failed via fal.ai: {response.status_code} "
+            f"{response.text[:500]}"
+        ) from error
+    return response.json()
+
+
+def _run_fal_sync_model(model, payload):
+    base_url = getattr(settings, "FAL_SYNC_BASE_URL", "https://fal.run").rstrip("/")
+    response = requests.post(
+        f"{base_url}/{model}",
+        headers=_get_fal_headers(),
+        json=payload,
+        timeout=120,
+    )
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise RuntimeError(
+            f"fal.ai request failed: {response.status_code} {response.text[:500]}"
+        ) from error
+    return response.json()
+
+
+def _poll_flux_result(status_url):
+    timeout_seconds = getattr(settings, "FAL_IMAGE_EDIT_TIMEOUT_SECONDS", 120)
+    poll_interval = getattr(settings, "FAL_IMAGE_EDIT_POLL_INTERVAL_SECONDS", 0.5)
+    deadline = time.monotonic() + timeout_seconds
+
+    while time.monotonic() < deadline:
+        response = requests.get(
+            status_url,
+            headers=_get_fal_headers(),
+            timeout=30,
+        )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            raise RuntimeError(
+                f"FLUX request status failed via fal.ai: "
+                f"{response.status_code} {response.text[:500]}"
+            ) from error
+        result = response.json()
+        status = result.get("status")
+
+        if status == "COMPLETED":
+            if result.get("error"):
+                raise RuntimeError(f"FLUX image edit failed via fal.ai: {result}")
+            return result
+        if status in {"FAILED", "ERROR"}:
+            raise RuntimeError(f"FLUX image edit failed via fal.ai: {result}")
+
+        time.sleep(poll_interval)
+
+    raise TimeoutError("FLUX image edit timed out.")
+
+
+def _download_url_bytes(image_url):
+    response = requests.get(image_url, timeout=30)
+    response.raise_for_status()
+    return response.content
+
+
+def _download_flux_image(result):
+    response_url = result.get("response_url")
+
+    if not response_url:
+        raise RuntimeError(f"FLUX image edit did not return a response URL: {result}")
+
+    response = requests.get(
+        response_url,
+        headers=_get_fal_headers(),
+        timeout=30,
+    )
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise RuntimeError(
+            f"FLUX result request failed via fal.ai: "
+            f"{response.status_code} {response.text[:500]}"
+        ) from error
+    result_data = response.json()
+    images = result_data.get("images") or []
+    image_url = images[0].get("url") if images else None
+
+    if not image_url:
+        raise RuntimeError(f"FLUX image edit did not return an image URL: {result_data}")
+
+    return _download_url_bytes(image_url)
+
+
+def _remove_background_from_url(image_url):
+    model = getattr(settings, "FAL_BACKGROUND_REMOVAL_MODEL", "fal-ai/birefnet/v2")
+    result = _run_fal_sync_model(
+        model,
+        {
+            "image_url": image_url,
+            "model": getattr(
+                settings,
+                "FAL_BACKGROUND_REMOVAL_VARIANT",
+                "Portrait",
+            ),
+            "operating_resolution": getattr(
+                settings,
+                "FAL_BACKGROUND_REMOVAL_RESOLUTION",
+                "1024x1024",
+            ),
+            "output_mask": False,
+            "refine_foreground": True,
+            "sync_mode": False,
+            "output_format": "png",
+            "mask_only": False,
+        },
+    )
+    output_url = (result.get("image") or {}).get("url")
+
+    if not output_url:
+        raise RuntimeError(f"Background removal did not return an image URL: {result}")
+
+    return _download_url_bytes(output_url)
+
+
+def _build_background_generation_prompt(prompt):
+    return (
+        "Create only a background scene for a social media image. "
+        "Do not include people, faces, bodies, hands, products, logos, labels, "
+        "text, or foreground objects. Leave natural open space for the original "
+        "foreground subject to be placed on top. Background request: "
+        f"{prompt}"
+    )
+
+
+def _generate_background_bytes(prompt, format_config):
+    submission = _submit_flux_image_generation(
+        _build_background_generation_prompt(prompt),
+        format_config,
+    )
+    result = _poll_flux_result(submission["status_url"])
+    return _download_flux_image(result)
+
+
+def _compose_foreground_on_background(foreground_bytes, background_bytes):
+    with Image.open(BytesIO(foreground_bytes)) as foreground_image:
+        foreground = foreground_image.convert("RGBA")
+
+    with Image.open(BytesIO(background_bytes)) as background_image:
+        background = background_image.convert("RGBA")
+
+    resampling = getattr(Image, "Resampling", Image).LANCZOS
+    background = ImageOps.fit(background, foreground.size, method=resampling)
+    background.alpha_composite(foreground)
+
+    output = BytesIO()
+    background.save(output, format="PNG")
+    return output.getvalue()
+
+
+def _replace_background_image_bytes(source_image_path, prompt, format_config):
+    edit_source_path = _prepare_image_edit_source(source_image_path)
+
+    try:
+        with edit_source_path.open("rb") as image_file:
+            image_url = _upload_fal_image(image_file.read(), "image/png")
+
+        foreground_bytes = _remove_background_from_url(image_url)
+        background_bytes = _generate_background_bytes(prompt, format_config)
+        return _compose_foreground_on_background(
+            foreground_bytes,
+            background_bytes,
+        )
+    finally:
+        edit_source_path.unlink(missing_ok=True)
+
+
+def _run_full_ai_image_edit(source_image_path, prompt, format_config):
+    edit_source_path = _prepare_image_edit_source(source_image_path)
+
+    try:
+        with edit_source_path.open("rb") as image_file:
+            image_url = _upload_fal_image(image_file.read(), "image/png")
+        submission = _submit_flux_image_edit(image_url, prompt, format_config)
+        result = _poll_flux_result(submission["status_url"])
+        return _download_flux_image(result)
+    finally:
+        edit_source_path.unlink(missing_ok=True)
+
+
+def _edit_image_bytes(
+    source_image_path,
+    prompt,
+    image_format="square",
+    content_language="pt-BR",
+    image_edit_mode=IMAGE_EDIT_MODE_FULL_AI_EDIT,
+):
+    format_config = _get_image_format_config(image_format)
+
+    if image_edit_mode == IMAGE_EDIT_MODE_BACKGROUND_REPLACE:
+        return _replace_background_image_bytes(
+            source_image_path,
+            prompt,
+            format_config,
+        )
+
+    if image_edit_mode != IMAGE_EDIT_MODE_FULL_AI_EDIT:
+        raise ValueError(f"Unsupported image edit mode: {image_edit_mode}")
+
+    return _run_full_ai_image_edit(source_image_path, prompt, format_config)
+
+
 def _build_image_generation_prompt(
     prompt,
     image_format="square",
@@ -435,6 +794,39 @@ def generate_image_files(
     image_id = uuid4()
     base_relative_path = Path("generated_posts") / f"base-{image_id}.png"
     final_relative_path = Path("generated_posts") / f"final-{image_id}.png"
+    base_data = _build_generated_image_data(base_relative_path)
+    final_data = _build_generated_image_data(final_relative_path)
+    base_absolute_path = Path(base_data["absolute_path"])
+    final_absolute_path = Path(final_data["absolute_path"])
+
+    base_absolute_path.parent.mkdir(parents=True, exist_ok=True)
+    base_absolute_path.write_bytes(image_bytes)
+    copyfile(base_absolute_path, final_absolute_path)
+
+    return {
+        "base": base_data,
+        "final": final_data,
+    }
+
+
+def edit_image_files(
+    source_image_path,
+    prompt,
+    image_format="square",
+    content_language="pt-BR",
+    image_edit_mode=IMAGE_EDIT_MODE_FULL_AI_EDIT,
+):
+    image_bytes = _edit_image_bytes(
+        source_image_path,
+        prompt,
+        image_format=image_format,
+        content_language=content_language,
+        image_edit_mode=image_edit_mode,
+    )
+
+    image_id = uuid4()
+    base_relative_path = Path("generated_posts") / f"edited-base-{image_id}.png"
+    final_relative_path = Path("generated_posts") / f"edited-final-{image_id}.png"
     base_data = _build_generated_image_data(base_relative_path)
     final_data = _build_generated_image_data(final_relative_path)
     base_absolute_path = Path(base_data["absolute_path"])

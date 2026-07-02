@@ -41,6 +41,7 @@ def serialize_post_generation(post_generation):
         "caption": post_generation.caption,
         "hashtags": post_generation.hashtags,
         "image_prompt": post_generation.image_prompt,
+        "image_edit_mode": post_generation.image_edit_mode,
         "base_image_url": generate_private_read_url(
             post_generation.base_image_url
         ),
@@ -63,6 +64,7 @@ def serialize_post_batch(batch):
     return {
         "batch_id": batch.id,
         "quantity": batch.quantity,
+        "image_source": batch.image_source,
         "image_format": batch.image_format,
         "strategy_summary": batch.strategy_summary,
         "posts": [

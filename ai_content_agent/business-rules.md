@@ -9,19 +9,22 @@
 # Free
 - Sem captura de identidade visual
 - Gere até 3 posts com imagens criadas pela IA por mês
-- Gere até 10 posts com imagens próprias por mês
+- Gere até 3 posts com imagens editadas pela IA por mês
+- Gere até 5 posts com imagens próprias por mês
 - Pode criar apenas 1 post por vez
 
 # Plus
 - Com captura de identidade visual para 1 marca
-- Gere até 30 posts com imagens criadas pela IA por mês
-- Gere até 60 posts com imagens próprias por mês
+- Gere até 15 posts com imagens criadas pela IA por mês
+- Gere até 15 posts com imagens editadas pela IA por mês
+- Gere até 30 posts com imagens próprias por mês
 - Pode criar vários post por vez
 
 # Pro
 - Com captura de identidade visual para 3 marcas
-- Gere até 60 posts com imagens criadas pela IA por mês
-- Gere até 60 posts com imagens próprias por mês
+- Gere até 30 posts com imagens criadas pela IA por mês
+- Gere até 30 posts com imagens editadas pela IA por mês
+- Gere até 30 posts com imagens próprias por mês
 - Pode criar vários post por vez
 
 

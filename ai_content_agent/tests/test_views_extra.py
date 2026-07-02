@@ -508,6 +508,136 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertIn("job_id", response.data)
         enqueue_generation.assert_called_once()
 
+    def test_generate_posts_rejects_ai_edit_for_ai_images(self):
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="ai",
+                image_edit_mode="full_ai_edit",
+                image_editing_prompt="Improve lighting",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("imagens proprias", response.data["detail"])
+
+    def test_generate_posts_rejects_ai_edit_without_prompt(self):
+        create_subscription(self.user, tier=Plan.Tier.PRO)
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                images=[get_uploaded_image("post.gif")],
+                image_edit_mode="full_ai_edit",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("prompt", response.data["detail"])
+
+    def test_generate_posts_rejects_user_ai_edit_when_edit_quota_is_exceeded(self):
+        UsageEvent.objects.create(
+            user=self.user,
+            kind=UsageEvent.Kind.AI_IMAGE_EDIT,
+            quantity=3,
+        )
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                images=[get_uploaded_image("post.gif")],
+                image_edit_mode="full_ai_edit",
+                image_editing_prompt="Improve lighting",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("edicoes de imagem", response.data["detail"])
+
+    @patch("ai_content_agent.views.prepare_uploaded_post_image_files")
+    @patch("ai_content_agent.views.generate_post_review_batch")
+    def test_generate_posts_allows_user_ai_edit_for_pro_user(
+        self,
+        generate_review,
+        prepare_images,
+    ):
+        create_subscription(self.user, tier=Plan.Tier.PRO)
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+            image_source="user",
+        )
+        create_post(
+            user=self.user,
+            brand=self.brand,
+            batch=batch,
+            status=GenerationStatus.PENDING_REVIEW,
+            image_prompt="Edit prompt",
+        )
+        generate_review.return_value = batch
+        prepare_images.return_value = [{"base": {}, "final": {}}]
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                images=[get_uploaded_image("post.gif")],
+                image_edit_mode="full_ai_edit",
+                image_editing_prompt="Improve lighting",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["image_source"], "user")
+        generate_review.assert_called_once()
+        self.assertEqual(
+            generate_review.call_args.kwargs["data"]["image_edit_mode"],
+            "full_ai_edit",
+        )
+
+    @patch("ai_content_agent.views.prepare_uploaded_post_image_files")
+    @patch("ai_content_agent.views.generate_post_review_batch")
+    def test_generate_posts_accepts_background_replace_mode(
+        self,
+        generate_review,
+        prepare_images,
+    ):
+        create_subscription(self.user, tier=Plan.Tier.PRO)
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+            image_source="user",
+        )
+        generate_review.return_value = batch
+        prepare_images.return_value = [{"base": {}, "final": {}}]
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                images=[get_uploaded_image("post.gif")],
+                image_edit_mode="background_replace",
+                image_editing_prompt="Clean studio background",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            generate_review.call_args.kwargs["data"]["image_edit_mode"],
+            "background_replace",
+        )
+
     @patch("ai_content_agent.views.prepare_uploaded_post_image_files")
     @patch("ai_content_agent.views.generate_post_review_batch")
     def test_generate_posts_with_user_images_prepares_images_and_returns_batch(
@@ -818,6 +948,46 @@ class ContentAgentViewExtraTest(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        enqueue.assert_not_called()
+
+    @patch("ai_content_agent.views.enqueue_post_image_generation")
+    def test_approve_prompts_returns_403_when_ai_edit_quota_is_exceeded(
+        self,
+        enqueue,
+    ):
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING_REVIEW,
+            image_source="user",
+        )
+        post = create_post(
+            user=self.user,
+            brand=self.brand,
+            batch=batch,
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        UsageEvent.objects.create(
+            user=self.user,
+            kind=UsageEvent.Kind.AI_IMAGE_EDIT,
+            quantity=3,
+        )
+
+        response = self.client.post(
+            reverse("approve-post-prompts", kwargs={"batch_id": batch.id}),
+            {
+                "posts": [
+                    {
+                        "id": post.id,
+                        "image_prompt": "Reviewed",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("edicoes de imagem", response.data["detail"])
         enqueue.assert_not_called()
 
     @patch("ai_content_agent.views.rerender_post_image")

@@ -24,6 +24,9 @@ BRAND_REFERENCE_IMAGE_FORMATS = {
     "image/png": "PNG",
     "image/webp": "WEBP",
 }
+COMPATIBLE_IMAGE_FORMATS = {
+    "JPEG": {"JPEG", "MPO"},
+}
 MAX_BRAND_REFERENCE_SIZE = 10 * 1024 * 1024
 
 
@@ -137,6 +140,14 @@ def generate_post_source_upload_url(user_id, content_type):
     }
 
 
+def _image_format_matches(expected_format, actual_format):
+    compatible_formats = COMPATIBLE_IMAGE_FORMATS.get(
+        expected_format,
+        {expected_format},
+    )
+    return actual_format in compatible_formats
+
+
 def consume_post_source_upload(user_id, object_path):
     pattern = re.compile(
         rf"^users/{user_id}/pending/post-source-images/"
@@ -168,7 +179,7 @@ def consume_post_source_upload(user_id, object_path):
             actual_format = image.format
     except (UnidentifiedImageError, OSError) as error:
         raise ValueError("O arquivo enviado não é uma imagem válida.") from error
-    if actual_format != expected_format:
+    if not _image_format_matches(expected_format, actual_format):
         raise ValueError("O conteúdo da imagem não corresponde ao tipo informado.")
 
     blob.delete()
@@ -224,7 +235,7 @@ def finalize_brand_reference_upload(
     except (UnidentifiedImageError, OSError) as error:
         raise ValueError("O arquivo enviado não é uma imagem válida.") from error
 
-    if actual_format != expected_format:
+    if not _image_format_matches(expected_format, actual_format):
         raise ValueError("O conteúdo da imagem não corresponde ao tipo informado.")
 
     extension = BRAND_REFERENCE_CONTENT_TYPE_EXTENSIONS[content_type]

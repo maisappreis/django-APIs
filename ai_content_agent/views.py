@@ -27,12 +27,16 @@ from .operations import (
     build_post_visual_settings,
     create_post_batch,
     delete_post_generation,
+    ensure_ai_image_edit_quota,
     ensure_brand_quota,
     ensure_ai_image_quota,
+    ensure_post_batch_quantity_allowed,
     ensure_user_image_quota,
+    ensure_user_image_ai_edit_allowed,
     ensure_visual_identity_capture_allowed,
     get_brand_by_id_for_user,
     get_future_scheduled_posts,
+    get_monthly_ai_image_edit_usage,
     get_monthly_ai_image_usage,
     get_monthly_user_image_usage,
     get_or_create_brand,
@@ -483,6 +487,14 @@ class GeneratePostContentAPIView(APIView):
         image_object_paths = request.data.getlist("image_object_paths")
         received_images = image_object_paths or data["images"]
 
+        try:
+            ensure_post_batch_quantity_allowed(request.user, data["quantity"])
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         if data["my_images_or_ai"] == "user" and (
             len(received_images) != data["quantity"]
         ):
@@ -499,6 +511,30 @@ class GeneratePostContentAPIView(APIView):
             )
 
         queue_backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
+        image_edit_mode = data.get("image_edit_mode", "none")
+        data["image_edit_mode"] = image_edit_mode
+        has_image_edit = image_edit_mode != "none"
+
+        if has_image_edit and data["my_images_or_ai"] != "user":
+            return Response(
+                {
+                    "detail": (
+                        "A edicao de imagem com IA esta disponivel apenas "
+                        "para imagens proprias."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if has_image_edit and not data.get("image_editing_prompt", "").strip():
+            return Response(
+                {
+                    "detail": (
+                        "Informe o prompt de edicao da imagem."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if data["my_images_or_ai"] == "ai":
             try:
@@ -511,6 +547,9 @@ class GeneratePostContentAPIView(APIView):
         else:
             try:
                 ensure_user_image_quota(request.user, data["quantity"])
+                if has_image_edit:
+                    ensure_user_image_ai_edit_allowed(request.user)
+                    ensure_ai_image_edit_quota(request.user, data["quantity"])
             except ValueError as error:
                 return Response(
                     {"detail": str(error)},
@@ -574,8 +613,15 @@ class GeneratePostContentAPIView(APIView):
                     batch.id,
                 )
                 mark_batch_failed(batch, error)
+                response_data = {
+                    "detail": "Nao foi possivel enfileirar a geracao.",
+                }
+
+                if settings.DEBUG:
+                    response_data["error"] = str(error)
+
                 return Response(
-                    {"detail": "Nao foi possivel enfileirar a geracao."},
+                    response_data,
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
@@ -745,15 +791,42 @@ class ApprovePostPromptsAPIView(APIView):
             post.image_prompt = prompt_items_by_id[post.id]["image_prompt"]
             post.save(update_fields=["image_prompt"])
 
-        ai_posts_count = sum(
-            batch.posts.filter(status=GenerationStatus.PENDING_REVIEW).count()
-            for batch in batches_by_id.values()
-            if batch.image_source == "ai"
-        )
+        ai_posts_count = 0
+        ai_edit_posts_count = 0
+        user_posts_count = 0
+
+        for batch in batches_by_id.values():
+            pending_posts_count = batch.posts.filter(
+                status=GenerationStatus.PENDING_REVIEW
+            ).count()
+
+            if batch.image_source == "ai":
+                ai_posts_count += pending_posts_count
+            elif batch.image_source == "user":
+                user_posts_count += pending_posts_count
+                ai_edit_posts_count += pending_posts_count
 
         if ai_posts_count:
             try:
                 ensure_ai_image_quota(request.user, ai_posts_count)
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        if ai_edit_posts_count:
+            try:
+                ensure_ai_image_edit_quota(request.user, ai_edit_posts_count)
+            except ValueError as error:
+                return Response(
+                    {"detail": str(error)},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        if user_posts_count:
+            try:
+                ensure_user_image_quota(request.user, user_posts_count)
             except ValueError as error:
                 return Response(
                     {"detail": str(error)},
@@ -773,8 +846,15 @@ class ApprovePostPromptsAPIView(APIView):
                     batch.id,
                 )
                 mark_batch_failed(batch, error)
+                response_data = {
+                    "detail": "Nao foi possivel enfileirar a geracao.",
+                }
+
+                if settings.DEBUG:
+                    response_data["error"] = str(error)
+
                 return Response(
-                    {"detail": "Nao foi possivel enfileirar a geracao."},
+                    response_data,
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             batch.refresh_from_db()
@@ -870,6 +950,7 @@ class ContentAgentUsageAPIView(APIView):
             {
                 "ai_images": get_monthly_ai_image_usage(request.user),
                 "user_images": get_monthly_user_image_usage(request.user),
+                "ai_image_edits": get_monthly_ai_image_edit_usage(request.user),
             }
         )
 

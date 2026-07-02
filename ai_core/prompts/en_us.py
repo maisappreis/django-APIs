@@ -14,9 +14,32 @@ IMAGE_FORMAT_LABELS = {
 }
 
 
+def _format_brand_visual_identity(value):
+    value = (value or "").strip()
+
+    if not value:
+        return ""
+
+    return f"        Brand visual identity: {value}\n"
+
+
+def _format_brand_visual_identity_block(value):
+    value = (value or "").strip()
+
+    if not value:
+        return ""
+
+    return f"""
+        Brand visual identity:
+        {value}
+"""
+
+
 def build_post_plan_prompt(data):
     quantity = data["quantity"]
-    brand_visual_identity = data.get("brand_visual_identity", "")
+    brand_visual_identity = _format_brand_visual_identity(
+        data.get("brand_visual_identity", "")
+    )
 
     return f"""
         Create an editorial calendar with exactly {quantity} distinct social
@@ -27,7 +50,7 @@ def build_post_plan_prompt(data):
         Primary objective: {data["objective"]}
         Tone of voice: {data["tone"]}
         Main theme or campaign: {data["theme"]}
-        Brand visual identity: {brand_visual_identity}
+        {brand_visual_identity}
 
         Strategic priorities:
         - The main theme or campaign must guide every post.
@@ -61,6 +84,10 @@ def build_post_plan_prompt(data):
 
 
 def build_post_from_idea_prompt(data, idea, index, total):
+    brand_visual_identity = _format_brand_visual_identity(
+        data.get("brand_visual_identity", "")
+    )
+
     return f"""
         Turn the editorial idea below into a publication-ready social post.
 
@@ -69,7 +96,7 @@ def build_post_from_idea_prompt(data, idea, index, total):
         Primary objective: {data["objective"]}
         Tone of voice: {data["tone"]}
         Main campaign: {data["theme"]}
-        Brand visual identity: {data.get("brand_visual_identity", "")}
+        {brand_visual_identity}
 
         Post {index} of {total}
         Idea title: {idea["title"]}
@@ -120,6 +147,10 @@ def _format_plan(ideas):
 
 def build_posts_from_plan_prompt(data, ideas):
     quantity = data["quantity"]
+    brand_visual_identity = _format_brand_visual_identity(
+        data.get("brand_visual_identity", "")
+    )
+
     return f"""
         Turn the editorial plan below into exactly {quantity} publication-ready
         social media posts.
@@ -129,7 +160,7 @@ def build_posts_from_plan_prompt(data, ideas):
         Primary objective: {data["objective"]}
         Tone of voice: {data["tone"]}
         Main campaign: {data["theme"]}
-        Brand visual identity: {data.get("brand_visual_identity", "")}
+        {brand_visual_identity}
 
         Editorial plan:
         {_format_plan(ideas)}
@@ -234,4 +265,42 @@ def build_image_generation_prompt(prompt, image_format="square"):
         - Preserve natural texture, light, contrast, and color.
         - Leave clean space in the center for text added by the backend.
         - Favor a modern, professional composition appropriate for the business.
+        """
+
+
+def build_user_image_edit_prompt(prompt, brand_visual_identity=""):
+    brand_visual_identity_block = _format_brand_visual_identity_block(
+        brand_visual_identity
+    )
+
+    return f"""
+        Edit the user-provided image in conservative mode for a social media
+        post. This is a localized retouching task, not an image recreation task.
+
+        User request:
+        {prompt}
+        {brand_visual_identity_block}
+
+        Mandatory instructions:
+        - Preserve the main content of the uploaded image with high fidelity.
+        - Do not recreate the photo from scratch, do not replace the main
+          subject, and do not turn the image into a new scene.
+        - If there is a person, preserve identity, face, apparent age, skin
+          tone, body, pose, expression, and hair. Do not turn the
+          person into another person.
+        - If there is a product, environment, main object, logo, or essential
+          text, preserve its shape, position, and information.
+        - Change only the background, lighting, contrast, color, sharpness,
+          exposure, shadows, visual finish, or peripheral elements that are not
+          the main subject.
+        - Do not edit the face, hair, body, clothing, hands, product, or main
+          object, even if the user's request is broad.
+        - Use the visual identity only as a subtle reference for mood, finish,
+          color temperature, and background accents.
+        - Do not add new objects around the main subject unless the request
+          clearly mentions background elements.
+        - Do not add a title, headline, slogan, or promotional copy.
+        - Keep the result natural, professional, and suitable for advertising.
+        - If the user's request requires changing the main subject, ignore that
+          part and preserve the original image.
         """
