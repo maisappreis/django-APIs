@@ -19,7 +19,7 @@ from .operations import (
     update_batch_progress,
 )
 from .services import (
-    build_user_image_edit_review_prompt,
+    build_user_post_image_edit_review_prompt,
     generate_post_batch_draft_content,
     prepare_private_post_source_image_files,
     render_approved_post_image,
@@ -35,15 +35,14 @@ def generate_post_review_batch(user, brand, batch, data):
     edit_user_image_with_ai = image_edit_mode != "none"
 
     if batch.image_source == "user":
-        image_prompt = ""
-        if edit_user_image_with_ai:
-            if image_edit_mode == "background_replace":
-                image_prompt = data.get("image_editing_prompt", "")
-            else:
-                image_prompt = build_user_image_edit_review_prompt(data)
-
         for post_data in result["posts"]:
-            post_data["image_prompt"] = image_prompt
+            if edit_user_image_with_ai:
+                post_data["image_prompt"] = build_user_post_image_edit_review_prompt(
+                    data,
+                    post_data,
+                )
+            else:
+                post_data["image_prompt"] = ""
 
     posts = create_post_drafts_from_generation_result(
         user=user,

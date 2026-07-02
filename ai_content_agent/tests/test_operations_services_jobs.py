@@ -48,6 +48,7 @@ from ai_content_agent.services import (
     _get_template_color_kwargs,
     analyze_brand_visual_identity,
     build_user_image_edit_review_prompt,
+    build_user_post_image_edit_review_prompt,
     build_post_draft_content,
     create_final_image_from_base,
     edit_user_post_image_files,
@@ -656,6 +657,58 @@ class ServicesTest(SimpleTestCase):
         self.assertIn("Use green accents.", prompt)
         self.assertIn("Preserve the main content", prompt)
 
+    def test_build_user_post_image_edit_review_prompt_uses_post_context(self):
+        prompt = build_user_post_image_edit_review_prompt(
+            {
+                "image_editing_prompt": "Improve lighting",
+                "brand_visual_identity": "Use green accents.",
+                "content_language": "en-US",
+                "image_edit_mode": "full_ai_edit",
+            },
+            get_post_result(
+                image_prompt="Customer using the product",
+                idea={
+                    "title": "Customer story",
+                    "theme": "Proof",
+                    "objective": "Build trust",
+                    "format": "social proof",
+                    "angle": "Before and after",
+                    "visual_direction": "Warm testimonial scene",
+                },
+            ),
+        )
+
+        self.assertIn("Improve lighting", prompt)
+        self.assertIn("Customer story", prompt)
+        self.assertIn("Customer using the product", prompt)
+        self.assertIn("Preserve the main content", prompt)
+
+    def test_background_replace_prompt_uses_post_context(self):
+        prompt = build_user_post_image_edit_review_prompt(
+            {
+                "image_editing_prompt": "Clean studio background",
+                "brand_visual_identity": "Use green accents.",
+                "content_language": "en-US",
+                "image_edit_mode": "background_replace",
+            },
+            get_post_result(
+                image_prompt="Product on a reception counter",
+                idea={
+                    "title": "Premium service",
+                    "theme": "Offer",
+                    "objective": "Sell",
+                    "format": "offer",
+                    "angle": "Exclusive detail",
+                    "visual_direction": "Modern clinic reception",
+                },
+            ),
+        )
+
+        self.assertIn("Clean studio background", prompt)
+        self.assertIn("Premium service", prompt)
+        self.assertIn("Product on a reception counter", prompt)
+        self.assertIn("Generate only the setting/background", prompt)
+
     @patch("ai_content_agent.services.apply_logo_to_image")
     @patch("ai_content_agent.services.apply_center_text_to_image")
     def test_render_image_file_without_template_applies_text_and_logo(self, apply_text, apply_logo):
@@ -1047,6 +1100,65 @@ class JobsTest(TestCase):
         self.assertIn(
             "Preserve the main content",
             result["posts"][0]["image_prompt"],
+        )
+        render_image.assert_not_called()
+
+    @patch("ai_content_agent.jobs.render_approved_post_image")
+    @patch("ai_content_agent.jobs.create_post_drafts_from_generation_result")
+    @patch("ai_content_agent.jobs.generate_post_batch_draft_content")
+    def test_user_image_ai_edit_builds_distinct_prompts_per_post(
+        self,
+        generate_draft,
+        create_drafts,
+        render_image,
+    ):
+        user = create_user()
+        brand = create_brand(user=user, visual_identity_prompt="Use green accents.")
+        batch = create_batch(user=user, brand=brand, image_source="user")
+        posts = [
+            create_post(user=user, brand=brand, batch=batch),
+            create_post(user=user, brand=brand, batch=batch),
+        ]
+        result = {
+            "strategy_summary": "Strategy",
+            "posts": [
+                get_post_result(
+                    order=1,
+                    image_prompt="Reception scene",
+                    idea={
+                        "title": "Welcome",
+                        "visual_direction": "Modern reception",
+                    },
+                ),
+                get_post_result(
+                    order=2,
+                    image_prompt="Treatment detail",
+                    idea={
+                        "title": "Care",
+                        "visual_direction": "Close-up detail",
+                    },
+                ),
+            ],
+        }
+        data = get_visual_data(
+            quantity=2,
+            image_edit_mode="background_replace",
+            image_editing_prompt="Create premium backgrounds",
+            brand_visual_identity="Use green accents.",
+            content_language="en-US",
+        )
+        generate_draft.return_value = result
+        create_drafts.return_value = posts
+
+        from ai_content_agent.jobs import generate_post_review_batch
+
+        generate_post_review_batch(user, brand, batch, data)
+
+        self.assertIn("Welcome", result["posts"][0]["image_prompt"])
+        self.assertIn("Care", result["posts"][1]["image_prompt"])
+        self.assertNotEqual(
+            result["posts"][0]["image_prompt"],
+            result["posts"][1]["image_prompt"],
         )
         render_image.assert_not_called()
 

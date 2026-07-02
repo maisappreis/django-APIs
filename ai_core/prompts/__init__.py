@@ -60,3 +60,18 @@ def build_user_image_edit_prompt(
         prompt,
         brand_visual_identity,
     )
+
+
+def build_user_background_replace_prompt(
+    prompt,
+    idea,
+    image_prompt,
+    brand_visual_identity="",
+    content_language="pt-BR",
+):
+    return get_prompt_set(content_language).build_user_background_replace_prompt(
+        prompt,
+        idea,
+        image_prompt,
+        brand_visual_identity,
+    )
