@@ -31,14 +31,17 @@ def generate_post_review_batch(user, brand, batch, data):
     result = generate_post_batch_draft_content(data)
     update_batch_progress(batch, 70)
 
-    edit_user_image_with_ai = bool(data.get("edit_image_with_ai"))
+    image_edit_mode = data.get("image_edit_mode", "none")
+    edit_user_image_with_ai = image_edit_mode != "none"
 
     if batch.image_source == "user":
-        image_prompt = (
-            build_user_image_edit_review_prompt(data)
-            if edit_user_image_with_ai
-            else ""
-        )
+        image_prompt = ""
+        if edit_user_image_with_ai:
+            if image_edit_mode == "background_replace":
+                image_prompt = data.get("image_editing_prompt", "")
+            else:
+                image_prompt = build_user_image_edit_review_prompt(data)
+
         for post_data in result["posts"]:
             post_data["image_prompt"] = image_prompt
 

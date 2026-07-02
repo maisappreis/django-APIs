@@ -86,6 +86,7 @@ def edit_user_post_image_files(
     prompt,
     image_format="square",
     content_language="pt-BR",
+    image_edit_mode="full_ai_edit",
 ):
     if getattr(settings, "CONTENT_AGENT_USE_MOCK_IMAGES", True):
         return mock_edit_image_files()
@@ -95,6 +96,7 @@ def edit_user_post_image_files(
         prompt,
         image_format=image_format,
         content_language=content_language,
+        image_edit_mode=image_edit_mode,
     )
 
 
@@ -590,6 +592,9 @@ def render_approved_post_image(post, use_existing_base=False):
                 if not post.base_image_url.startswith(settings.MEDIA_URL)
                 else None
             )
+            image_edit_mode = post.image_edit_mode or "full_ai_edit"
+            if image_edit_mode == "none":
+                image_edit_mode = "full_ai_edit"
             image_data = edit_user_post_image_files(
                 source_path,
                 post.image_prompt,
@@ -597,6 +602,7 @@ def render_approved_post_image(post, use_existing_base=False):
                 content_language=(
                     post.brand.content_language if post.brand else "pt-BR"
                 ),
+                image_edit_mode=image_edit_mode,
             )
             image_data["final"]["temporary_source_path"] = temporary_source_path
         else:

@@ -32,10 +32,27 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
 FAL_KEY = os.getenv("FAL_KEY", os.getenv("BFL_API_KEY"))
+FAL_SYNC_BASE_URL = os.getenv("FAL_SYNC_BASE_URL", "https://fal.run")
 FAL_QUEUE_BASE_URL = os.getenv("FAL_QUEUE_BASE_URL", "https://queue.fal.run")
 FAL_IMAGE_EDIT_MODEL = os.getenv(
     "FAL_IMAGE_EDIT_MODEL",
     os.getenv("FLUX_IMAGE_EDIT_MODEL", "fal-ai/flux-pro/kontext"),
+)
+FAL_BACKGROUND_GENERATION_MODEL = os.getenv(
+    "FAL_BACKGROUND_GENERATION_MODEL",
+    "fal-ai/flux-pro",
+)
+FAL_BACKGROUND_REMOVAL_MODEL = os.getenv(
+    "FAL_BACKGROUND_REMOVAL_MODEL",
+    "fal-ai/birefnet/v2",
+)
+FAL_BACKGROUND_REMOVAL_VARIANT = os.getenv(
+    "FAL_BACKGROUND_REMOVAL_VARIANT",
+    "Portrait",
+)
+FAL_BACKGROUND_REMOVAL_RESOLUTION = os.getenv(
+    "FAL_BACKGROUND_REMOVAL_RESOLUTION",
+    "1024x1024",
 )
 FAL_IMAGE_EDIT_ENHANCE_PROMPT = (
     os.getenv("FAL_IMAGE_EDIT_ENHANCE_PROMPT", "true").lower() == "true"

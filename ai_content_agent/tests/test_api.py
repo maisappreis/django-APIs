@@ -963,6 +963,7 @@ class ApprovedPostImageRenderTestCase(TestCase):
             "Edit prompt",
             image_format="portrait",
             content_language="en-US",
+            image_edit_mode="full_ai_edit",
         )
         render_image_file.assert_called_once()
         self.assertEqual(

@@ -169,6 +169,12 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("landscape", "Landscape"),
     ]
 
+    IMAGE_EDIT_MODE_CHOICES = [
+        ("none", "None"),
+        ("full_ai_edit", "Full AI edit"),
+        ("background_replace", "Background replace"),
+    ]
+
     brand_id = serializers.IntegerField(min_value=1)
     business_name = serializers.CharField(max_length=120, required=False)
     niche = serializers.CharField(max_length=120, required=False)
@@ -209,9 +215,10 @@ class PostGenerationInputSerializer(serializers.Serializer):
         required=False,
         default="ai",
     )
-    edit_image_with_ai = serializers.BooleanField(
+    image_edit_mode = serializers.ChoiceField(
+        choices=IMAGE_EDIT_MODE_CHOICES,
         required=False,
-        default=False,
+        default="none",
     )
     image_editing_prompt = serializers.CharField(
         max_length=1000,
@@ -294,6 +301,7 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     subtitle_font = serializers.CharField(required=False, allow_blank=True)
     logo_position = serializers.CharField(required=False)
     image_format = serializers.CharField(required=False)
+    image_edit_mode = serializers.CharField(required=False)
 
 
 class BrandInputSerializer(serializers.Serializer):

@@ -513,7 +513,7 @@ class ContentAgentViewExtraTest(APITestCase):
             reverse("generate-post-content"),
             self.get_generation_payload(
                 my_images_or_ai="ai",
-                edit_image_with_ai=True,
+                image_edit_mode="full_ai_edit",
                 image_editing_prompt="Improve lighting",
             ),
             format="multipart",
@@ -530,7 +530,7 @@ class ContentAgentViewExtraTest(APITestCase):
             self.get_generation_payload(
                 my_images_or_ai="user",
                 images=[get_uploaded_image("post.gif")],
-                edit_image_with_ai=True,
+                image_edit_mode="full_ai_edit",
             ),
             format="multipart",
         )
@@ -550,7 +550,7 @@ class ContentAgentViewExtraTest(APITestCase):
             self.get_generation_payload(
                 my_images_or_ai="user",
                 images=[get_uploaded_image("post.gif")],
-                edit_image_with_ai=True,
+                image_edit_mode="full_ai_edit",
                 image_editing_prompt="Improve lighting",
             ),
             format="multipart",
@@ -589,7 +589,7 @@ class ContentAgentViewExtraTest(APITestCase):
             self.get_generation_payload(
                 my_images_or_ai="user",
                 images=[get_uploaded_image("post.gif")],
-                edit_image_with_ai=True,
+                image_edit_mode="full_ai_edit",
                 image_editing_prompt="Improve lighting",
             ),
             format="multipart",
@@ -598,8 +598,44 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["image_source"], "user")
         generate_review.assert_called_once()
-        self.assertTrue(
-            generate_review.call_args.kwargs["data"]["edit_image_with_ai"]
+        self.assertEqual(
+            generate_review.call_args.kwargs["data"]["image_edit_mode"],
+            "full_ai_edit",
+        )
+
+    @patch("ai_content_agent.views.prepare_uploaded_post_image_files")
+    @patch("ai_content_agent.views.generate_post_review_batch")
+    def test_generate_posts_accepts_background_replace_mode(
+        self,
+        generate_review,
+        prepare_images,
+    ):
+        create_subscription(self.user, tier=Plan.Tier.PRO)
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+            image_source="user",
+        )
+        generate_review.return_value = batch
+        prepare_images.return_value = [{"base": {}, "final": {}}]
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                images=[get_uploaded_image("post.gif")],
+                image_edit_mode="background_replace",
+                image_editing_prompt="Clean studio background",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            generate_review.call_args.kwargs["data"]["image_edit_mode"],
+            "background_replace",
         )
 
     @patch("ai_content_agent.views.prepare_uploaded_post_image_files")

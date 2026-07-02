@@ -547,6 +547,7 @@ def create_posts_from_generation_result(user, brand, batch, data, result):
             caption=post_data["caption"],
             hashtags=post_data["hashtags"],
             image_prompt=post_data["image_prompt"],
+            image_edit_mode=post_data.get("image_edit_mode", "none"),
             image_title=post_data.get("image_title", ""),
             image_subtitle=post_data.get("image_subtitle", ""),
             base_image_url=post_data["base_image_url"],
@@ -612,6 +613,7 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
     )
     total_posts = len(result["posts"])
     image_files = (data or {}).get("image_files") or []
+    image_edit_mode = (data or {}).get("image_edit_mode", "none")
 
     for index, post_data in enumerate(result["posts"]):
         scheduled_date = available_dates[index]
@@ -623,6 +625,7 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
             caption=post_data["caption"],
             hashtags=post_data["hashtags"],
             image_prompt=post_data["image_prompt"],
+            image_edit_mode=image_edit_mode,
             image_title=post_data.get("image_title", ""),
             image_subtitle=post_data.get("image_subtitle", ""),
             base_image_url=(

@@ -253,3 +253,54 @@ class PromptQualityTestCase(SimpleTestCase):
         )
         self.assertEqual(get.call_args_list[2].args[0], "https://v3.fal.media/files/result.png")
         source_path.unlink.assert_called_once_with(missing_ok=True)
+
+    @patch("ai_core.clients._replace_background_image_bytes")
+    def test_image_edit_can_replace_background(self, replace_background):
+        replace_background.return_value = b"composited"
+
+        image_bytes = _edit_image_bytes(
+            Path("/tmp/source.png"),
+            "A clean studio background",
+            image_format="portrait",
+            image_edit_mode="background_replace",
+        )
+
+        self.assertEqual(image_bytes, b"composited")
+        replace_background.assert_called_once()
+        self.assertEqual(replace_background.call_args.args[0], Path("/tmp/source.png"))
+        self.assertEqual(
+            replace_background.call_args.args[1],
+            "A clean studio background",
+        )
+        self.assertEqual(
+            replace_background.call_args.args[2]["aspect_ratio"],
+            "2:3",
+        )
+
+    @override_settings(
+        FAL_KEY="test-key",
+        FAL_QUEUE_BASE_URL="https://queue.fal.run",
+        FAL_BACKGROUND_GENERATION_MODEL="fal-ai/flux-pro",
+        FAL_IMAGE_EDIT_ENHANCE_PROMPT=True,
+        FAL_IMAGE_EDIT_ASPECT_RATIO="",
+        FAL_IMAGE_EDIT_SEED="123456",
+        FAL_IMAGE_EDIT_GUIDANCE_SCALE=3.5,
+        FAL_IMAGE_EDIT_SAFETY_TOLERANCE="5",
+    )
+    @patch("ai_core.clients.requests.post")
+    def test_background_generation_uses_text_to_image_model(self, post):
+        post.return_value.json.return_value = {
+            "request_id": "request-id",
+            "status_url": "https://queue.fal.run/fal-ai/flux-pro/requests/request-id/status",
+            "response_url": "https://queue.fal.run/fal-ai/flux-pro/requests/request-id/response",
+        }
+
+        from ai_core.clients import _submit_flux_image_generation
+
+        _submit_flux_image_generation("A clean studio background", {})
+
+        self.assertEqual(
+            post.call_args.args[0],
+            "https://queue.fal.run/fal-ai/flux-pro",
+        )
+        self.assertNotIn("image_url", post.call_args.kwargs["json"])

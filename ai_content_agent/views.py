@@ -511,9 +511,11 @@ class GeneratePostContentAPIView(APIView):
             )
 
         queue_backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
-        edit_image_with_ai = data.get("edit_image_with_ai", False)
+        image_edit_mode = data.get("image_edit_mode", "none")
+        data["image_edit_mode"] = image_edit_mode
+        has_image_edit = image_edit_mode != "none"
 
-        if edit_image_with_ai and data["my_images_or_ai"] != "user":
+        if has_image_edit and data["my_images_or_ai"] != "user":
             return Response(
                 {
                     "detail": (
@@ -524,7 +526,7 @@ class GeneratePostContentAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if edit_image_with_ai and not data.get("image_editing_prompt", "").strip():
+        if has_image_edit and not data.get("image_editing_prompt", "").strip():
             return Response(
                 {
                     "detail": (
@@ -545,7 +547,7 @@ class GeneratePostContentAPIView(APIView):
         else:
             try:
                 ensure_user_image_quota(request.user, data["quantity"])
-                if edit_image_with_ai:
+                if has_image_edit:
                     ensure_user_image_ai_edit_allowed(request.user)
                     ensure_ai_image_edit_quota(request.user, data["quantity"])
             except ValueError as error:

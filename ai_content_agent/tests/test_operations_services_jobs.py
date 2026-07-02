@@ -1029,7 +1029,7 @@ class JobsTest(TestCase):
         }
         data = get_visual_data(
             quantity=1,
-            edit_image_with_ai=True,
+            image_edit_mode="full_ai_edit",
             image_editing_prompt="Improve lighting",
             brand_visual_identity="Use green accents.",
             content_language="en-US",
