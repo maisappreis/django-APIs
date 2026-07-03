@@ -961,6 +961,52 @@ class DatabaseServicesTest(TestCase):
         with self.assertRaises(ValueError):
             analyze_brand_visual_identity(create_brand())
 
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.enhance_post_image_quality")
+    @patch("ai_content_agent.services.get_image_work_path")
+    @patch("ai_content_agent.services.edit_user_post_image_files")
+    def test_render_approved_background_replace_enhances_before_render(
+        self,
+        edit_user_post_image_files,
+        get_image_work_path,
+        enhance_image,
+        render_image_file,
+    ):
+        user = create_user()
+        brand = create_brand(user=user, content_language="en-US")
+        post = create_post(
+            user=user,
+            brand=brand,
+            base_image_url="/media/generated_posts/uploads/user-base.png",
+            image_prompt="Create premium background",
+            image_edit_mode="background_replace",
+            image_format="portrait",
+        )
+        get_image_work_path.return_value = Path("/tmp/source.png")
+        edit_user_post_image_files.return_value = {
+            "base": {
+                "image_url": "/media/generated_posts/edited-base.png",
+                "absolute_path": "/tmp/edited-base.png",
+            },
+            "final": {
+                "image_url": "/media/generated_posts/edited-final.png",
+                "absolute_path": "/tmp/edited-final.png",
+            },
+        }
+
+        render_approved_post_image(post, use_existing_base=True)
+
+        edit_user_post_image_files.assert_called_once_with(
+            Path("/tmp/source.png"),
+            "Create premium background",
+            image_format="portrait",
+            content_language="en-US",
+            image_edit_mode="background_replace",
+        )
+        enhance_image.assert_called_once_with("/tmp/edited-final.png")
+        render_image_file.assert_called_once()
+
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
     @patch("ai_content_agent.services.upload_generated_post_file")
     @patch("ai_content_agent.services.render_image_file")

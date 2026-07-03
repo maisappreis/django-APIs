@@ -34,7 +34,11 @@ from ai_content_agent.mocks import (
     mock_generate_image_files,
     mock_generate_post_plan,
 )
-from ai_content_agent.utils import apply_center_text_to_image, apply_logo_to_image
+from ai_content_agent.utils import (
+    apply_center_text_to_image,
+    apply_logo_to_image,
+    enhance_post_image_quality,
+)
 from ai_content_agent.storage import (
     cleanup_local_files,
     consume_post_source_upload,
@@ -671,6 +675,10 @@ def render_approved_post_image(post, use_existing_base=False):
                 ),
                 image_edit_mode=image_edit_mode,
             )
+            if image_edit_mode == "background_replace":
+                enhance_post_image_quality(
+                    image_data["final"]["absolute_path"],
+                )
             image_data["final"]["temporary_source_path"] = temporary_source_path
         else:
             final_data = create_final_image_from_base(post.base_image_url)

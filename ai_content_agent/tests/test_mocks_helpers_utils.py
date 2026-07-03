@@ -27,6 +27,7 @@ from ai_content_agent.utils import (
     _wrap_text,
     apply_center_text_to_image,
     apply_logo_to_image,
+    enhance_post_image_quality,
 )
 
 
@@ -159,3 +160,21 @@ class HelpersAndUtilsTest(SimpleTestCase):
         pasted = _paste_logo(base_image, logo_path, "top_left")
 
         self.assertEqual(pasted.size, (120, 120))
+
+    def test_enhance_post_image_quality_updates_image_finish(self):
+        image_path = self.create_image(
+            "muted.png",
+            size=(20, 20),
+            color=(80, 100, 120, 255),
+        )
+
+        with Image.open(image_path).convert("RGB") as before_image:
+            before_pixel = before_image.getpixel((10, 10))
+
+        result = enhance_post_image_quality(image_path)
+
+        with Image.open(image_path).convert("RGB") as after_image:
+            after_pixel = after_image.getpixel((10, 10))
+
+        self.assertEqual(result, image_path)
+        self.assertNotEqual(after_pixel, before_pixel)
