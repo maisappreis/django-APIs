@@ -15,19 +15,69 @@ def apply_template_rectangle(
     title_font=None,
     subtitle_font=None,
 ):
+    return _apply_rectangle_banner(
+        image_path=image_path,
+        title=title,
+        subtitle=subtitle,
+        logo_file=logo_file,
+        logo_position=logo_position,
+        primary_color=primary_color,
+        text_color=text_color,
+        title_font=title_font,
+        subtitle_font=subtitle_font,
+        vertical_position="bottom",
+    )
+
+
+def apply_template_rectangle_top(
+    image_path,
+    title="",
+    subtitle="",
+    logo_file=None,
+    logo_position="bottom_right",
+    primary_color=None,
+    text_color=None,
+    title_font=None,
+    subtitle_font=None,
+):
+    return _apply_rectangle_banner(
+        image_path=image_path,
+        title=title,
+        subtitle=subtitle,
+        logo_file=logo_file,
+        logo_position=logo_position,
+        primary_color=primary_color,
+        text_color=text_color,
+        title_font=title_font,
+        subtitle_font=subtitle_font,
+        vertical_position="top",
+    )
+
+
+def _apply_rectangle_banner(
+    image_path,
+    title,
+    subtitle,
+    logo_file,
+    logo_position,
+    primary_color,
+    text_color,
+    title_font,
+    subtitle_font,
+    vertical_position,
+):
     image_path = Path(image_path)
 
     with Image.open(image_path).convert("RGBA") as base_image:
         width, height = base_image.size
-
         banner_height = int(height * 0.24)
-        banner_y = height - banner_height
+        banner_y = 0 if vertical_position == "top" else height - banner_height
 
         banner_layer = Image.new("RGBA", base_image.size, (0, 0, 0, 0))
         banner_draw = ImageDraw.Draw(banner_layer)
         banner_draw.rectangle(
-            [(0, banner_y), (width, height)],
-            fill=_hex_to_rgba(primary_color, alpha=90),
+            [(0, banner_y), (width, banner_y + banner_height)],
+            fill=_hex_to_rgba(primary_color, alpha=140),
         )
         base_image = Image.alpha_composite(base_image, banner_layer)
 

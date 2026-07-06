@@ -6,15 +6,32 @@ from ai_core.clients import (
     generate_image_files,
     generate_structured_content,
 )
-from ai_content_agent.templates.rectangle import apply_template_rectangle
+from ai_content_agent.templates.rectangle import (
+    apply_template_rectangle,
+    apply_template_rectangle_top,
+)
+from ai_content_agent.templates.bloom_thai import apply_template_bloom_thai
+from ai_content_agent.templates.botanical_shop import apply_template_botanical_shop
 from ai_content_agent.templates.bubbles import apply_template_bubbles
+from ai_content_agent.templates.editorial_gallery import apply_template_editorial_gallery
+from ai_content_agent.templates.editorial_split import apply_template_editorial_split
+from ai_content_agent.templates.editorial_stack import apply_template_editorial_stack
 from ai_content_agent.templates.frame import apply_template_frame
+from ai_content_agent.templates.friday_market import apply_template_friday_market
+from ai_content_agent.templates.happy_friday_offer import (
+    apply_template_happy_friday_offer,
+)
 from ai_content_agent.templates.circle import apply_template_circle
 from ai_content_agent.templates.triangle import apply_template_triangle
 from ai_content_agent.templates.corners import apply_template_corners
 from ai_content_agent.templates.vertical_rectangle import apply_template_vertical_rectangle
 from ai_content_agent.templates.stripes import apply_template_stripes
 from ai_content_agent.templates.layer import apply_template_layer
+from ai_content_agent.templates.luxury_minimal import apply_template_luxury_minimal
+from ai_content_agent.templates.magazine_cover import apply_template_magazine_cover
+from ai_content_agent.templates.poster_type import apply_template_poster_type
+from ai_content_agent.templates.premium_bar import apply_template_premium_bar
+from ai_content_agent.templates.quote_frame import apply_template_quote_frame
 from ai_content_agent.templates.text_overlay import (
     TEXT_OVERLAY_PRESETS,
     apply_template_text_overlay,
@@ -323,6 +340,9 @@ TEXT_OVERLAY_TEMPLATE_NAMES = tuple(
 
 TEMPLATE_RENDERERS = {
     "rectangle": apply_template_rectangle,
+    "rectangle_top": apply_template_rectangle_top,
+    "bloom_thai": apply_template_bloom_thai,
+    "botanical_shop": apply_template_botanical_shop,
     "bubbles": apply_template_bubbles,
     "frame": apply_template_frame,
     "circle": apply_template_circle,
@@ -331,6 +351,16 @@ TEMPLATE_RENDERERS = {
     "vertical_rectangle": apply_template_vertical_rectangle,
     "stripes": apply_template_stripes,
     "layer": apply_template_layer,
+    "magazine_cover": apply_template_magazine_cover,
+    "editorial_split": apply_template_editorial_split,
+    "poster_type": apply_template_poster_type,
+    "premium_bar": apply_template_premium_bar,
+    "quote_frame": apply_template_quote_frame,
+    "luxury_minimal": apply_template_luxury_minimal,
+    "editorial_gallery": apply_template_editorial_gallery,
+    "editorial_stack": apply_template_editorial_stack,
+    "friday_market": apply_template_friday_market,
+    "happy_friday_offer": apply_template_happy_friday_offer,
     **{
         template_name: partial(
             apply_template_text_overlay,
@@ -345,6 +375,9 @@ TEMPLATE_NAMES = tuple(TEMPLATE_RENDERERS.keys())
 
 TEMPLATE_COLOR_FIELDS = {
     "rectangle": ["primary_color", "text_color"],
+    "rectangle_top": ["primary_color", "text_color"],
+    "bloom_thai": ["primary_color", "secondary_color", "text_color"],
+    "botanical_shop": ["primary_color", "secondary_color", "text_color"],
     "bubbles": ["primary_color", "secondary_color", "text_color"],
     "frame": ["primary_color", "tertiary_color", "text_color"],
     "circle": ["secondary_color", "text_color"],
@@ -353,6 +386,16 @@ TEMPLATE_COLOR_FIELDS = {
     "vertical_rectangle": ["secondary_color", "text_color"],
     "stripes": ["primary_color", "secondary_color", "tertiary_color", "text_color"],
     "layer": ["primary_color", "text_color"],
+    "magazine_cover": ["primary_color", "secondary_color", "text_color"],
+    "editorial_split": ["primary_color", "secondary_color", "text_color"],
+    "poster_type": ["primary_color", "secondary_color", "text_color"],
+    "premium_bar": ["primary_color", "secondary_color", "text_color"],
+    "quote_frame": ["primary_color", "secondary_color", "text_color"],
+    "luxury_minimal": ["primary_color", "secondary_color", "text_color"],
+    "editorial_gallery": ["primary_color", "secondary_color"],
+    "editorial_stack": ["primary_color", "secondary_color", "text_color"],
+    "friday_market": ["primary_color", "secondary_color", "text_color"],
+    "happy_friday_offer": ["primary_color", "secondary_color", "text_color"],
     **{
         template_name: ["primary_color", "text_color"]
         for template_name in TEXT_OVERLAY_TEMPLATE_NAMES
@@ -363,12 +406,25 @@ TEMPLATE_LOGO_POSITIONS = {
     "layer": "bottom_center",
     "stripes": "top_left",
     "vertical_rectangle": "bottom_left",
+    "magazine_cover": "top_right",
+    "editorial_split": "top_right",
+    "poster_type": "top_right",
+    "premium_bar": "top_right",
+    "quote_frame": "top_right",
+    "luxury_minimal": "top_right",
+    "editorial_gallery": "top_right",
+    "editorial_stack": "top_right",
+    "friday_market": "top_right",
+    "happy_friday_offer": "top_right",
     "corners": "top_right",
     "triangle": "top_right",
     "circle": "top_right",
     "frame": "bottom_center",
     "bubbles": "top_right",
     "rectangle": "top_right",
+    "rectangle_top": "bottom_right",
+    "bloom_thai": "top_right",
+    "botanical_shop": "top_right",
     **{
         template_name: "bottom_right"
         for template_name in TEXT_OVERLAY_TEMPLATE_NAMES
