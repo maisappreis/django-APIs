@@ -6,12 +6,30 @@ from pathlib import Path
 from django.test import SimpleTestCase
 from PIL import Image, ImageDraw, ImageFont
 
+from ai_content_agent.templates.bloom_thai import apply_template_bloom_thai
+from ai_content_agent.templates.botanical_shop import apply_template_botanical_shop
 from ai_content_agent.templates.bubbles import apply_template_bubbles
 from ai_content_agent.templates.circle import apply_template_circle
 from ai_content_agent.templates.corners import apply_template_corners
+from ai_content_agent.templates.editorial_gallery import apply_template_editorial_gallery
+from ai_content_agent.templates.editorial_split import apply_template_editorial_split
+from ai_content_agent.templates.editorial_split import _wrap_text_breaking_long_words
+from ai_content_agent.templates.editorial_stack import apply_template_editorial_stack
 from ai_content_agent.templates.frame import apply_template_frame
+from ai_content_agent.templates.friday_market import apply_template_friday_market
+from ai_content_agent.templates.happy_friday_offer import (
+    apply_template_happy_friday_offer,
+)
 from ai_content_agent.templates.layer import apply_template_layer
-from ai_content_agent.templates.rectangle import apply_template_rectangle
+from ai_content_agent.templates.luxury_minimal import apply_template_luxury_minimal
+from ai_content_agent.templates.magazine_cover import apply_template_magazine_cover
+from ai_content_agent.templates.poster_type import apply_template_poster_type
+from ai_content_agent.templates.premium_bar import apply_template_premium_bar
+from ai_content_agent.templates.quote_frame import apply_template_quote_frame
+from ai_content_agent.templates.rectangle import (
+    apply_template_rectangle,
+    apply_template_rectangle_top,
+)
 from ai_content_agent.templates.stripes import apply_template_stripes
 from ai_content_agent.templates.text_block import (
     _get_block_x,
@@ -79,13 +97,26 @@ class TemplateRenderTest(SimpleTestCase):
 
     def test_shape_templates_render_and_save_png(self):
         renderers = [
+            apply_template_bloom_thai,
+            apply_template_botanical_shop,
             apply_template_bubbles,
             apply_template_circle,
             apply_template_corners,
             apply_template_frame,
             apply_template_layer,
             apply_template_rectangle,
+            apply_template_rectangle_top,
             apply_template_stripes,
+            apply_template_magazine_cover,
+            apply_template_editorial_split,
+            apply_template_poster_type,
+            apply_template_premium_bar,
+            apply_template_quote_frame,
+            apply_template_luxury_minimal,
+            apply_template_editorial_gallery,
+            apply_template_editorial_stack,
+            apply_template_friday_market,
+            apply_template_happy_friday_offer,
             apply_template_triangle,
             apply_template_vertical_rectangle,
         ]
@@ -128,6 +159,24 @@ class TemplateRenderTest(SimpleTestCase):
         )
 
         self.assertEqual(result, image_path)
+
+    def test_editorial_split_breaks_words_wider_than_text_area(self):
+        image = Image.new("RGBA", (240, 240), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default()
+        max_width = 30
+
+        lines = _wrap_text_breaking_long_words(
+            "extraordinarilylongword",
+            font,
+            max_width,
+            draw,
+        )
+
+        self.assertGreater(len(lines), 1)
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            self.assertLessEqual(bbox[2] - bbox[0], max_width)
 
 
 class TextBlockHelperTest(SimpleTestCase):

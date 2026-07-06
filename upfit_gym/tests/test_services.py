@@ -94,6 +94,19 @@ class DashboardServiceTest(TestCase):
             month="Junho",
             value=300,
         )
+        inactive_customer = create_customer(
+            user=self.user,
+            name="Inactive Revenue",
+            status="Inativo",
+            start=date(2026, 1, 1),
+        )
+        create_revenue(
+            user=self.user,
+            customer=inactive_customer,
+            year=2026,
+            month="Junho",
+            value=310,
+        )
         create_expense(
             user=self.user,
             year=2026,
@@ -124,11 +137,74 @@ class DashboardServiceTest(TestCase):
         )
 
         self.assertEqual(active_inactive["labels"], ["Ativos", "Inativos"])
-        self.assertEqual(active_inactive["data"], [1, 1])
-        self.assertEqual(sum(active_per_month["data"]), 1)
-        self.assertIn(180, monthly_profit["data"])
-        self.assertEqual(sum(revenue_vs_expense["data"]["revenue"]), 300)
+        self.assertEqual(active_inactive["data"], [1, 2])
+        self.assertEqual(sum(active_per_month["data"]), 2)
+        self.assertIn(490, monthly_profit["data"])
+        self.assertEqual(sum(revenue_vs_expense["data"]["revenue"]), 610)
         self.assertEqual(sum(revenue_vs_expense["data"]["expense"]), 120)
+
+    def test_active_customers_per_month_counts_revenue_customers(self):
+        active_july_1 = create_customer(
+            user=self.user,
+            name="Active July 1",
+            status="Ativo",
+            start=date(2024, 1, 1),
+        )
+        active_july_2 = create_customer(
+            user=self.user,
+            name="Active July 2",
+            status="Ativo",
+            start=date(2024, 2, 1),
+        )
+        currently_inactive_july = create_customer(
+            user=self.user,
+            name="Currently Inactive July",
+            status="Inativo",
+            start=date(2024, 3, 1),
+        )
+        other_user_customer = create_customer(
+            user=self.other_user,
+            name="Other July",
+            status="Ativo",
+            start=date(2024, 4, 1),
+        )
+
+        create_revenue(
+            user=self.user,
+            customer=active_july_1,
+            year=2026,
+            month="Julho",
+            value=200,
+        )
+        create_revenue(
+            user=self.user,
+            customer=active_july_2,
+            year=2026,
+            month="Julho",
+            value=220,
+        )
+        create_revenue(
+            user=self.user,
+            customer=currently_inactive_july,
+            year=2026,
+            month="Julho",
+            value=240,
+        )
+        create_revenue(
+            user=self.other_user,
+            customer=other_user_customer,
+            year=2026,
+            month="Julho",
+            value=260,
+        )
+
+        chart = DashboardService._number_of_active_customer_per_month(
+            self.user,
+            self.start_date,
+        )
+
+        july_index = chart["labels"].index("Jul 2026")
+        self.assertEqual(chart["data"][july_index], 3)
 
     def test_dashboard_helpers_return_labels_and_maps(self):
         months = DashboardService._last_12_months()

@@ -173,25 +173,26 @@ class DashboardService:
     def _number_of_active_customer_per_month(user, start_date):
 
         months = DashboardService._last_12_months()
+        revenue = (
+            Revenue.objects
+            .filter(
+                user=user,
+                year__gte=start_date.year,
+            )
+            .values("year", "month")
+            .annotate(total=Count("customer", distinct=True))
+        )
+        revenue_map = {
+            (r["year"], MONTH_NAME_TO_NUMBER[r["month"]]): r["total"]
+            for r in revenue
+        }
 
         labels = []
         data = []
 
         for month in months:
-
-            count = (
-                Customer.objects
-                .filter(
-                    user=user,
-                    status="Ativo",
-                    start__year=month.year,
-                    start__month=month.month
-                )
-                .count()
-            )
-
             labels.append(DashboardService._month_label(month))
-            data.append(count)
+            data.append(revenue_map.get((month.year, month.month), 0))
 
         if not any(data):
             return DashboardService._empty_chart()

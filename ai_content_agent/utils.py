@@ -1,13 +1,18 @@
 from pathlib import Path
 
 from django.conf import settings
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageOps
 
 
 LOGO_MARGIN_RATIO = 0.04
 LOGO_MAX_WIDTH_RATIO = 0.11
 TEXT_MAX_WIDTH_RATIO = 0.82
 TEXT_FONT_SIZE_RATIO = 0.075
+IMAGE_QUALITY_ENHANCE_COLOR_FACTOR = 1.12
+IMAGE_QUALITY_ENHANCE_CONTRAST_FACTOR = 1.08
+IMAGE_QUALITY_ENHANCE_BRIGHTNESS_FACTOR = 1.03
+IMAGE_QUALITY_ENHANCE_SHARPNESS_FACTOR = 1.10
+IMAGE_QUALITY_ENHANCE_AUTOCONTRAST_CUTOFF = 1
 
 FONT_FILES_BY_NAME = {
     "dancingscript": (
@@ -88,6 +93,41 @@ def apply_logo_to_image(image_path, logo_file, position="bottom_right"):
 
             base_image.alpha_composite(logo_image, coordinates)
             base_image.convert("RGB").save(image_path, format="PNG")
+
+    return image_path
+
+
+def enhance_post_image_quality(image_path):
+    image_path = Path(image_path)
+
+    with Image.open(image_path) as source_image:
+        alpha_channel = None
+        if source_image.mode in ("RGBA", "LA"):
+            alpha_channel = source_image.convert("RGBA").getchannel("A")
+
+        image = source_image.convert("RGB")
+        image = ImageOps.autocontrast(
+            image,
+            cutoff=IMAGE_QUALITY_ENHANCE_AUTOCONTRAST_CUTOFF,
+        )
+        image = ImageEnhance.Color(image).enhance(
+            IMAGE_QUALITY_ENHANCE_COLOR_FACTOR,
+        )
+        image = ImageEnhance.Contrast(image).enhance(
+            IMAGE_QUALITY_ENHANCE_CONTRAST_FACTOR,
+        )
+        image = ImageEnhance.Brightness(image).enhance(
+            IMAGE_QUALITY_ENHANCE_BRIGHTNESS_FACTOR,
+        )
+        image = ImageEnhance.Sharpness(image).enhance(
+            IMAGE_QUALITY_ENHANCE_SHARPNESS_FACTOR,
+        )
+
+        if alpha_channel:
+            image = image.convert("RGBA")
+            image.putalpha(alpha_channel)
+
+        image.save(image_path, format="PNG")
 
     return image_path
 
