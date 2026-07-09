@@ -294,7 +294,7 @@ def build_user_image_edit_prompt(prompt, brand_visual_identity=""):
         - Altere somente o fundo, a iluminacao, contraste, cor, nitidez,
           exposicao, sombras, acabamento visual ou elementos perifericos que
           nao sejam o sujeito principal.
-        - Nao edite rosto, cabelo, corpo, roupa, maos, produto ou objeto
+        - Nao edite rosto, cabelo, corpo, maos, produto ou objeto
           principal, mesmo que o pedido do usuario seja amplo.
         - Use a identidade visual apenas como referencia sutil de clima,
           acabamento, temperatura de cor e acentos no fundo.
@@ -321,29 +321,34 @@ def build_user_background_replace_prompt(
         Crie um fundo novo para a imagem enviada pelo usuario, mantendo o
         sujeito principal para ser aplicado por cima depois.
 
-        Pedido geral do usuario:
+        Pedido obrigatorio do usuario para o fundo:
         {prompt}
 
-        Contexto deste post:
+        Contexto leve deste post:
         - Titulo da ideia: {idea.get("title", "")}
         - Tema especifico: {idea.get("theme", "")}
         - Objetivo especifico: {idea.get("objective", "")}
         - Formato editorial: {idea.get("format", "")}
         - Angulo criativo: {idea.get("angle", "")}
-        - Direcao visual: {idea.get("visual_direction", "")}
-
-        Prompt visual do post:
-        {image_prompt}
         {brand_visual_identity_block}
 
         Instrucoes para o fundo:
+        - O pedido obrigatorio do usuario e a fonte principal de verdade.
+          Siga fielmente o tipo de fundo, ambiente, elementos, cores e objetos
+          que ele pediu.
+        - Nao substitua o fundo solicitado por outro ambiente, conceito,
+          metafora visual, cena editorial ou ideia de campanha.
+        - Use o contexto leve do post apenas para ajustar clima, iluminacao,
+          enquadramento, nivel de sofisticação e pequenos detalhes de apoio.
+        - Se houver conflito entre o contexto do post e o pedido do usuario,
+          ignore o contexto e preserve o fundo pedido pelo usuario.
+        - Quando houver varios posts, varie somente dentro do mesmo fundo
+          solicitado: luz, perspectiva, profundidade de campo, organizacao dos
+          elementos, distancia, textura e espaco livre para o sujeito.
         - Gere somente o cenario/fundo, sem pessoas, rostos, corpos, maos,
           produto principal, logos, textos ou chamadas promocionais.
-        - Varie o ambiente, composicao, distancia, objetos de apoio e clima
-          visual de acordo com a ideia deste post.
-        - Preserve coerencia com o pedido geral e com a identidade visual.
         - Use cores da marca apenas como acentos sutis no ambiente.
         - Deixe espaco natural para o sujeito original ser colocado em primeiro
           plano.
-        - Evite fundos genericos; crie um cenario especifico para este post.
+        - Evite fundos genericos, mas sem abandonar o fundo solicitado.
         """

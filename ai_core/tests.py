@@ -6,6 +6,7 @@ from django.test import SimpleTestCase, override_settings
 
 from ai_core.clients import _build_image_generation_prompt, _edit_image_bytes
 from ai_core.prompts import (
+    build_user_background_replace_prompt,
     build_post_plan_prompt,
     build_posts_from_plan_prompt,
     build_user_image_edit_prompt,
@@ -55,6 +56,7 @@ class PromptQualityTestCase(SimpleTestCase):
             "build_brand_visual_identity_prompt",
             "build_image_generation_prompt",
             "build_user_image_edit_prompt",
+            "build_user_background_replace_prompt",
         }
 
         for language, prompt_set in PROMPT_SETS.items():
@@ -141,6 +143,27 @@ class PromptQualityTestCase(SimpleTestCase):
         self.assertIn("Altere somente o fundo", prompt)
         self.assertIn("Nao edite rosto", prompt)
         self.assertIn("preserve a imagem original", prompt)
+
+    def test_background_replace_prompt_prioritizes_user_requested_background(self):
+        prompt = build_user_background_replace_prompt(
+            "Jardim de flores azuis",
+            {
+                "title": "Oferta premium",
+                "theme": "Servico exclusivo",
+                "objective": "Converter",
+                "format": "oferta",
+                "angle": "Ambiente sofisticado",
+                "visual_direction": "Recepcao moderna com detalhes dourados",
+            },
+            "Pessoa em uma recepcao de clinica premium",
+            "visual moderno com verde como acento",
+        )
+
+        self.assertIn("Jardim de flores azuis", prompt)
+        self.assertIn("fonte principal de verdade", prompt)
+        self.assertIn("Nao substitua o fundo solicitado", prompt)
+        self.assertNotIn("Recepcao moderna", prompt)
+        self.assertNotIn("Pessoa em uma recepcao", prompt)
 
     def test_prompts_hide_empty_brand_visual_identity(self):
         data = self.get_data()

@@ -715,6 +715,39 @@ class PostImageRenderInputSerializerTestCase(SimpleTestCase):
         self.assertFalse(serializer.validated_data["has_text_image"])
         self.assertEqual(serializer.validated_data["logo_position"], "")
 
+    def test_accepts_image_quality_settings(self):
+        serializer = PostImageRenderInputSerializer(data={
+            "template": "none",
+            "image_quality_settings": {
+                "color_factor": 1.2,
+                "contrast_factor": 1.1,
+                "brightness_factor": 1.05,
+                "sharpness_factor": 1.3,
+                "temperature_factor": 1.1,
+                "autocontrast_cutoff": 2,
+            },
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(
+            serializer.validated_data["image_quality_settings"]["color_factor"],
+            1.2,
+        )
+
+    def test_rejects_image_quality_settings_outside_safe_range(self):
+        serializer = PostImageRenderInputSerializer(data={
+            "template": "none",
+            "image_quality_settings": {
+                "brightness_factor": 2,
+            },
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "brightness_factor",
+            serializer.errors["image_quality_settings"],
+        )
+
 
 class PostGenerationInputSerializerTestCase(SimpleTestCase):
     def test_accepts_blank_logo_position_to_generate_post_without_logo(self):
@@ -788,6 +821,64 @@ class RerenderPostImageTestCase(TestCase):
         self.assertEqual(rerendered_post.image_title, "")
         self.assertEqual(rerendered_post.logo_position, "")
         self.assertEqual(render_image_file.call_args.kwargs["logo_file"], None)
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.enhance_post_image_quality")
+    @patch("ai_content_agent.services.create_final_image_from_base")
+    def test_background_replace_rerender_uses_image_quality_settings(
+        self,
+        create_final_image_from_base,
+        enhance_post_image_quality,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="post-quality-editor",
+            password="password",
+        )
+        post = Post.objects.create(
+            user=user,
+            base_image_url="/media/base.png",
+            image_url="/media/final.png",
+            image_edit_mode="background_replace",
+            template="none",
+        )
+        quality_settings = {
+            "color_factor": 1.2,
+            "contrast_factor": 1.1,
+            "brightness_factor": 1.05,
+            "sharpness_factor": 1.3,
+            "temperature_factor": 1.1,
+            "autocontrast_cutoff": 2,
+        }
+        create_final_image_from_base.return_value = {
+            "absolute_path": "/tmp/new-final.png",
+            "image_url": "/media/new-final.png",
+        }
+
+        rerendered_post = rerender_post_image(
+            post,
+            {
+                "image_title": "",
+                "image_subtitle": "",
+                "template": "none",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "",
+                "image_quality_settings": quality_settings,
+            },
+        )
+
+        self.assertEqual(rerendered_post.image_quality_settings, quality_settings)
+        enhance_post_image_quality.assert_called_once_with(
+            "/tmp/new-final.png",
+            quality_settings,
+        )
+        render_image_file.assert_called_once()
 
 
 class ApprovedPostImageRenderTestCase(TestCase):

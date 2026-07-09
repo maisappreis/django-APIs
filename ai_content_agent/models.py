@@ -153,6 +153,7 @@ class Post(models.Model):
     post_order = models.PositiveSmallIntegerField(default=1)
     scheduled_date = models.DateField(null=True, blank=True)
     idea = models.JSONField(default=dict, blank=True)
+    image_quality_settings = models.JSONField(default=dict, blank=True)
 
     status = models.CharField(
         max_length=20,

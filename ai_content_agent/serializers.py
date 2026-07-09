@@ -292,6 +292,39 @@ class PostGenerationInputSerializer(serializers.Serializer):
     )
 
 
+class ImageQualitySettingsSerializer(serializers.Serializer):
+    color_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.4,
+        required=False,
+    )
+    contrast_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.4,
+        required=False,
+    )
+    brightness_factor = serializers.FloatField(
+        min_value=0.85,
+        max_value=1.2,
+        required=False,
+    )
+    sharpness_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.8,
+        required=False,
+    )
+    temperature_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.2,
+        required=False,
+    )
+    autocontrast_cutoff = serializers.IntegerField(
+        min_value=0,
+        max_value=5,
+        required=False,
+    )
+
+
 class PostGenerationOutputSerializer(serializers.Serializer):
     id = serializers.IntegerField(required=False)
     brand_id = serializers.IntegerField(required=False, allow_null=True)
@@ -315,6 +348,7 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     logo_position = serializers.CharField(required=False)
     image_format = serializers.CharField(required=False)
     image_edit_mode = serializers.CharField(required=False)
+    image_quality_settings = ImageQualitySettingsSerializer(required=False)
 
 
 class BrandInputSerializer(serializers.Serializer):
@@ -545,6 +579,7 @@ class PostImageRenderInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    image_quality_settings = ImageQualitySettingsSerializer(required=False)
 
 
 class PostPromptApprovalItemSerializer(serializers.Serializer):

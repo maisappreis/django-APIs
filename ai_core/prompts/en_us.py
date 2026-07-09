@@ -293,7 +293,7 @@ def build_user_image_edit_prompt(prompt, brand_visual_identity=""):
         - Change only the background, lighting, contrast, color, sharpness,
           exposure, shadows, visual finish, or peripheral elements that are not
           the main subject.
-        - Do not edit the face, hair, body, clothing, hands, product, or main
+        - Do not edit the face, hair, body, hands, product, or main
           object, even if the user's request is broad.
         - Use the visual identity only as a subtle reference for mood, finish,
           color temperature, and background accents.
@@ -320,28 +320,33 @@ def build_user_background_replace_prompt(
         Create a new background for the user-provided image while keeping the
         original main subject ready to be composited on top afterward.
 
-        User's overall request:
+        User's mandatory background request:
         {prompt}
 
-        Context for this post:
+        Light context for this post:
         - Idea title: {idea.get("title", "")}
         - Specific theme: {idea.get("theme", "")}
         - Specific objective: {idea.get("objective", "")}
         - Editorial format: {idea.get("format", "")}
         - Creative angle: {idea.get("angle", "")}
-        - Visual direction: {idea.get("visual_direction", "")}
-
-        Post visual prompt:
-        {image_prompt}
         {brand_visual_identity_block}
 
         Background instructions:
+        - The user's mandatory background request is the primary source of
+          truth. Follow the requested background type, setting, elements,
+          colors, and objects faithfully.
+        - Do not replace the requested background with another environment,
+          concept, visual metaphor, editorial scene, or campaign idea.
+        - Use the light post context only to tune mood, lighting, framing,
+          sophistication, and small supporting details.
+        - If the post context conflicts with the user's request, ignore the
+          context and preserve the exact background the user requested.
+        - When there are multiple posts, vary only within the same requested
+          background: light, perspective, depth of field, element arrangement,
+          distance, texture, and clean space for the subject.
         - Generate only the setting/background, without people, faces, bodies,
           hands, the main product, logos, text, or promotional copy.
-        - Vary the setting, composition, distance, supporting objects, and mood
-          according to this specific post idea.
-        - Stay coherent with the overall request and the brand identity.
         - Use brand colors only as subtle accents in the environment.
         - Leave natural space for the original subject to sit in the foreground.
-        - Avoid generic backdrops; create a specific setting for this post.
+        - Avoid generic backdrops, but do not abandon the requested background.
         """

@@ -683,7 +683,7 @@ class ServicesTest(SimpleTestCase):
         self.assertIn("Customer using the product", prompt)
         self.assertIn("Preserve the main content", prompt)
 
-    def test_background_replace_prompt_uses_post_context(self):
+    def test_background_replace_prompt_locks_user_background_request(self):
         prompt = build_user_post_image_edit_review_prompt(
             {
                 "image_editing_prompt": "Clean studio background",
@@ -706,7 +706,10 @@ class ServicesTest(SimpleTestCase):
 
         self.assertIn("Clean studio background", prompt)
         self.assertIn("Premium service", prompt)
-        self.assertIn("Product on a reception counter", prompt)
+        self.assertNotIn("Product on a reception counter", prompt)
+        self.assertNotIn("Modern clinic reception", prompt)
+        self.assertIn("primary source of", prompt)
+        self.assertIn("Do not replace the requested background", prompt)
         self.assertIn("Generate only the setting/background", prompt)
 
     @patch("ai_content_agent.services.apply_logo_to_image")
@@ -1152,7 +1155,7 @@ class JobsTest(TestCase):
     @patch("ai_content_agent.jobs.render_approved_post_image")
     @patch("ai_content_agent.jobs.create_post_drafts_from_generation_result")
     @patch("ai_content_agent.jobs.generate_post_batch_draft_content")
-    def test_user_image_ai_edit_builds_distinct_prompts_per_post(
+    def test_background_replace_prompts_keep_requested_background_per_post(
         self,
         generate_draft,
         create_drafts,
@@ -1200,8 +1203,14 @@ class JobsTest(TestCase):
 
         generate_post_review_batch(user, brand, batch, data)
 
+        self.assertIn("Create premium backgrounds", result["posts"][0]["image_prompt"])
+        self.assertIn("Create premium backgrounds", result["posts"][1]["image_prompt"])
         self.assertIn("Welcome", result["posts"][0]["image_prompt"])
         self.assertIn("Care", result["posts"][1]["image_prompt"])
+        self.assertNotIn("Reception scene", result["posts"][0]["image_prompt"])
+        self.assertNotIn("Treatment detail", result["posts"][1]["image_prompt"])
+        self.assertNotIn("Modern reception", result["posts"][0]["image_prompt"])
+        self.assertNotIn("Close-up detail", result["posts"][1]["image_prompt"])
         self.assertNotEqual(
             result["posts"][0]["image_prompt"],
             result["posts"][1]["image_prompt"],

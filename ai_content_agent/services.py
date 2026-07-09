@@ -732,9 +732,15 @@ def render_approved_post_image(post, use_existing_base=False):
                 image_edit_mode=image_edit_mode,
             )
             if image_edit_mode == "background_replace":
-                enhance_post_image_quality(
-                    image_data["final"]["absolute_path"],
-                )
+                if post.image_quality_settings:
+                    enhance_post_image_quality(
+                        image_data["final"]["absolute_path"],
+                        post.image_quality_settings,
+                    )
+                else:
+                    enhance_post_image_quality(
+                        image_data["final"]["absolute_path"],
+                    )
             image_data["final"]["temporary_source_path"] = temporary_source_path
         else:
             final_data = create_final_image_from_base(post.base_image_url)
@@ -826,6 +832,10 @@ def rerender_post_image(post, visual_settings):
     previous_image_url = post.image_url
     final_image_data = create_final_image_from_base(post.base_image_url)
     template_name = visual_settings["template"]
+    image_quality_settings = visual_settings.get(
+        "image_quality_settings",
+        post.image_quality_settings,
+    )
     image_title = visual_settings.get("image_title", "")
     image_subtitle = visual_settings.get("image_subtitle", "")
     title_font = visual_settings.get("title_font", "") or DEFAULT_TEXT_FONT
@@ -845,6 +855,15 @@ def rerender_post_image(post, visual_settings):
         and is_firebase_storage_enabled()
     )
     try:
+        if post.image_edit_mode == "background_replace":
+            if image_quality_settings:
+                enhance_post_image_quality(
+                    final_image_data["absolute_path"],
+                    image_quality_settings,
+                )
+            else:
+                enhance_post_image_quality(final_image_data["absolute_path"])
+
         render_image_file(
             image_path=final_image_data["absolute_path"],
             template_name=template_name,
@@ -873,6 +892,7 @@ def rerender_post_image(post, visual_settings):
     post.title_font = title_font
     post.subtitle_font = subtitle_font
     post.logo_position = logo_position
+    post.image_quality_settings = image_quality_settings
     image_url = final_image_data["image_url"]
 
     if is_firebase_storage_enabled():
@@ -903,6 +923,7 @@ def rerender_post_image(post, visual_settings):
             "title_font",
             "subtitle_font",
             "logo_position",
+            "image_quality_settings",
             "image_url",
         ]
     )
