@@ -140,6 +140,8 @@ class Post(models.Model):
     image_title = models.CharField(max_length=120, blank=True)
     image_subtitle = models.CharField(max_length=180, blank=True)
     base_image_url = models.CharField(max_length=500, blank=True)
+    edit_reference_image_url = models.CharField(max_length=500, blank=True)
+    edit_focus_image_url = models.CharField(max_length=500, blank=True)
     image_url = models.CharField(max_length=500, blank=True)
     template = models.CharField(max_length=40, blank=True)
     primary_color = models.CharField(max_length=7, default=DEFAULT_PRIMARY_COLOR)

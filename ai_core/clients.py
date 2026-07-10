@@ -38,9 +38,16 @@ IMAGE_FORMATS = {
     },
 }
 
+REPLICATE_MERGE_IMAGE_ASPECT_RATIOS = {
+    "1:1": "1:1",
+    "2:3": "4:5",
+    "3:2": "16:9",
+}
+
 IMAGE_EDIT_MODE_NONE = "none"
 IMAGE_EDIT_MODE_FULL_AI_EDIT = "full_ai_edit"
 IMAGE_EDIT_MODE_BACKGROUND_REPLACE = "background_replace"
+IMAGE_EDIT_MODE_MERGE_IMAGES = "merge_images"
 
 
 POST_CONTENT_SCHEMA = {
@@ -266,6 +273,23 @@ def _get_fal_headers():
     return {
         "accept": "application/json",
         "Authorization": f"Key {_get_fal_api_key()}",
+        "Content-Type": "application/json",
+    }
+
+
+def _get_replicate_api_token():
+    api_token = getattr(settings, "REPLICATE_API_TOKEN", None)
+
+    if not api_token:
+        raise ImproperlyConfigured("REPLICATE_API_TOKEN is not configured.")
+
+    return api_token
+
+
+def _get_replicate_headers():
+    return {
+        "accept": "application/json",
+        "Authorization": f"Bearer {_get_replicate_api_token()}",
         "Content-Type": "application/json",
     }
 
@@ -500,6 +524,153 @@ def _submit_flux_image_edit(image_data_url, prompt, format_config):
     return response.json()
 
 
+def _submit_fal_merge_image_edit(image_urls, prompt, format_config):
+    base_url = getattr(settings, "FAL_QUEUE_BASE_URL", "https://queue.fal.run").rstrip("/")
+    model = getattr(settings, "FAL_MERGE_IMAGE_EDIT_MODEL", "openai/gpt-image-2/edit")
+    payload = {
+        "prompt": prompt,
+        "image_urls": image_urls,
+        "image_size": "auto",
+        "quality": getattr(settings, "FAL_MERGE_IMAGE_EDIT_QUALITY", "high"),
+        "num_images": 1,
+        "output_format": "png",
+    }
+
+    response = requests.post(
+        f"{base_url}/{model}",
+        headers=_get_fal_headers(),
+        json=payload,
+        timeout=30,
+    )
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise RuntimeError(
+            f"FAL merge image edit request failed: {response.status_code} "
+            f"{response.text[:500]}"
+        ) from error
+    return response.json()
+
+
+def _build_image_data_url(image_path):
+    image_path = Path(image_path)
+    content_type = mimetypes.guess_type(image_path.name)[0] or "image/png"
+    return (
+        f"data:{content_type};base64,"
+        f"{base64.b64encode(image_path.read_bytes()).decode('ascii')}"
+    )
+
+
+def _get_replicate_merge_image_aspect_ratio(format_config):
+    return REPLICATE_MERGE_IMAGE_ASPECT_RATIOS.get(
+        format_config.get("aspect_ratio"),
+        "1:1",
+    )
+
+
+def _submit_replicate_merge_image_edit(image_urls, prompt, format_config):
+    model = getattr(
+        settings,
+        "REPLICATE_MERGE_IMAGE_EDIT_MODEL",
+        "black-forest-labs/flux-2-pro",
+    )
+    payload = {
+        "input": {
+            "prompt": prompt,
+            "input_images": image_urls,
+            "aspect_ratio": _get_replicate_merge_image_aspect_ratio(
+                format_config,
+            ),
+            "output_format": "png",
+            "safety_tolerance": getattr(
+                settings,
+                "REPLICATE_MERGE_IMAGE_EDIT_SAFETY_TOLERANCE",
+                4,
+            ),
+        }
+    }
+    seed = getattr(settings, "FAL_IMAGE_EDIT_SEED", "")
+    if seed:
+        payload["input"]["seed"] = int(seed)
+
+    response = requests.post(
+        f"https://api.replicate.com/v1/models/{model}/predictions",
+        headers=_get_replicate_headers(),
+        json=payload,
+        timeout=30,
+    )
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise RuntimeError(
+            f"Replicate merge image edit request failed: "
+            f"{response.status_code} {response.text[:500]}"
+        ) from error
+    return response.json()
+
+
+def _poll_replicate_result(prediction):
+    timeout_seconds = getattr(
+        settings,
+        "REPLICATE_MERGE_IMAGE_EDIT_TIMEOUT_SECONDS",
+        180,
+    )
+    poll_interval = getattr(
+        settings,
+        "REPLICATE_MERGE_IMAGE_EDIT_POLL_INTERVAL_SECONDS",
+        1,
+    )
+    prediction_url = prediction.get("urls", {}).get("get")
+
+    if not prediction_url:
+        raise RuntimeError(
+            f"Replicate merge image edit did not return a polling URL: {prediction}"
+        )
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        response = requests.get(
+            prediction_url,
+            headers=_get_replicate_headers(),
+            timeout=30,
+        )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            raise RuntimeError(
+                f"Replicate merge image edit status failed: "
+                f"{response.status_code} {response.text[:500]}"
+            ) from error
+
+        result = response.json()
+        status = result.get("status")
+        if status == "succeeded":
+            return result
+        if status in {"failed", "canceled"}:
+            raise RuntimeError(f"Replicate merge image edit failed: {result}")
+
+        time.sleep(poll_interval)
+
+    raise TimeoutError("Replicate merge image edit timed out.")
+
+
+def _download_replicate_image(result):
+    output = result.get("output")
+    image_output = output[0] if isinstance(output, list) and output else output
+    image_url = (
+        image_output.get("url")
+        if isinstance(image_output, dict)
+        else image_output
+    )
+
+    if not image_url:
+        raise RuntimeError(
+            f"Replicate merge image edit did not return an image URL: {result}"
+        )
+
+    return _download_url_bytes(image_url)
+
+
 def _build_flux_generation_payload(prompt):
     payload = {
         "prompt": prompt,
@@ -727,9 +898,48 @@ def _run_full_ai_image_edit(source_image_path, prompt, format_config):
         edit_source_path.unlink(missing_ok=True)
 
 
+def _run_merge_image_edit(
+    source_image_path,
+    reference_image_path,
+    prompt,
+    format_config,
+    focus_image_path=None,
+):
+    edit_source_path = _prepare_image_edit_source(source_image_path)
+    edit_reference_path = _prepare_image_edit_source(reference_image_path)
+    edit_focus_path = (
+        _prepare_image_edit_source(focus_image_path)
+        if focus_image_path
+        else None
+    )
+
+    try:
+        image_urls = [
+            _build_image_data_url(edit_source_path),
+            _build_image_data_url(edit_reference_path),
+        ]
+        if edit_focus_path:
+            image_urls.append(_build_image_data_url(edit_focus_path))
+
+        submission = _submit_replicate_merge_image_edit(
+            image_urls,
+            prompt,
+            format_config,
+        )
+        result = _poll_replicate_result(submission)
+        return _download_replicate_image(result)
+    finally:
+        edit_source_path.unlink(missing_ok=True)
+        edit_reference_path.unlink(missing_ok=True)
+        if edit_focus_path:
+            edit_focus_path.unlink(missing_ok=True)
+
+
 def _edit_image_bytes(
     source_image_path,
     prompt,
+    reference_image_path=None,
+    focus_image_path=None,
     image_format="square",
     content_language="pt-BR",
     image_edit_mode=IMAGE_EDIT_MODE_FULL_AI_EDIT,
@@ -741,6 +951,17 @@ def _edit_image_bytes(
             source_image_path,
             prompt,
             format_config,
+        )
+
+    if image_edit_mode == IMAGE_EDIT_MODE_MERGE_IMAGES:
+        if not reference_image_path:
+            raise ValueError("A reference image is required for merge image edits.")
+        return _run_merge_image_edit(
+            source_image_path,
+            reference_image_path,
+            prompt,
+            format_config,
+            focus_image_path=focus_image_path,
         )
 
     if image_edit_mode != IMAGE_EDIT_MODE_FULL_AI_EDIT:
@@ -812,6 +1033,8 @@ def generate_image_files(
 def edit_image_files(
     source_image_path,
     prompt,
+    reference_image_path=None,
+    focus_image_path=None,
     image_format="square",
     content_language="pt-BR",
     image_edit_mode=IMAGE_EDIT_MODE_FULL_AI_EDIT,
@@ -819,6 +1042,8 @@ def edit_image_files(
     image_bytes = _edit_image_bytes(
         source_image_path,
         prompt,
+        reference_image_path=reference_image_path,
+        focus_image_path=focus_image_path,
         image_format=image_format,
         content_language=content_language,
         image_edit_mode=image_edit_mode,

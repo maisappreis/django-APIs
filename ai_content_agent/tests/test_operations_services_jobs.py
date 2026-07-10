@@ -64,6 +64,7 @@ from ai_content_agent.services import (
     get_post_logo_file,
     get_remote_image_work_path,
     get_template_name_for_post,
+    prepare_uploaded_merge_image_files,
     prepare_uploaded_post_image_files,
     render_image_file,
     render_approved_post_image,
@@ -612,6 +613,23 @@ class ServicesTest(SimpleTestCase):
         self.assertTrue(Path(image_files[0]["base"]["absolute_path"]).exists())
         self.assertTrue(Path(image_files[0]["final"]["absolute_path"]).exists())
 
+    def test_uploaded_merge_image_file_helper_saves_reference(self):
+        with override_settings(MEDIA_ROOT=self.media_root):
+            image_files = prepare_uploaded_merge_image_files([
+                get_uploaded_image("source.gif"),
+                get_uploaded_image("reference.gif"),
+                get_uploaded_image("focus.gif"),
+            ])
+
+        self.assertEqual(len(image_files), 1)
+        self.assertTrue(Path(image_files[0]["base"]["absolute_path"]).exists())
+        self.assertTrue(
+            Path(image_files[0]["edit_reference"]["absolute_path"]).exists(),
+        )
+        self.assertTrue(
+            Path(image_files[0]["edit_focus"]["absolute_path"]).exists(),
+        )
+
     @patch("ai_content_agent.services.save_uploaded_post_image_file", return_value="uploaded")
     @patch("ai_content_agent.services.generate_post_image_files", return_value="generated")
     def test_get_post_image_files_chooses_prepared_user_or_generated(
@@ -708,9 +726,21 @@ class ServicesTest(SimpleTestCase):
         self.assertIn("Premium service", prompt)
         self.assertNotIn("Product on a reception counter", prompt)
         self.assertNotIn("Modern clinic reception", prompt)
-        self.assertIn("primary source of", prompt)
-        self.assertIn("Do not replace the requested background", prompt)
-        self.assertIn("Generate only the setting/background", prompt)
+
+    def test_merge_images_prompt_preserves_first_image_identity(self):
+        prompt = build_user_post_image_edit_review_prompt(
+            {
+                "image_editing_prompt": "Apply clothing from the second image",
+                "content_language": "en-US",
+                "image_edit_mode": "merge_images",
+            },
+            get_post_result(),
+        )
+
+        self.assertIn("second image", prompt)
+        self.assertIn("first image", prompt)
+        self.assertIn("If there is a person in the main image", prompt)
+        self.assertIn("If there is an object, product, setting", prompt)
 
     @patch("ai_content_agent.services.apply_logo_to_image")
     @patch("ai_content_agent.services.apply_center_text_to_image")
@@ -1003,6 +1033,8 @@ class DatabaseServicesTest(TestCase):
         edit_user_post_image_files.assert_called_once_with(
             Path("/tmp/source.png"),
             "Create premium background",
+            reference_image_path=None,
+            focus_image_path=None,
             image_format="portrait",
             content_language="en-US",
             image_edit_mode="background_replace",

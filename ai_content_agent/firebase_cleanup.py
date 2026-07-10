@@ -91,6 +91,12 @@ def cleanup_post_images_outside_retention_window(reference_date=None):
     posts = (
         Post.objects.exclude(base_image_url="")
         .exclude(scheduled_date__range=(start_date, end_date))
+        | Post.objects.exclude(edit_reference_image_url="").exclude(
+            scheduled_date__range=(start_date, end_date)
+        )
+        | Post.objects.exclude(edit_focus_image_url="").exclude(
+            scheduled_date__range=(start_date, end_date)
+        )
         | Post.objects.exclude(image_url="").exclude(
             scheduled_date__range=(start_date, end_date)
         )
@@ -98,12 +104,24 @@ def cleanup_post_images_outside_retention_window(reference_date=None):
     cleaned_count = 0
 
     for post in posts:
-        for image_url in {post.base_image_url, post.image_url}:
+        for image_url in {
+            post.base_image_url,
+            post.edit_reference_image_url,
+            post.edit_focus_image_url,
+            post.image_url,
+        }:
             delete_firebase_file(image_url)
 
         post.base_image_url = ""
+        post.edit_reference_image_url = ""
+        post.edit_focus_image_url = ""
         post.image_url = ""
-        post.save(update_fields=["base_image_url", "image_url"])
+        post.save(update_fields=[
+            "base_image_url",
+            "edit_reference_image_url",
+            "edit_focus_image_url",
+            "image_url",
+        ])
         cleaned_count += 1
 
     return cleaned_count

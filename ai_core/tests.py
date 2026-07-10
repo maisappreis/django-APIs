@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, Mock, patch
 from django.test import SimpleTestCase, override_settings
 
 from ai_core.clients import _build_image_generation_prompt, _edit_image_bytes
+from ai_core.clients import _get_image_format_config
+from ai_core.clients import _get_replicate_merge_image_aspect_ratio
 from ai_core.prompts import (
     build_user_background_replace_prompt,
     build_post_plan_prompt,
@@ -57,6 +59,7 @@ class PromptQualityTestCase(SimpleTestCase):
             "build_image_generation_prompt",
             "build_user_image_edit_prompt",
             "build_user_background_replace_prompt",
+            "build_user_merge_images_prompt",
         }
 
         for language, prompt_set in PROMPT_SETS.items():
@@ -130,6 +133,26 @@ class PromptQualityTestCase(SimpleTestCase):
         )
 
         self.assertIn("vertical em formato retrato", prompt)
+
+    def test_replicate_merge_image_uses_instagram_friendly_aspect_ratios(self):
+        self.assertEqual(
+            _get_replicate_merge_image_aspect_ratio(
+                _get_image_format_config("square"),
+            ),
+            "1:1",
+        )
+        self.assertEqual(
+            _get_replicate_merge_image_aspect_ratio(
+                _get_image_format_config("portrait"),
+            ),
+            "4:5",
+        )
+        self.assertEqual(
+            _get_replicate_merge_image_aspect_ratio(
+                _get_image_format_config("landscape"),
+            ),
+            "16:9",
+        )
 
     def test_user_image_edit_prompt_prioritizes_original_identity(self):
         prompt = build_user_image_edit_prompt(
@@ -299,6 +322,84 @@ class PromptQualityTestCase(SimpleTestCase):
             replace_background.call_args.args[2]["aspect_ratio"],
             "2:3",
         )
+
+    @override_settings(
+        MEDIA_ROOT="/tmp",
+        REPLICATE_API_TOKEN="test-token",
+        REPLICATE_MERGE_IMAGE_EDIT_MODEL="black-forest-labs/flux-2-pro",
+        REPLICATE_MERGE_IMAGE_EDIT_SAFETY_TOLERANCE=4,
+        REPLICATE_MERGE_IMAGE_EDIT_POLL_INTERVAL_SECONDS=0,
+        REPLICATE_MERGE_IMAGE_EDIT_TIMEOUT_SECONDS=10,
+    )
+    @patch("ai_core.clients.requests.get")
+    @patch("ai_core.clients.requests.post")
+    @patch("ai_core.clients._build_image_data_url")
+    @patch("ai_core.clients._prepare_image_edit_source")
+    def test_image_edit_can_merge_three_images_with_replicate(
+        self,
+        prepare_source,
+        build_data_url,
+        post,
+        get,
+    ):
+        source_path = MagicMock()
+        reference_path = MagicMock()
+        focus_path = MagicMock()
+        prepare_source.side_effect = [source_path, reference_path, focus_path]
+        build_data_url.side_effect = [
+            "data:image/png;base64,source",
+            "data:image/png;base64,reference",
+            "data:image/png;base64,focus",
+        ]
+        post.return_value.json.return_value = {
+            "urls": {
+                "get": "https://api.replicate.com/v1/predictions/id",
+            },
+        }
+        get.side_effect = [
+            SimpleNamespace(
+                raise_for_status=Mock(),
+                json=Mock(
+                    return_value={
+                        "status": "succeeded",
+                        "output": ["https://replicate.delivery/result.png"],
+                    }
+                ),
+            ),
+            SimpleNamespace(
+                raise_for_status=Mock(),
+                content=b"merged",
+            ),
+        ]
+
+        image_bytes = _edit_image_bytes(
+            Path("/tmp/source.png"),
+            "Apply clothing from the second image",
+            reference_image_path=Path("/tmp/reference.png"),
+            focus_image_path=Path("/tmp/focus.png"),
+            image_format="portrait",
+            image_edit_mode="merge_images",
+        )
+
+        self.assertEqual(image_bytes, b"merged")
+        self.assertEqual(
+            post.call_args.args[0],
+            "https://api.replicate.com/v1/models/black-forest-labs/flux-2-pro/predictions",
+        )
+        payload = post.call_args.kwargs["json"]["input"]
+        self.assertEqual(
+            payload["input_images"],
+            [
+                "data:image/png;base64,source",
+                "data:image/png;base64,reference",
+                "data:image/png;base64,focus",
+            ],
+        )
+        self.assertEqual(payload["safety_tolerance"], 4)
+        self.assertEqual(payload["aspect_ratio"], "4:5")
+        source_path.unlink.assert_called_once_with(missing_ok=True)
+        reference_path.unlink.assert_called_once_with(missing_ok=True)
+        focus_path.unlink.assert_called_once_with(missing_ok=True)
 
     @override_settings(
         FAL_KEY="test-key",

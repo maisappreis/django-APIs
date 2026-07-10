@@ -352,3 +352,28 @@ def build_user_background_replace_prompt(
           plano.
         - Evite fundos genericos, mas sem abandonar o fundo solicitado.
         """
+
+
+def build_user_merge_images_prompt(prompt):
+    return f"""
+        {prompt}
+
+        Instrucoes obrigatorias:
+        - Use a primeira imagem como base principal da edicao.
+        - Use a segunda imagem apenas como referencia para atender ao pedido
+          do usuario.
+        - Se uma terceira imagem for enviada, trate-a como a referencia de
+          preservacao mais importante para rosto, formato do corpo, pose,
+          cabelo, produto, objeto ou detalhe que deve permanecer o mais exato
+          possivel.
+        - Se houver uma pessoa na imagem principal, preserve com alta
+          fidelidade rosto, identidade, formato do corpo, pose, proporcoes,
+          cabelo, tom de pele e expressao.
+        - Se houver um objeto, produto, ambiente, roupa ou acessorio na imagem
+          principal, preserve sua forma, posicao, proporcoes, textura e
+          informacoes essenciais, salvo quando o pedido do usuario solicitar
+          claramente a alteracao.
+        - Aplique somente as referencias da segunda imagem que forem
+          relevantes para o pedido do usuario.
+        - Nao adicione texto promocional, logos, legendas ou slogans.
+        """

@@ -46,6 +46,12 @@ def serialize_post_generation(post_generation):
         "base_image_url": generate_private_read_url(
             post_generation.base_image_url
         ),
+        "edit_reference_image_url": generate_private_read_url(
+            post_generation.edit_reference_image_url
+        ),
+        "edit_focus_image_url": generate_private_read_url(
+            post_generation.edit_focus_image_url
+        ),
         "image_title": post_generation.image_title,
         "image_subtitle": post_generation.image_subtitle,
         "image_url": generate_private_read_url(post_generation.image_url),

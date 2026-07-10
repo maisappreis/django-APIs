@@ -79,7 +79,9 @@ from .storage import (
 )
 from .services import (
     analyze_brand_visual_identity,
+    prepare_private_merge_image_files,
     prepare_private_post_source_image_files,
+    prepare_uploaded_merge_image_files,
     prepare_uploaded_post_image_files,
     rerender_post_image,
 )
@@ -486,6 +488,10 @@ class GeneratePostContentAPIView(APIView):
         data["images"] = request.FILES.getlist("images")
         image_object_paths = request.data.getlist("image_object_paths")
         received_images = image_object_paths or data["images"]
+        image_edit_mode = data.get("image_edit_mode", "none")
+        data["image_edit_mode"] = image_edit_mode
+        has_image_edit = image_edit_mode != "none"
+        merge_images = image_edit_mode == "merge_images"
 
         try:
             ensure_post_batch_quantity_allowed(request.user, data["quantity"])
@@ -495,7 +501,7 @@ class GeneratePostContentAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if data["my_images_or_ai"] == "user" and (
+        if not merge_images and data["my_images_or_ai"] == "user" and (
             len(received_images) != data["quantity"]
         ):
             return Response(
@@ -511,9 +517,6 @@ class GeneratePostContentAPIView(APIView):
             )
 
         queue_backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
-        image_edit_mode = data.get("image_edit_mode", "none")
-        data["image_edit_mode"] = image_edit_mode
-        has_image_edit = image_edit_mode != "none"
 
         if has_image_edit and data["my_images_or_ai"] != "user":
             return Response(
@@ -522,6 +525,31 @@ class GeneratePostContentAPIView(APIView):
                         "A edicao de imagem com IA esta disponivel apenas "
                         "para imagens proprias."
                     )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if merge_images and data["quantity"] != 1:
+            return Response(
+                {
+                    "detail": (
+                        "A mesclagem de duas imagens esta disponivel apenas "
+                        "para um post por vez."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if merge_images and len(received_images) not in {2, 3}:
+            return Response(
+                {
+                    "detail": (
+                        "Envie duas ou tres imagens para mesclar: a imagem "
+                        "principal, a imagem de referencia e, opcionalmente, "
+                        "a imagem de foco."
+                    ),
+                    "expected": "2 or 3",
+                    "received": len(received_images),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -571,14 +599,24 @@ class GeneratePostContentAPIView(APIView):
                 data["image_object_paths"] = list(image_object_paths)
             else:
                 try:
-                    data["image_files"] = (
-                        prepare_private_post_source_image_files(
-                            request.user.id,
-                            image_object_paths,
+                    if merge_images:
+                        data["image_files"] = (
+                            prepare_private_merge_image_files(
+                                request.user.id,
+                                image_object_paths,
+                            )
+                            if image_object_paths
+                            else prepare_uploaded_merge_image_files(data["images"])
                         )
-                        if image_object_paths
-                        else prepare_uploaded_post_image_files(data["images"])
-                    )
+                    else:
+                        data["image_files"] = (
+                            prepare_private_post_source_image_files(
+                                request.user.id,
+                                image_object_paths,
+                            )
+                            if image_object_paths
+                            else prepare_uploaded_post_image_files(data["images"])
+                        )
                 except FileNotFoundError as error:
                     return Response(
                         {"detail": str(error)},

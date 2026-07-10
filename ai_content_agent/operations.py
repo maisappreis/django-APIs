@@ -632,6 +632,14 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
             base_image_url=(
                 image_data["base"]["image_url"] if image_data else ""
             ),
+            edit_reference_image_url=(
+                image_data.get("edit_reference", {}).get("image_url", "")
+                if image_data else ""
+            ),
+            edit_focus_image_url=(
+                image_data.get("edit_focus", {}).get("image_url", "")
+                if image_data else ""
+            ),
             image_url="",
             template=post_data["template"],
             primary_color=post_data["primary_color"],
@@ -658,11 +666,31 @@ def create_post_drafts_from_generation_result(user, brand, batch, result, data=N
                     post_id=post.id,
                     kind="base",
                 )
-                post.save(update_fields=["base_image_url"])
+                if image_data.get("edit_reference"):
+                    post.edit_reference_image_url = upload_generated_post_file(
+                        local_path=image_data["edit_reference"]["absolute_path"],
+                        user_id=user.id,
+                        post_id=post.id,
+                        kind="edit-reference",
+                    )
+                if image_data.get("edit_focus"):
+                    post.edit_focus_image_url = upload_generated_post_file(
+                        local_path=image_data["edit_focus"]["absolute_path"],
+                        user_id=user.id,
+                        post_id=post.id,
+                        kind="edit-focus",
+                    )
+                post.save(update_fields=[
+                    "base_image_url",
+                    "edit_reference_image_url",
+                    "edit_focus_image_url",
+                ])
             finally:
                 cleanup_local_files(
                     image_data["base"]["absolute_path"],
                     image_data["final"]["absolute_path"],
+                    image_data.get("edit_reference", {}).get("absolute_path"),
+                    image_data.get("edit_focus", {}).get("absolute_path"),
                 )
 
         saved_posts.append(post)
@@ -797,6 +825,8 @@ def prepare_post_download(post_generation):
 def delete_post_generation(post_generation):
     image_urls = {
         post_generation.base_image_url,
+        post_generation.edit_reference_image_url,
+        post_generation.edit_focus_image_url,
         post_generation.image_url,
     }
     storage_errors = []

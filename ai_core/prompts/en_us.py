@@ -350,3 +350,27 @@ def build_user_background_replace_prompt(
         - Leave natural space for the original subject to sit in the foreground.
         - Avoid generic backdrops, but do not abandon the requested background.
         """
+
+
+def build_user_merge_images_prompt(prompt):
+    return f"""
+        {prompt}
+
+        Mandatory instructions:
+        - Use the first image as the main base for the edit.
+        - Use the second image only as a reference to satisfy the user's
+          request.
+        - If a third image is provided, treat it as the highest-priority
+          preservation reference for the face, body shape, pose, hair, product,
+          object, or detail that must stay as exact as possible.
+        - If there is a person in the main image, preserve the face, identity,
+          body shape, pose, proportions, hair, skin tone, and expression with
+          high fidelity.
+        - If there is an object, product, setting, outfit, or accessory in the
+          main image, preserve its shape, position, proportions, texture, and
+          essential information unless the user's request clearly asks to
+          change it.
+        - Apply only the references from the second image that are relevant to
+          the user's request.
+        - Do not add promotional text, logos, captions, or slogans.
+        """

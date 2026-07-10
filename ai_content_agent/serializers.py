@@ -186,6 +186,7 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("none", "None"),
         ("full_ai_edit", "Full AI edit"),
         ("background_replace", "Background replace"),
+        ("merge_images", "Merge images"),
     ]
 
     brand_id = serializers.IntegerField(min_value=1)
@@ -335,6 +336,8 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     )
     image_prompt = serializers.CharField()
     base_image_url = serializers.CharField(required=False, allow_blank=True)
+    edit_reference_image_url = serializers.CharField(required=False, allow_blank=True)
+    edit_focus_image_url = serializers.CharField(required=False, allow_blank=True)
     image_url = serializers.CharField()
     image_title = serializers.CharField(required=False, allow_blank=True)
     image_subtitle = serializers.CharField(required=False, allow_blank=True)
