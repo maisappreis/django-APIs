@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
 from django.shortcuts import get_object_or_404
+import logging
 
 from .models import GenerationStatus, PostBatch
 from .operations import (
@@ -26,6 +27,8 @@ from .services import (
     render_approved_post_image,
 )
 
+
+logger = logging.getLogger(__name__)
 
 USER_IMAGE_AI_EDIT_MODES = {
     "full_ai_edit",
@@ -119,6 +122,12 @@ def run_post_generation_job(user_id, brand_id, batch_id, data):
         generate_post_review_batch(user, brand, batch, data)
         return True
     except Exception as error:
+        logger.exception(
+            "Post generation job failed for user_id=%s brand_id=%s batch_id=%s.",
+            user_id,
+            brand_id,
+            batch_id,
+        )
         try:
             batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
             mark_batch_failed(batch, error)
@@ -187,6 +196,11 @@ def run_post_image_generation_job(user_id, batch_id):
         mark_batch_completed(batch, batch.strategy_summary)
         return True
     except Exception as error:
+        logger.exception(
+            "Post image generation job failed for user_id=%s batch_id=%s.",
+            user_id,
+            batch_id,
+        )
         try:
             batch = PostBatch.objects.get(id=batch_id, user_id=user_id)
             mark_batch_failed(batch, error)
