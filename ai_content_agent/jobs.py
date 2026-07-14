@@ -27,13 +27,27 @@ from .services import (
 )
 
 
+USER_IMAGE_AI_EDIT_MODES = {
+    "full_ai_edit",
+    "background_replace",
+    "merge_images",
+}
+
+
+def get_requested_image_edit_mode(data):
+    return (data.get("image_edit_mode") or "none").strip()
+
+
+def is_user_image_ai_edit_requested(data):
+    return get_requested_image_edit_mode(data) in USER_IMAGE_AI_EDIT_MODES
+
+
 def generate_post_review_batch(user, brand, batch, data):
     update_batch_progress(batch, 10)
     result = generate_post_batch_draft_content(data)
     update_batch_progress(batch, 70)
 
-    image_edit_mode = data.get("image_edit_mode", "none")
-    edit_user_image_with_ai = image_edit_mode != "none"
+    edit_user_image_with_ai = is_user_image_ai_edit_requested(data)
 
     if batch.image_source == "user":
         for post_data in result["posts"]:
