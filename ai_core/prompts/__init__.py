@@ -75,3 +75,10 @@ def build_user_background_replace_prompt(
         image_prompt,
         brand_visual_identity,
     )
+
+
+def build_user_merge_images_prompt(
+    prompt,
+    content_language="pt-BR",
+):
+    return get_prompt_set(content_language).build_user_merge_images_prompt(prompt)

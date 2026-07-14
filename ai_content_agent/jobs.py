@@ -21,6 +21,7 @@ from .operations import (
 from .services import (
     build_user_post_image_edit_review_prompt,
     generate_post_batch_draft_content,
+    prepare_private_merge_image_files,
     prepare_private_post_source_image_files,
     render_approved_post_image,
 )
@@ -90,10 +91,16 @@ def run_post_generation_job(user_id, brand_id, batch_id, data):
             and image_object_paths
             and not data.get("image_files")
         ):
-            data["image_files"] = prepare_private_post_source_image_files(
-                user_id,
-                image_object_paths,
-            )
+            if data.get("image_edit_mode") == "merge_images":
+                data["image_files"] = prepare_private_merge_image_files(
+                    user_id,
+                    image_object_paths,
+                )
+            else:
+                data["image_files"] = prepare_private_post_source_image_files(
+                    user_id,
+                    image_object_paths,
+                )
 
         generate_post_review_batch(user, brand, batch, data)
         return True

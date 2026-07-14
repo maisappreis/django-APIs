@@ -559,6 +559,46 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn("edicoes de imagem", response.data["detail"])
 
+    def test_generate_posts_rejects_merge_images_with_multiple_posts(self):
+        create_subscription(self.user, tier=Plan.Tier.PRO)
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                quantity="2",
+                images=[
+                    get_uploaded_image("source.gif"),
+                    get_uploaded_image("reference.gif"),
+                    get_uploaded_image("focus.gif"),
+                ],
+                image_edit_mode="merge_images",
+                image_editing_prompt="Apply clothing from the second image",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("um post por vez", response.data["detail"])
+
+    def test_generate_posts_rejects_merge_images_without_two_images(self):
+        create_subscription(self.user, tier=Plan.Tier.PRO)
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                images=[get_uploaded_image("source.gif")],
+                image_edit_mode="merge_images",
+                image_editing_prompt="Apply clothing from the second image",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["expected"], "2 or 3")
+        self.assertEqual(response.data["received"], 1)
+
     @patch("ai_content_agent.views.prepare_uploaded_post_image_files")
     @patch("ai_content_agent.views.generate_post_review_batch")
     def test_generate_posts_allows_user_ai_edit_for_pro_user(
@@ -636,6 +676,45 @@ class ContentAgentViewExtraTest(APITestCase):
         self.assertEqual(
             generate_review.call_args.kwargs["data"]["image_edit_mode"],
             "background_replace",
+        )
+
+    @patch("ai_content_agent.views.prepare_uploaded_merge_image_files")
+    @patch("ai_content_agent.views.generate_post_review_batch")
+    def test_generate_posts_accepts_merge_images_mode(
+        self,
+        generate_review,
+        prepare_images,
+    ):
+        create_subscription(self.user, tier=Plan.Tier.PRO)
+        batch = create_batch(
+            user=self.user,
+            brand=self.brand,
+            status=GenerationStatus.PENDING_REVIEW,
+            progress=100,
+            image_source="user",
+        )
+        generate_review.return_value = batch
+        prepare_images.return_value = [{"base": {}, "final": {}}]
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            self.get_generation_payload(
+                my_images_or_ai="user",
+                images=[
+                    get_uploaded_image("source.gif"),
+                    get_uploaded_image("reference.gif"),
+                ],
+                image_edit_mode="merge_images",
+                image_editing_prompt="Apply clothing from the second image",
+            ),
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        prepare_images.assert_called_once()
+        self.assertEqual(
+            generate_review.call_args.kwargs["data"]["image_edit_mode"],
+            "merge_images",
         )
 
     @patch("ai_content_agent.views.prepare_uploaded_post_image_files")

@@ -13,6 +13,15 @@ IMAGE_QUALITY_ENHANCE_CONTRAST_FACTOR = 1.08
 IMAGE_QUALITY_ENHANCE_BRIGHTNESS_FACTOR = 1.03
 IMAGE_QUALITY_ENHANCE_SHARPNESS_FACTOR = 1.10
 IMAGE_QUALITY_ENHANCE_AUTOCONTRAST_CUTOFF = 1
+IMAGE_QUALITY_ENHANCE_TEMPERATURE_FACTOR = 1.0
+DEFAULT_IMAGE_QUALITY_SETTINGS = {
+    "color_factor": IMAGE_QUALITY_ENHANCE_COLOR_FACTOR,
+    "contrast_factor": IMAGE_QUALITY_ENHANCE_CONTRAST_FACTOR,
+    "brightness_factor": IMAGE_QUALITY_ENHANCE_BRIGHTNESS_FACTOR,
+    "sharpness_factor": IMAGE_QUALITY_ENHANCE_SHARPNESS_FACTOR,
+    "autocontrast_cutoff": IMAGE_QUALITY_ENHANCE_AUTOCONTRAST_CUTOFF,
+    "temperature_factor": IMAGE_QUALITY_ENHANCE_TEMPERATURE_FACTOR,
+}
 
 FONT_FILES_BY_NAME = {
     "dancingscript": (
@@ -97,8 +106,16 @@ def apply_logo_to_image(image_path, logo_file, position="bottom_right"):
     return image_path
 
 
-def enhance_post_image_quality(image_path):
+def get_image_quality_settings(overrides=None):
+    return {
+        **DEFAULT_IMAGE_QUALITY_SETTINGS,
+        **(overrides or {}),
+    }
+
+
+def enhance_post_image_quality(image_path, quality_settings=None):
     image_path = Path(image_path)
+    quality_settings = get_image_quality_settings(quality_settings)
 
     with Image.open(image_path) as source_image:
         alpha_channel = None
@@ -108,19 +125,23 @@ def enhance_post_image_quality(image_path):
         image = source_image.convert("RGB")
         image = ImageOps.autocontrast(
             image,
-            cutoff=IMAGE_QUALITY_ENHANCE_AUTOCONTRAST_CUTOFF,
+            cutoff=quality_settings["autocontrast_cutoff"],
         )
         image = ImageEnhance.Color(image).enhance(
-            IMAGE_QUALITY_ENHANCE_COLOR_FACTOR,
+            quality_settings["color_factor"],
         )
         image = ImageEnhance.Contrast(image).enhance(
-            IMAGE_QUALITY_ENHANCE_CONTRAST_FACTOR,
+            quality_settings["contrast_factor"],
         )
         image = ImageEnhance.Brightness(image).enhance(
-            IMAGE_QUALITY_ENHANCE_BRIGHTNESS_FACTOR,
+            quality_settings["brightness_factor"],
+        )
+        image = _apply_temperature(
+            image,
+            quality_settings["temperature_factor"],
         )
         image = ImageEnhance.Sharpness(image).enhance(
-            IMAGE_QUALITY_ENHANCE_SHARPNESS_FACTOR,
+            quality_settings["sharpness_factor"],
         )
 
         if alpha_channel:
@@ -130,6 +151,31 @@ def enhance_post_image_quality(image_path):
         image.save(image_path, format="PNG")
 
     return image_path
+
+
+def _apply_temperature(image, temperature_factor):
+    if temperature_factor == 1:
+        return image
+
+    shift = temperature_factor - 1
+    red_factor = 1 + shift * 0.35
+    green_factor = 1 - shift * 0.20
+    blue_factor = 1 + shift * 0.18
+
+    red, green, blue = image.split()
+
+    return Image.merge(
+        "RGB",
+        (
+            red.point(lambda value: _clamp_channel(value * red_factor)),
+            green.point(lambda value: _clamp_channel(value * green_factor)),
+            blue.point(lambda value: _clamp_channel(value * blue_factor)),
+        ),
+    )
+
+
+def _clamp_channel(value):
+    return max(0, min(255, int(value)))
 
 
 def apply_center_text_to_image(

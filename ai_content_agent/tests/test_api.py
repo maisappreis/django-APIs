@@ -573,6 +573,88 @@ class PostDraftOperationTestCase(TestCase):
         )
         self.assertEqual(posts[0].image_url, "")
 
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    def test_create_post_drafts_stores_merge_reference_image(self):
+        user = User.objects.create_user(
+            username="draft-merge-owner",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Draft Brand",
+            niche="Fitness",
+        )
+        batch = PostBatch.objects.create(
+            user=user,
+            brand=brand,
+            objective="Attract leads",
+            tone="Friendly",
+            theme="Summer",
+            quantity=1,
+            image_source="user",
+        )
+        result = {
+            "posts": [
+                {
+                    "order": 1,
+                    "idea": {"title": "Idea"},
+                    "template": "none",
+                    "primary_color": "#111111",
+                    "secondary_color": "#222222",
+                    "tertiary_color": "#333333",
+                    "text_color": "#FFFFFF",
+                    "title_font": "inter",
+                    "subtitle_font": "inter",
+                    "logo_position": "",
+                    "caption": "Caption",
+                    "hashtags": ["#tag"],
+                    "image_prompt": "Merge prompt",
+                    "image_title": "TEXT",
+                    "image_subtitle": "SUBTITLE",
+                }
+            ],
+        }
+
+        posts = create_post_drafts_from_generation_result(
+            user=user,
+            brand=brand,
+            batch=batch,
+            result=result,
+            data={
+                "image_edit_mode": "merge_images",
+                "image_files": [
+                    {
+                        "base": {
+                            "image_url": "/media/generated_posts/uploads/source.png",
+                            "absolute_path": "/tmp/source.png",
+                        },
+                        "final": {
+                            "image_url": "/media/generated_posts/final.png",
+                            "absolute_path": "/tmp/final.png",
+                        },
+                        "edit_reference": {
+                            "image_url": "/media/generated_posts/uploads/reference.png",
+                            "absolute_path": "/tmp/reference.png",
+                        },
+                        "edit_focus": {
+                            "image_url": "/media/generated_posts/uploads/focus.png",
+                            "absolute_path": "/tmp/focus.png",
+                        },
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(posts[0].image_edit_mode, "merge_images")
+        self.assertEqual(
+            posts[0].edit_reference_image_url,
+            "/media/generated_posts/uploads/reference.png",
+        )
+        self.assertEqual(
+            posts[0].edit_focus_image_url,
+            "/media/generated_posts/uploads/focus.png",
+        )
+
 
 class PostSchedulingTestCase(TestCase):
     @patch("ai_content_agent.operations.timezone.localdate")
@@ -715,6 +797,39 @@ class PostImageRenderInputSerializerTestCase(SimpleTestCase):
         self.assertFalse(serializer.validated_data["has_text_image"])
         self.assertEqual(serializer.validated_data["logo_position"], "")
 
+    def test_accepts_image_quality_settings(self):
+        serializer = PostImageRenderInputSerializer(data={
+            "template": "none",
+            "image_quality_settings": {
+                "color_factor": 1.2,
+                "contrast_factor": 1.1,
+                "brightness_factor": 1.05,
+                "sharpness_factor": 1.3,
+                "temperature_factor": 1.1,
+                "autocontrast_cutoff": 2,
+            },
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(
+            serializer.validated_data["image_quality_settings"]["color_factor"],
+            1.2,
+        )
+
+    def test_rejects_image_quality_settings_outside_safe_range(self):
+        serializer = PostImageRenderInputSerializer(data={
+            "template": "none",
+            "image_quality_settings": {
+                "brightness_factor": 2,
+            },
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "brightness_factor",
+            serializer.errors["image_quality_settings"],
+        )
+
 
 class PostGenerationInputSerializerTestCase(SimpleTestCase):
     def test_accepts_blank_logo_position_to_generate_post_without_logo(self):
@@ -788,6 +903,64 @@ class RerenderPostImageTestCase(TestCase):
         self.assertEqual(rerendered_post.image_title, "")
         self.assertEqual(rerendered_post.logo_position, "")
         self.assertEqual(render_image_file.call_args.kwargs["logo_file"], None)
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.enhance_post_image_quality")
+    @patch("ai_content_agent.services.create_final_image_from_base")
+    def test_background_replace_rerender_uses_image_quality_settings(
+        self,
+        create_final_image_from_base,
+        enhance_post_image_quality,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="post-quality-editor",
+            password="password",
+        )
+        post = Post.objects.create(
+            user=user,
+            base_image_url="/media/base.png",
+            image_url="/media/final.png",
+            image_edit_mode="background_replace",
+            template="none",
+        )
+        quality_settings = {
+            "color_factor": 1.2,
+            "contrast_factor": 1.1,
+            "brightness_factor": 1.05,
+            "sharpness_factor": 1.3,
+            "temperature_factor": 1.1,
+            "autocontrast_cutoff": 2,
+        }
+        create_final_image_from_base.return_value = {
+            "absolute_path": "/tmp/new-final.png",
+            "image_url": "/media/new-final.png",
+        }
+
+        rerendered_post = rerender_post_image(
+            post,
+            {
+                "image_title": "",
+                "image_subtitle": "",
+                "template": "none",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "",
+                "image_quality_settings": quality_settings,
+            },
+        )
+
+        self.assertEqual(rerendered_post.image_quality_settings, quality_settings)
+        enhance_post_image_quality.assert_called_once_with(
+            "/tmp/new-final.png",
+            quality_settings,
+        )
+        render_image_file.assert_called_once()
 
 
 class ApprovedPostImageRenderTestCase(TestCase):
@@ -961,6 +1134,8 @@ class ApprovedPostImageRenderTestCase(TestCase):
         edit_user_post_image_files.assert_called_once_with(
             Path("/tmp/source.png"),
             "Edit prompt",
+            reference_image_path=None,
+            focus_image_path=None,
             image_format="portrait",
             content_language="en-US",
             image_edit_mode="full_ai_edit",
@@ -974,6 +1149,73 @@ class ApprovedPostImageRenderTestCase(TestCase):
             rendered_post.image_url,
             "/media/generated_posts/edited-final.png",
         )
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.get_image_work_path")
+    @patch("ai_content_agent.services.edit_user_post_image_files")
+    def test_render_approved_post_image_merges_two_uploaded_images(
+        self,
+        edit_user_post_image_files,
+        get_image_work_path,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="merge-upload-owner",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Image Brand",
+            niche="Fitness",
+            content_language="en-US",
+        )
+        post = Post.objects.create(
+            brand=brand,
+            user=user,
+            base_image_url="/media/generated_posts/uploads/source.png",
+            edit_reference_image_url="/media/generated_posts/uploads/reference.png",
+            image_prompt="Apply clothing from the second image",
+            image_edit_mode="merge_images",
+            image_title="TEXT",
+            template="none",
+            primary_color="#111111",
+            secondary_color="#222222",
+            tertiary_color="#333333",
+            text_color="#FFFFFF",
+            title_font="inter",
+            subtitle_font="inter",
+            logo_position="",
+            image_format="portrait",
+            status=GenerationStatus.PENDING_REVIEW,
+        )
+        get_image_work_path.side_effect = [
+            Path("/tmp/source.png"),
+            Path("/tmp/reference.png"),
+        ]
+        edit_user_post_image_files.return_value = {
+            "base": {
+                "image_url": "/media/generated_posts/edited-base.png",
+                "absolute_path": "/tmp/edited-base.png",
+            },
+            "final": {
+                "image_url": "/media/generated_posts/edited-final.png",
+                "absolute_path": "/tmp/edited-final.png",
+            },
+        }
+
+        render_approved_post_image(post, use_existing_base=True)
+
+        edit_user_post_image_files.assert_called_once_with(
+            Path("/tmp/source.png"),
+            "Apply clothing from the second image",
+            reference_image_path=Path("/tmp/reference.png"),
+            focus_image_path=None,
+            image_format="portrait",
+            content_language="en-US",
+            image_edit_mode="merge_images",
+        )
+        render_image_file.assert_called_once()
 
 
 class PostUserImagesTestCase(SimpleTestCase):
@@ -1140,7 +1382,7 @@ class GeneratePostContentAPITestCase(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["expected"], 2)
+        self.assertEqual(response.data["expected"], "2 or 3")
         self.assertEqual(response.data["received"], 0)
 
     def test_usage_endpoint_returns_monthly_ai_image_usage(self):

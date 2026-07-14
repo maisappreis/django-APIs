@@ -178,3 +178,29 @@ class HelpersAndUtilsTest(SimpleTestCase):
 
         self.assertEqual(result, image_path)
         self.assertNotEqual(after_pixel, before_pixel)
+
+    def test_enhance_post_image_quality_can_warm_temperature(self):
+        image_path = self.create_image(
+            "yellowish.png",
+            size=(20, 20),
+            color=(180, 170, 120, 255),
+        )
+
+        enhance_post_image_quality(
+            image_path,
+            {
+                "color_factor": 1,
+                "contrast_factor": 1,
+                "brightness_factor": 1,
+                "sharpness_factor": 1,
+                "temperature_factor": 1.2,
+                "autocontrast_cutoff": 0,
+            },
+        )
+
+        with Image.open(image_path).convert("RGB") as image:
+            red, green, blue = image.getpixel((10, 10))
+
+        self.assertGreater(red, 180)
+        self.assertLess(green, 170)
+        self.assertGreater(blue, 120)

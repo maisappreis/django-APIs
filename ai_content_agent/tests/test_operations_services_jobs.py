@@ -64,6 +64,7 @@ from ai_content_agent.services import (
     get_post_logo_file,
     get_remote_image_work_path,
     get_template_name_for_post,
+    prepare_uploaded_merge_image_files,
     prepare_uploaded_post_image_files,
     render_image_file,
     render_approved_post_image,
@@ -612,6 +613,23 @@ class ServicesTest(SimpleTestCase):
         self.assertTrue(Path(image_files[0]["base"]["absolute_path"]).exists())
         self.assertTrue(Path(image_files[0]["final"]["absolute_path"]).exists())
 
+    def test_uploaded_merge_image_file_helper_saves_reference(self):
+        with override_settings(MEDIA_ROOT=self.media_root):
+            image_files = prepare_uploaded_merge_image_files([
+                get_uploaded_image("source.gif"),
+                get_uploaded_image("reference.gif"),
+                get_uploaded_image("focus.gif"),
+            ])
+
+        self.assertEqual(len(image_files), 1)
+        self.assertTrue(Path(image_files[0]["base"]["absolute_path"]).exists())
+        self.assertTrue(
+            Path(image_files[0]["edit_reference"]["absolute_path"]).exists(),
+        )
+        self.assertTrue(
+            Path(image_files[0]["edit_focus"]["absolute_path"]).exists(),
+        )
+
     @patch("ai_content_agent.services.save_uploaded_post_image_file", return_value="uploaded")
     @patch("ai_content_agent.services.generate_post_image_files", return_value="generated")
     def test_get_post_image_files_chooses_prepared_user_or_generated(
@@ -683,7 +701,7 @@ class ServicesTest(SimpleTestCase):
         self.assertIn("Customer using the product", prompt)
         self.assertIn("Preserve the main content", prompt)
 
-    def test_background_replace_prompt_uses_post_context(self):
+    def test_background_replace_prompt_locks_user_background_request(self):
         prompt = build_user_post_image_edit_review_prompt(
             {
                 "image_editing_prompt": "Clean studio background",
@@ -706,8 +724,23 @@ class ServicesTest(SimpleTestCase):
 
         self.assertIn("Clean studio background", prompt)
         self.assertIn("Premium service", prompt)
-        self.assertIn("Product on a reception counter", prompt)
-        self.assertIn("Generate only the setting/background", prompt)
+        self.assertNotIn("Product on a reception counter", prompt)
+        self.assertNotIn("Modern clinic reception", prompt)
+
+    def test_merge_images_prompt_preserves_first_image_identity(self):
+        prompt = build_user_post_image_edit_review_prompt(
+            {
+                "image_editing_prompt": "Apply clothing from the second image",
+                "content_language": "en-US",
+                "image_edit_mode": "merge_images",
+            },
+            get_post_result(),
+        )
+
+        self.assertIn("second image", prompt)
+        self.assertIn("first image", prompt)
+        self.assertIn("If there is a person in the main image", prompt)
+        self.assertIn("If there is an object, product, setting", prompt)
 
     @patch("ai_content_agent.services.apply_logo_to_image")
     @patch("ai_content_agent.services.apply_center_text_to_image")
@@ -1000,6 +1033,8 @@ class DatabaseServicesTest(TestCase):
         edit_user_post_image_files.assert_called_once_with(
             Path("/tmp/source.png"),
             "Create premium background",
+            reference_image_path=None,
+            focus_image_path=None,
             image_format="portrait",
             content_language="en-US",
             image_edit_mode="background_replace",
@@ -1152,7 +1187,7 @@ class JobsTest(TestCase):
     @patch("ai_content_agent.jobs.render_approved_post_image")
     @patch("ai_content_agent.jobs.create_post_drafts_from_generation_result")
     @patch("ai_content_agent.jobs.generate_post_batch_draft_content")
-    def test_user_image_ai_edit_builds_distinct_prompts_per_post(
+    def test_background_replace_prompts_keep_requested_background_per_post(
         self,
         generate_draft,
         create_drafts,
@@ -1200,8 +1235,14 @@ class JobsTest(TestCase):
 
         generate_post_review_batch(user, brand, batch, data)
 
+        self.assertIn("Create premium backgrounds", result["posts"][0]["image_prompt"])
+        self.assertIn("Create premium backgrounds", result["posts"][1]["image_prompt"])
         self.assertIn("Welcome", result["posts"][0]["image_prompt"])
         self.assertIn("Care", result["posts"][1]["image_prompt"])
+        self.assertNotIn("Reception scene", result["posts"][0]["image_prompt"])
+        self.assertNotIn("Treatment detail", result["posts"][1]["image_prompt"])
+        self.assertNotIn("Modern reception", result["posts"][0]["image_prompt"])
+        self.assertNotIn("Close-up detail", result["posts"][1]["image_prompt"])
         self.assertNotEqual(
             result["posts"][0]["image_prompt"],
             result["posts"][1]["image_prompt"],

@@ -36,6 +36,12 @@ from ai_content_agent.templates.text_overlay import (
     TEXT_OVERLAY_PRESETS,
     apply_template_text_overlay,
 )
+from ai_content_agent.templates.white_card import (
+    apply_template_white_card_bottom_left,
+    apply_template_white_card_bottom_right,
+    apply_template_white_card_top_left,
+    apply_template_white_card_top_right,
+)
 from ai_content_agent.defaults import DEFAULT_TEXT_FONT
 from ai_content_agent.firebase_cleanup import delete_replaced_firebase_file
 
@@ -44,6 +50,7 @@ from ai_core.prompts import (
     build_posts_from_plan_prompt,
     build_user_background_replace_prompt,
     build_user_image_edit_prompt,
+    build_user_merge_images_prompt,
 )
 from ai_content_agent.mocks import (
     mock_edit_image_files,
@@ -106,6 +113,8 @@ def generate_post_image_files(
 def edit_user_post_image_files(
     source_image_path,
     prompt,
+    reference_image_path=None,
+    focus_image_path=None,
     image_format="square",
     content_language="pt-BR",
     image_edit_mode="full_ai_edit",
@@ -116,6 +125,8 @@ def edit_user_post_image_files(
     return edit_image_files(
         source_image_path,
         prompt,
+        reference_image_path=reference_image_path,
+        focus_image_path=focus_image_path,
         image_format=image_format,
         content_language=content_language,
         image_edit_mode=image_edit_mode,
@@ -189,6 +200,12 @@ def build_user_post_image_edit_review_prompt(data, post_data):
             content_language,
         )
 
+    if data.get("image_edit_mode") == "merge_images":
+        return build_user_merge_images_prompt(
+            data.get("image_editing_prompt", ""),
+            content_language=content_language,
+        )
+
     return build_user_image_edit_prompt(
         _build_post_specific_edit_request(data, post_data),
         brand_visual_identity,
@@ -230,6 +247,19 @@ def prepare_uploaded_post_image_files(uploaded_images):
     ]
 
 
+def prepare_uploaded_merge_image_files(uploaded_images):
+    source_image = save_uploaded_post_image_file(uploaded_images[0])
+    reference_image = save_uploaded_post_image_file(uploaded_images[1])
+    source_image["edit_reference"] = reference_image["base"]
+    cleanup_local_files(reference_image["final"]["absolute_path"])
+    if len(uploaded_images) > 2:
+        focus_image = save_uploaded_post_image_file(uploaded_images[2])
+        source_image["edit_focus"] = focus_image["base"]
+        cleanup_local_files(focus_image["final"]["absolute_path"])
+
+    return [source_image]
+
+
 def prepare_private_post_source_image_files(user_id, object_paths):
     image_files = []
 
@@ -244,6 +274,21 @@ def prepare_private_post_source_image_files(user_id, object_paths):
         )
 
     return image_files
+
+
+def prepare_private_merge_image_files(user_id, object_paths):
+    uploads = [
+        consume_post_source_upload(user_id, object_path)
+        for object_path in object_paths
+    ]
+    return prepare_uploaded_merge_image_files([
+        SimpleUploadedFile(
+            upload["filename"],
+            upload["content"],
+            content_type=upload["content_type"],
+        )
+        for upload in uploads
+    ])
 
 
 def get_post_image_files(data, result, index):
@@ -361,6 +406,10 @@ TEMPLATE_RENDERERS = {
     "editorial_stack": apply_template_editorial_stack,
     "friday_market": apply_template_friday_market,
     "happy_friday_offer": apply_template_happy_friday_offer,
+    "white_card_bottom_right": apply_template_white_card_bottom_right,
+    "white_card_bottom_left": apply_template_white_card_bottom_left,
+    "white_card_top_right": apply_template_white_card_top_right,
+    "white_card_top_left": apply_template_white_card_top_left,
     **{
         template_name: partial(
             apply_template_text_overlay,
@@ -396,6 +445,10 @@ TEMPLATE_COLOR_FIELDS = {
     "editorial_stack": ["primary_color", "secondary_color", "text_color"],
     "friday_market": ["primary_color", "secondary_color", "text_color"],
     "happy_friday_offer": ["primary_color", "secondary_color", "text_color"],
+    "white_card_bottom_right": ["primary_color"],
+    "white_card_bottom_left": ["primary_color"],
+    "white_card_top_right": ["primary_color"],
+    "white_card_top_left": ["primary_color"],
     **{
         template_name: ["primary_color", "text_color"]
         for template_name in TEXT_OVERLAY_TEMPLATE_NAMES
@@ -425,6 +478,10 @@ TEMPLATE_LOGO_POSITIONS = {
     "rectangle_top": "bottom_right",
     "bloom_thai": "top_right",
     "botanical_shop": "top_right",
+    "white_card_bottom_right": "top_left",
+    "white_card_bottom_left": "top_right",
+    "white_card_top_right": "bottom_left",
+    "white_card_top_left": "bottom_right",
     **{
         template_name: "bottom_right"
         for template_name in TEXT_OVERLAY_TEMPLATE_NAMES
@@ -714,17 +771,47 @@ def render_approved_post_image(post, use_existing_base=False):
 
         if post.image_prompt:
             source_path = get_image_work_path(post.base_image_url)
+            reference_path = None
+            focus_path = None
             temporary_source_path = (
                 str(source_path)
                 if not post.base_image_url.startswith(settings.MEDIA_URL)
                 else None
             )
+            temporary_reference_path = None
+            temporary_focus_path = None
             image_edit_mode = post.image_edit_mode or "full_ai_edit"
             if image_edit_mode == "none":
                 image_edit_mode = "full_ai_edit"
+            if image_edit_mode == "merge_images":
+                if not post.edit_reference_image_url:
+                    raise ValueError("Post reference image file was not found.")
+                reference_path = get_image_work_path(
+                    post.edit_reference_image_url,
+                )
+                temporary_reference_path = (
+                    str(reference_path)
+                    if not post.edit_reference_image_url.startswith(
+                        settings.MEDIA_URL,
+                    )
+                    else None
+                )
+                if post.edit_focus_image_url:
+                    focus_path = get_image_work_path(
+                        post.edit_focus_image_url,
+                    )
+                    temporary_focus_path = (
+                        str(focus_path)
+                        if not post.edit_focus_image_url.startswith(
+                            settings.MEDIA_URL,
+                        )
+                        else None
+                    )
             image_data = edit_user_post_image_files(
                 source_path,
                 post.image_prompt,
+                reference_image_path=reference_path,
+                focus_image_path=focus_path,
                 image_format=post.image_format,
                 content_language=(
                     post.brand.content_language if post.brand else "pt-BR"
@@ -732,10 +819,18 @@ def render_approved_post_image(post, use_existing_base=False):
                 image_edit_mode=image_edit_mode,
             )
             if image_edit_mode == "background_replace":
-                enhance_post_image_quality(
-                    image_data["final"]["absolute_path"],
+                if post.image_quality_settings:
+                    enhance_post_image_quality(
+                        image_data["final"]["absolute_path"],
+                        post.image_quality_settings,
+                    )
+                else:
+                    enhance_post_image_quality(
+                        image_data["final"]["absolute_path"],
                 )
             image_data["final"]["temporary_source_path"] = temporary_source_path
+            image_data["final"]["temporary_reference_path"] = temporary_reference_path
+            image_data["final"]["temporary_focus_path"] = temporary_focus_path
         else:
             final_data = create_final_image_from_base(post.base_image_url)
             image_data = {
@@ -809,6 +904,8 @@ def render_approved_post_image(post, use_existing_base=False):
                 image_data["base"].get("absolute_path"),
                 image_data["final"].get("absolute_path"),
                 image_data["final"].get("temporary_source_path"),
+                image_data["final"].get("temporary_reference_path"),
+                image_data["final"].get("temporary_focus_path"),
             )
 
     post.save(
@@ -826,6 +923,10 @@ def rerender_post_image(post, visual_settings):
     previous_image_url = post.image_url
     final_image_data = create_final_image_from_base(post.base_image_url)
     template_name = visual_settings["template"]
+    image_quality_settings = visual_settings.get(
+        "image_quality_settings",
+        post.image_quality_settings,
+    )
     image_title = visual_settings.get("image_title", "")
     image_subtitle = visual_settings.get("image_subtitle", "")
     title_font = visual_settings.get("title_font", "") or DEFAULT_TEXT_FONT
@@ -845,6 +946,15 @@ def rerender_post_image(post, visual_settings):
         and is_firebase_storage_enabled()
     )
     try:
+        if post.image_edit_mode == "background_replace":
+            if image_quality_settings:
+                enhance_post_image_quality(
+                    final_image_data["absolute_path"],
+                    image_quality_settings,
+                )
+            else:
+                enhance_post_image_quality(final_image_data["absolute_path"])
+
         render_image_file(
             image_path=final_image_data["absolute_path"],
             template_name=template_name,
@@ -873,6 +983,7 @@ def rerender_post_image(post, visual_settings):
     post.title_font = title_font
     post.subtitle_font = subtitle_font
     post.logo_position = logo_position
+    post.image_quality_settings = image_quality_settings
     image_url = final_image_data["image_url"]
 
     if is_firebase_storage_enabled():
@@ -903,6 +1014,7 @@ def rerender_post_image(post, visual_settings):
             "title_font",
             "subtitle_font",
             "logo_position",
+            "image_quality_settings",
             "image_url",
         ]
     )

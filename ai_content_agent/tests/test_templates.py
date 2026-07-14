@@ -49,6 +49,13 @@ from ai_content_agent.templates.triangle import apply_template_triangle
 from ai_content_agent.templates.vertical_rectangle import (
     apply_template_vertical_rectangle,
 )
+from ai_content_agent.templates.white_card import (
+    apply_template_white_card_bottom_left,
+    apply_template_white_card_bottom_right,
+    apply_template_white_card_top_left,
+    apply_template_white_card_top_right,
+    _get_card_coordinates as get_white_card_coordinates,
+)
 
 
 class TemplateRenderTest(SimpleTestCase):
@@ -119,11 +126,25 @@ class TemplateRenderTest(SimpleTestCase):
             apply_template_happy_friday_offer,
             apply_template_triangle,
             apply_template_vertical_rectangle,
+            apply_template_white_card_bottom_right,
+            apply_template_white_card_bottom_left,
+            apply_template_white_card_top_right,
+            apply_template_white_card_top_left,
         ]
 
         for renderer in renderers:
             with self.subTest(renderer=renderer.__name__):
                 self.assert_template_saves_png(renderer)
+
+    def test_white_card_coordinates_use_top_and_bottom_margins(self):
+        self.assertEqual(
+            get_white_card_coordinates(320, 320, 100, 80, "top_right"),
+            (220, 12),
+        )
+        self.assertEqual(
+            get_white_card_coordinates(320, 320, 100, 80, "bottom_left"),
+            (0, 228),
+        )
 
     def test_text_overlay_renders_all_positions_with_box(self):
         for position in TEXT_OVERLAY_PRESETS:

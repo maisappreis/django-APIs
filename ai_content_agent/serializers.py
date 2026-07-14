@@ -151,6 +151,10 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("editorial_stack", "Editorial stack"),
         ("friday_market", "Friday market"),
         ("happy_friday_offer", "Happy Friday offer"),
+        ("white_card_bottom_right", "White card bottom right"),
+        ("white_card_bottom_left", "White card bottom left"),
+        ("white_card_top_right", "White card top right"),
+        ("white_card_top_left", "White card top left"),
         ("text_center", "Text center"),
         ("text_center_box", "Text center with box"),
         ("text_top_center", "Text top center"),
@@ -186,6 +190,7 @@ class PostGenerationInputSerializer(serializers.Serializer):
         ("none", "None"),
         ("full_ai_edit", "Full AI edit"),
         ("background_replace", "Background replace"),
+        ("merge_images", "Merge images"),
     ]
 
     brand_id = serializers.IntegerField(min_value=1)
@@ -292,6 +297,39 @@ class PostGenerationInputSerializer(serializers.Serializer):
     )
 
 
+class ImageQualitySettingsSerializer(serializers.Serializer):
+    color_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.4,
+        required=False,
+    )
+    contrast_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.4,
+        required=False,
+    )
+    brightness_factor = serializers.FloatField(
+        min_value=0.85,
+        max_value=1.2,
+        required=False,
+    )
+    sharpness_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.8,
+        required=False,
+    )
+    temperature_factor = serializers.FloatField(
+        min_value=0.8,
+        max_value=1.2,
+        required=False,
+    )
+    autocontrast_cutoff = serializers.IntegerField(
+        min_value=0,
+        max_value=5,
+        required=False,
+    )
+
+
 class PostGenerationOutputSerializer(serializers.Serializer):
     id = serializers.IntegerField(required=False)
     brand_id = serializers.IntegerField(required=False, allow_null=True)
@@ -302,6 +340,8 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     )
     image_prompt = serializers.CharField()
     base_image_url = serializers.CharField(required=False, allow_blank=True)
+    edit_reference_image_url = serializers.CharField(required=False, allow_blank=True)
+    edit_focus_image_url = serializers.CharField(required=False, allow_blank=True)
     image_url = serializers.CharField()
     image_title = serializers.CharField(required=False, allow_blank=True)
     image_subtitle = serializers.CharField(required=False, allow_blank=True)
@@ -315,6 +355,7 @@ class PostGenerationOutputSerializer(serializers.Serializer):
     logo_position = serializers.CharField(required=False)
     image_format = serializers.CharField(required=False)
     image_edit_mode = serializers.CharField(required=False)
+    image_quality_settings = ImageQualitySettingsSerializer(required=False)
 
 
 class BrandInputSerializer(serializers.Serializer):
@@ -545,6 +586,7 @@ class PostImageRenderInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    image_quality_settings = ImageQualitySettingsSerializer(required=False)
 
 
 class PostPromptApprovalItemSerializer(serializers.Serializer):

@@ -2,6 +2,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .storage import generate_brand_reference_read_url, generate_private_read_url
+from .utils import get_image_quality_settings
 
 
 def serialize_brand(brand):
@@ -45,6 +46,12 @@ def serialize_post_generation(post_generation):
         "base_image_url": generate_private_read_url(
             post_generation.base_image_url
         ),
+        "edit_reference_image_url": generate_private_read_url(
+            post_generation.edit_reference_image_url
+        ),
+        "edit_focus_image_url": generate_private_read_url(
+            post_generation.edit_focus_image_url
+        ),
         "image_title": post_generation.image_title,
         "image_subtitle": post_generation.image_subtitle,
         "image_url": generate_private_read_url(post_generation.image_url),
@@ -57,6 +64,9 @@ def serialize_post_generation(post_generation):
         "subtitle_font": post_generation.subtitle_font,
         "logo_position": post_generation.logo_position,
         "image_format": post_generation.image_format,
+        "image_quality_settings": get_image_quality_settings(
+            post_generation.image_quality_settings,
+        ),
     }
 
 
