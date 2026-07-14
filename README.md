@@ -146,6 +146,8 @@ python manage.py migrate [app] zero
 To update requirements.txt:
 ```sh
 pip freeze > requirements.txt
+pip freeze | Out-File -FilePath requirements.txt -Encoding utf8
+python -m pip freeze | Out-File requirements.txt -Encoding utf8
 ```
 
 ---
