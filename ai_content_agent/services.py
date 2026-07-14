@@ -36,6 +36,12 @@ from ai_content_agent.templates.text_overlay import (
     TEXT_OVERLAY_PRESETS,
     apply_template_text_overlay,
 )
+from ai_content_agent.templates.white_card import (
+    apply_template_white_card_bottom_left,
+    apply_template_white_card_bottom_right,
+    apply_template_white_card_top_left,
+    apply_template_white_card_top_right,
+)
 from ai_content_agent.defaults import DEFAULT_TEXT_FONT
 from ai_content_agent.firebase_cleanup import delete_replaced_firebase_file
 
@@ -400,6 +406,10 @@ TEMPLATE_RENDERERS = {
     "editorial_stack": apply_template_editorial_stack,
     "friday_market": apply_template_friday_market,
     "happy_friday_offer": apply_template_happy_friday_offer,
+    "white_card_bottom_right": apply_template_white_card_bottom_right,
+    "white_card_bottom_left": apply_template_white_card_bottom_left,
+    "white_card_top_right": apply_template_white_card_top_right,
+    "white_card_top_left": apply_template_white_card_top_left,
     **{
         template_name: partial(
             apply_template_text_overlay,
@@ -435,6 +445,10 @@ TEMPLATE_COLOR_FIELDS = {
     "editorial_stack": ["primary_color", "secondary_color", "text_color"],
     "friday_market": ["primary_color", "secondary_color", "text_color"],
     "happy_friday_offer": ["primary_color", "secondary_color", "text_color"],
+    "white_card_bottom_right": ["primary_color"],
+    "white_card_bottom_left": ["primary_color"],
+    "white_card_top_right": ["primary_color"],
+    "white_card_top_left": ["primary_color"],
     **{
         template_name: ["primary_color", "text_color"]
         for template_name in TEXT_OVERLAY_TEMPLATE_NAMES
@@ -464,6 +478,10 @@ TEMPLATE_LOGO_POSITIONS = {
     "rectangle_top": "bottom_right",
     "bloom_thai": "top_right",
     "botanical_shop": "top_right",
+    "white_card_bottom_right": "top_left",
+    "white_card_bottom_left": "top_right",
+    "white_card_top_right": "bottom_left",
+    "white_card_top_left": "bottom_right",
     **{
         template_name: "bottom_right"
         for template_name in TEXT_OVERLAY_TEMPLATE_NAMES

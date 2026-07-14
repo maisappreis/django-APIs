@@ -18,14 +18,14 @@
 - Gere até 15 posts com imagens criadas pela IA por mês
 - Gere até 15 posts com imagens editadas pela IA por mês
 - Gere até 30 posts com imagens próprias por mês
-- Pode criar vários post por vez
+- Pode criar até 7 posts por vez
 
 # Pro
 - Com captura de identidade visual para 3 marcas
 - Gere até 30 posts com imagens criadas pela IA por mês
 - Gere até 30 posts com imagens editadas pela IA por mês
 - Gere até 30 posts com imagens próprias por mês
-- Pode criar vários post por vez
+- Pode criar até 7 posts por vez
 
 
 Talvez, futuramente, limitar a quantidade de vezes que o usuário captura identidade visual.
