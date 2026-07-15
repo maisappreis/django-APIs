@@ -402,6 +402,61 @@ class PromptQualityTestCase(SimpleTestCase):
         focus_path.unlink.assert_called_once_with(missing_ok=True)
 
     @override_settings(
+        MEDIA_ROOT="/tmp",
+        REPLICATE_MERGE_IMAGE_EDIT_MAX_ATTEMPTS=2,
+        REPLICATE_MERGE_IMAGE_EDIT_RETRY_DELAY_SECONDS=0,
+    )
+    @patch("ai_core.clients._download_replicate_image", return_value=b"merged")
+    @patch("ai_core.clients._poll_replicate_result")
+    @patch("ai_core.clients._submit_replicate_merge_image_edit")
+    @patch("ai_core.clients._build_image_data_url")
+    @patch("ai_core.clients._prepare_image_edit_source")
+    def test_image_edit_retries_interrupted_replicate_merge_prediction(
+        self,
+        prepare_source,
+        build_data_url,
+        submit,
+        poll,
+        download,
+    ):
+        source_path = MagicMock()
+        reference_path = MagicMock()
+        prepare_source.side_effect = [source_path, reference_path]
+        build_data_url.side_effect = [
+            "data:image/png;base64,source",
+            "data:image/png;base64,reference",
+        ]
+        submit.side_effect = [
+            {"urls": {"get": "https://api.replicate.com/v1/predictions/one"}},
+            {"urls": {"get": "https://api.replicate.com/v1/predictions/two"}},
+        ]
+        poll.side_effect = [
+            RuntimeError(
+                "Replicate merge image edit failed: "
+                "{'error': 'Prediction interrupted; please retry (code: PA)'}"
+            ),
+            {
+                "status": "succeeded",
+                "output": ["https://replicate.delivery/result.png"],
+            },
+        ]
+
+        image_bytes = _edit_image_bytes(
+            Path("/tmp/source.png"),
+            "Apply clothing from the second image",
+            reference_image_path=Path("/tmp/reference.png"),
+            image_format="portrait",
+            image_edit_mode="merge_images",
+        )
+
+        self.assertEqual(image_bytes, b"merged")
+        self.assertEqual(submit.call_count, 2)
+        self.assertEqual(poll.call_count, 2)
+        download.assert_called_once()
+        source_path.unlink.assert_called_once_with(missing_ok=True)
+        reference_path.unlink.assert_called_once_with(missing_ok=True)
+
+    @override_settings(
         FAL_KEY="test-key",
         FAL_QUEUE_BASE_URL="https://queue.fal.run",
         FAL_BACKGROUND_GENERATION_MODEL="fal-ai/flux-pro",

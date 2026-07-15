@@ -671,6 +671,29 @@ def _download_replicate_image(result):
     return _download_url_bytes(image_url)
 
 
+def _is_retryable_replicate_merge_error(error):
+    message = str(error)
+    return (
+        "Prediction interrupted" in message
+        or "please retry" in message
+        or "code: PA" in message
+    )
+
+
+def _get_replicate_merge_max_attempts():
+    return max(
+        1,
+        int(getattr(settings, "REPLICATE_MERGE_IMAGE_EDIT_MAX_ATTEMPTS", 3)),
+    )
+
+
+def _get_replicate_merge_retry_delay_seconds():
+    return max(
+        0,
+        float(getattr(settings, "REPLICATE_MERGE_IMAGE_EDIT_RETRY_DELAY_SECONDS", 1)),
+    )
+
+
 def _build_flux_generation_payload(prompt):
     payload = {
         "prompt": prompt,
@@ -921,13 +944,27 @@ def _run_merge_image_edit(
         if edit_focus_path:
             image_urls.append(_build_image_data_url(edit_focus_path))
 
-        submission = _submit_replicate_merge_image_edit(
-            image_urls,
-            prompt,
-            format_config,
-        )
-        result = _poll_replicate_result(submission)
-        return _download_replicate_image(result)
+        max_attempts = _get_replicate_merge_max_attempts()
+        last_error = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                submission = _submit_replicate_merge_image_edit(
+                    image_urls,
+                    prompt,
+                    format_config,
+                )
+                result = _poll_replicate_result(submission)
+                return _download_replicate_image(result)
+            except (RuntimeError, TimeoutError) as error:
+                last_error = error
+                if (
+                    attempt >= max_attempts
+                    or not _is_retryable_replicate_merge_error(error)
+                ):
+                    raise
+                time.sleep(_get_replicate_merge_retry_delay_seconds())
+
+        raise last_error
     finally:
         edit_source_path.unlink(missing_ok=True)
         edit_reference_path.unlink(missing_ok=True)
