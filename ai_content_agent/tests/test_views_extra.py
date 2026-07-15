@@ -231,6 +231,8 @@ class ContentAgentViewExtraTest(APITestCase):
             self.brand.reference_image_1_url,
             "https://storage.googleapis.com/bucket/ref.png",
         )
+        self.assertEqual(self.brand.visual_identity_status, "pending")
+        self.assertEqual(response.data["visual_identity_status"], "pending")
         finalize_upload.assert_called_once_with(
             user_id=self.user.id,
             brand_id=self.brand.id,

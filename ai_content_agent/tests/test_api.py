@@ -1304,6 +1304,70 @@ class GeneratePostContentAPITestCase(APITestCase):
             status=Subscription.Status.ACTIVE,
         )
 
+    def test_generate_posts_waits_for_pending_visual_identity(self):
+        self.brand.visual_identity_status = "pending"
+        self.brand.save(update_fields=["visual_identity_status"])
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "1",
+                "my_images_or_ai": "ai",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "bottom_right",
+                "image_format": "square",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["visual_identity_status"], "pending")
+        self.assertIn("identidade visual", response.data["detail"])
+
+    def test_generate_posts_waits_for_pending_visual_identity_in_english(self):
+        self.brand.content_language = "en-US"
+        self.brand.visual_identity_status = "pending"
+        self.brand.save(
+            update_fields=["content_language", "visual_identity_status"]
+        )
+
+        response = self.client.post(
+            reverse("generate-post-content"),
+            {
+                "brand_id": self.brand.id,
+                "business_name": self.brand.business_name,
+                "niche": self.brand.niche,
+                "objective": "Attract leads",
+                "tone": "Friendly",
+                "theme": "Summer",
+                "quantity": "1",
+                "my_images_or_ai": "ai",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "bottom_right",
+                "image_format": "square",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("visual identity", response.data["detail"])
+
     def test_generate_posts_rejects_more_than_seven_posts_per_batch(self):
         response = self.client.post(
             reverse("generate-post-content"),

@@ -25,6 +25,35 @@ PENDING_TIMEOUT_MESSAGES = {
 }
 
 
+BRAND_MESSAGES = {
+    "visual_identity_pending": {
+        "en-US": (
+            "The brand visual identity is still being processed. "
+            "Wait until it finishes before creating posts."
+        ),
+        "pt-BR": (
+            "A identidade visual da marca ainda esta sendo processada. "
+            "Aguarde a conclusao antes de gerar posts."
+        ),
+    },
+}
+
+
+def get_content_language_message(messages, content_language):
+    return messages.get(
+        content_language,
+        messages["pt-BR"],
+    )
+
+
+def get_brand_message(brand, message_key):
+    content_language = getattr(brand, "content_language", "pt-BR") or "pt-BR"
+    return get_content_language_message(
+        BRAND_MESSAGES[message_key],
+        content_language,
+    )
+
+
 def get_batch_display_progress(batch):
     if batch.status == GenerationStatus.PENDING:
         elapsed_seconds = max(
@@ -65,9 +94,9 @@ def get_batch_content_language(batch):
 
 def get_pending_timeout_message(batch):
     content_language = get_batch_content_language(batch)
-    return PENDING_TIMEOUT_MESSAGES.get(
+    return get_content_language_message(
+        PENDING_TIMEOUT_MESSAGES,
         content_language,
-        PENDING_TIMEOUT_MESSAGES["pt-BR"],
     )
 
 

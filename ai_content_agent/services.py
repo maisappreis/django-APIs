@@ -338,6 +338,8 @@ def analyze_brand_visual_identity(brand):
 
     brand.visual_identity_summary = result["visual_identity_summary"]
     brand.visual_identity_prompt = result["visual_identity_prompt"]
+    brand.visual_identity_status = "completed"
+    brand.visual_identity_error = ""
     brand.primary_color = _clean_hex_color(
         result["primary_color"],
         brand.primary_color,
@@ -357,6 +359,8 @@ def analyze_brand_visual_identity(brand):
         update_fields=[
             "visual_identity_summary",
             "visual_identity_prompt",
+            "visual_identity_status",
+            "visual_identity_error",
             "primary_color",
             "secondary_color",
             "tertiary_color",

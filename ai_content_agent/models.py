@@ -46,6 +46,17 @@ class Brand(models.Model):
     logo_url = models.CharField(max_length=500, blank=True)
     visual_identity_summary = models.TextField(blank=True)
     visual_identity_prompt = models.TextField(blank=True)
+    visual_identity_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("idle", "Idle"),
+            ("pending", "Pending"),
+            ("completed", "Completed"),
+            ("failed", "Failed"),
+        ],
+        default="idle",
+    )
+    visual_identity_error = models.TextField(blank=True)
     primary_color = models.CharField(max_length=7, default=DEFAULT_PRIMARY_COLOR)
     secondary_color = models.CharField(max_length=7, default=DEFAULT_SECONDARY_COLOR)
     tertiary_color = models.CharField(max_length=7, default=DEFAULT_TERTIARY_COLOR)

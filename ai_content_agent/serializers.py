@@ -107,6 +107,7 @@ class BrandReferenceUploadCompleteOutputSerializer(serializers.Serializer):
     object_path = serializers.CharField()
     content_type = serializers.CharField()
     size = serializers.IntegerField()
+    visual_identity_status = serializers.CharField(required=False)
 
 
 class CalendarPostsQuerySerializer(serializers.Serializer):
@@ -521,6 +522,8 @@ class BrandOutputSerializer(serializers.Serializer):
     content_language = serializers.CharField()
     visual_identity_summary = serializers.CharField(allow_blank=True)
     visual_identity_prompt = serializers.CharField(allow_blank=True)
+    visual_identity_status = serializers.CharField()
+    visual_identity_error = serializers.CharField(allow_blank=True)
     reference_image_1_url = serializers.CharField(allow_blank=True)
     reference_image_2_url = serializers.CharField(allow_blank=True)
     logo_url = serializers.CharField(allow_blank=True)

@@ -3,7 +3,7 @@ from django.db import close_old_connections
 from django.shortcuts import get_object_or_404
 import logging
 
-from .models import GenerationStatus, PostBatch
+from .models import Brand, GenerationStatus, PostBatch
 from .operations import (
     create_post_drafts_from_generation_result,
     ensure_ai_image_edit_quota,
@@ -147,12 +147,30 @@ def run_brand_visual_identity_job(user_id, brand_id):
         brand = get_object_or_404(get_user_brands(user), id=brand_id)
         analyze_brand_visual_identity(brand)
         return True
-    except Exception:
+    except Exception as error:
         logger.exception(
             "Brand visual identity job failed for user_id=%s brand_id=%s.",
             user_id,
             brand_id,
         )
+        try:
+            brand = Brand.objects.get(id=brand_id, user_id=user_id)
+            brand.visual_identity_status = "failed"
+            brand.visual_identity_error = str(error)[:1000]
+            brand.save(
+                update_fields=[
+                    "visual_identity_status",
+                    "visual_identity_error",
+                    "updated_at",
+                ]
+            )
+        except Exception:
+            logger.exception(
+                "Failed to mark brand visual identity job as failed for "
+                "user_id=%s brand_id=%s.",
+                user_id,
+                brand_id,
+            )
         return False
     finally:
         close_old_connections()

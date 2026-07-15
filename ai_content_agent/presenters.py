@@ -13,6 +13,8 @@ def serialize_brand(brand):
         "content_language": brand.content_language,
         "visual_identity_summary": brand.visual_identity_summary,
         "visual_identity_prompt": brand.visual_identity_prompt,
+        "visual_identity_status": brand.visual_identity_status,
+        "visual_identity_error": brand.visual_identity_error,
         "reference_image_1_url": (
             generate_brand_reference_read_url(brand.reference_image_1_url)
             or (brand.reference_image_1.url if brand.reference_image_1 else "")

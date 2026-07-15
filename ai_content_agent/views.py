@@ -93,6 +93,7 @@ from .services import (
 from .view_helpers import (
     delete_expired_incomplete_batches,
     fail_stale_pending_batch,
+    get_brand_message,
     is_valid_maintenance_request,
     restore_manual_font_choices,
     serialize_batch_status,
@@ -225,9 +226,27 @@ class BrandReferenceUploadCompleteAPIView(APIView):
         )
 
         if data["analyze"]:
+            brand.visual_identity_status = "pending"
+            brand.visual_identity_error = ""
+            brand.save(
+                update_fields=[
+                    "visual_identity_status",
+                    "visual_identity_error",
+                    "updated_at",
+                ]
+            )
             try:
                 enqueue_brand_visual_identity(request.user.id, brand.id)
             except Exception as error:
+                brand.visual_identity_status = "failed"
+                brand.visual_identity_error = str(error)[:1000]
+                brand.save(
+                    update_fields=[
+                        "visual_identity_status",
+                        "visual_identity_error",
+                        "updated_at",
+                    ]
+                )
                 response_data = {
                     "detail": "Erro ao captar identidade visual da marca.",
                 }
@@ -246,6 +265,7 @@ class BrandReferenceUploadCompleteAPIView(APIView):
             "object_path": confirmed["object_path"],
             "content_type": confirmed["content_type"],
             "size": confirmed["size"],
+            "visual_identity_status": brand.visual_identity_status,
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
@@ -487,6 +507,18 @@ class GeneratePostContentAPIView(APIView):
                     "detail": "Marca não encontrada.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if brand.visual_identity_status == "pending":
+            return Response(
+                {
+                    "detail": get_brand_message(
+                        brand,
+                        "visual_identity_pending",
+                    ),
+                    "visual_identity_status": brand.visual_identity_status,
+                },
+                status=status.HTTP_409_CONFLICT,
             )
 
         data = apply_brand_defaults(data, brand, request.data)
