@@ -6,6 +6,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from ai_content_agent.queue import (
+    enqueue_brand_visual_identity,
     enqueue_post_generation,
     enqueue_post_image_generation,
 )
@@ -134,6 +135,37 @@ class QStashPublisherTest(TestCase):
                 "https://content-agent-worker.run.app/api/content-agent/"
                 "jobs/post-generation/"
             ),
+        )
+        response.raise_for_status.assert_called_once_with()
+
+    @override_settings(
+        CONTENT_AGENT_QUEUE_BACKEND="qstash",
+        QSTASH_TOKEN="qstash-secret",
+        QSTASH_URL="https://qstash-us-east-1.upstash.io/",
+        CONTENT_AGENT_JOB_TOKEN="job-secret",
+        CONTENT_AGENT_PUBLIC_URL="https://api.example.com/",
+        CONTENT_AGENT_WORKER_URL="https://content-agent-worker.run.app/",
+    )
+    @patch("ai_content_agent.queue.httpx.post")
+    def test_enqueue_brand_visual_identity_publishes_worker_job(self, post):
+        response = Mock()
+        response.json.return_value = {"messageId": "msg-1"}
+        post.return_value = response
+
+        result = enqueue_brand_visual_identity(7, 3)
+
+        self.assertEqual(result, {"messageId": "msg-1"})
+        self.assertEqual(
+            post.call_args.args[0],
+            (
+                "https://qstash-us-east-1.upstash.io/v2/publish/"
+                "https://content-agent-worker.run.app/api/content-agent/"
+                "jobs/brand-visual-identity/"
+            ),
+        )
+        self.assertEqual(
+            post.call_args.kwargs["json"],
+            {"user_id": 7, "brand_id": 3},
         )
         response.raise_for_status.assert_called_once_with()
 
@@ -272,6 +304,44 @@ class QStashWorkerViewTest(APITestCase):
         response = self.client.post(
             reverse("post-image-generation-job"),
             {"user_id": 7, "batch_id": 11},
+            format="json",
+            HTTP_X_CONTENT_AGENT_JOB_TOKEN="job-secret",
+        )
+
+        self.assertEqual(response.status_code, 500)
+
+    def test_brand_visual_identity_worker_rejects_unauthenticated_request(self):
+        response = self.client.post(
+            reverse("brand-visual-identity-job"),
+            {"user_id": 7, "brand_id": 3},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    @patch(
+        "ai_content_agent.views.run_brand_visual_identity_job",
+        return_value=True,
+    )
+    def test_brand_visual_identity_worker_processes_authenticated_job(self, run_job):
+        response = self.client.post(
+            reverse("brand-visual-identity-job"),
+            {"user_id": 7, "brand_id": 3},
+            format="json",
+            HTTP_X_CONTENT_AGENT_JOB_TOKEN="job-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        run_job.assert_called_once_with(7, 3)
+
+    @patch(
+        "ai_content_agent.views.run_brand_visual_identity_job",
+        return_value=False,
+    )
+    def test_brand_visual_identity_worker_returns_error_for_retry(self, _run_job):
+        response = self.client.post(
+            reverse("brand-visual-identity-job"),
+            {"user_id": 7, "brand_id": 3},
             format="json",
             HTTP_X_CONTENT_AGENT_JOB_TOKEN="job-secret",
         )

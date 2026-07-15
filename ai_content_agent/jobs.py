@@ -20,6 +20,7 @@ from .operations import (
     update_batch_progress,
 )
 from .services import (
+    analyze_brand_visual_identity,
     build_user_post_image_edit_review_prompt,
     generate_post_batch_draft_content,
     prepare_private_merge_image_files,
@@ -133,6 +134,25 @@ def run_post_generation_job(user_id, brand_id, batch_id, data):
             mark_batch_failed(batch, error)
         except PostBatch.DoesNotExist:
             pass
+        return False
+    finally:
+        close_old_connections()
+
+
+def run_brand_visual_identity_job(user_id, brand_id):
+    close_old_connections()
+
+    try:
+        user = get_user_model().objects.get(id=user_id)
+        brand = get_object_or_404(get_user_brands(user), id=brand_id)
+        analyze_brand_visual_identity(brand)
+        return True
+    except Exception:
+        logger.exception(
+            "Brand visual identity job failed for user_id=%s brand_id=%s.",
+            user_id,
+            brand_id,
+        )
         return False
     finally:
         close_old_connections()

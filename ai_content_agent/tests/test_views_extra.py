@@ -196,11 +196,11 @@ class ContentAgentViewExtraTest(APITestCase):
         generate_upload_url.assert_called_once_with(self.user.id, "image/png")
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
-    @patch("ai_content_agent.views.analyze_brand_visual_identity")
+    @patch("ai_content_agent.views.enqueue_brand_visual_identity")
     @patch("ai_content_agent.views.delete_replaced_firebase_file")
     @patch("ai_content_agent.views.finalize_brand_reference_upload")
     def test_complete_brand_reference_upload_associates_private_object(
-        self, finalize_upload, delete_replaced_file, analyze_visual_identity
+        self, finalize_upload, delete_replaced_file, enqueue_visual_identity
     ):
         create_subscription(self.user, tier=Plan.Tier.PLUS)
         finalize_upload.return_value = {
@@ -240,7 +240,7 @@ class ContentAgentViewExtraTest(APITestCase):
         delete_replaced_file.assert_called_once_with(
             "", "https://storage.googleapis.com/bucket/ref.png"
         )
-        analyze_visual_identity.assert_called_once()
+        enqueue_visual_identity.assert_called_once_with(self.user.id, self.brand.id)
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="firebase")
     @patch("ai_content_agent.views.finalize_brand_reference_upload")

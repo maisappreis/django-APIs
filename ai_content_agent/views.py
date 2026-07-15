@@ -18,6 +18,7 @@ from .firebase_cleanup import (
 )
 from .jobs import (
     generate_post_review_batch,
+    run_brand_visual_identity_job,
     run_post_generation_job,
     run_post_image_generation_job,
 )
@@ -55,7 +56,11 @@ from .presenters import (
     serialize_post_batch,
     serialize_post_generation,
 )
-from .queue import enqueue_post_generation, enqueue_post_image_generation
+from .queue import (
+    enqueue_brand_visual_identity,
+    enqueue_post_generation,
+    enqueue_post_image_generation,
+)
 from .serializers import (
     BrandInputSerializer,
     BrandOutputSerializer,
@@ -221,7 +226,7 @@ class BrandReferenceUploadCompleteAPIView(APIView):
 
         if data["analyze"]:
             try:
-                analyze_brand_visual_identity(brand)
+                enqueue_brand_visual_identity(request.user.id, brand.id)
             except Exception as error:
                 response_data = {
                     "detail": "Erro ao captar identidade visual da marca.",
@@ -941,6 +946,39 @@ class PostGenerationJobAPIView(APIView):
             )
 
         if not run_post_generation_job(user_id, brand_id, batch_id, data):
+            return Response(
+                {"detail": "Job processing failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"status": "completed"})
+
+
+class BrandVisualIdentityJobAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        expected_token = getattr(settings, "CONTENT_AGENT_JOB_TOKEN", "")
+        received_token = request.headers.get(
+            "X-Content-Agent-Job-Token",
+            "",
+        )
+        if not expected_token or not compare_digest(received_token, expected_token):
+            return Response(
+                {"detail": "Unauthorized job request."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        user_id = request.data.get("user_id")
+        brand_id = request.data.get("brand_id")
+        if not isinstance(user_id, int) or not isinstance(brand_id, int):
+            return Response(
+                {"detail": "Invalid job payload."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not run_brand_visual_identity_job(user_id, brand_id):
             return Response(
                 {"detail": "Job processing failed."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

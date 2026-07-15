@@ -218,4 +218,5 @@ the authenticated worker endpoints:
 ```text
 /api/content-agent/jobs/post-generation/
 /api/content-agent/jobs/post-images/
+/api/content-agent/jobs/brand-visual-identity/
 ```

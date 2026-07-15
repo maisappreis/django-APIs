@@ -5,6 +5,7 @@ from .views import (
     BrandListAPIView,
     BrandReferenceUploadCompleteAPIView,
     BrandReferenceUploadSignAPIView,
+    BrandVisualIdentityJobAPIView,
     ApprovePostPromptsAPIView,
     CalendarPostsAPIView,
     ContentAgentUsageAPIView,
@@ -30,6 +31,11 @@ urlpatterns = [
         "jobs/post-images/",
         PostImageGenerationJobAPIView.as_view(),
         name="post-image-generation-job",
+    ),
+    path(
+        "jobs/brand-visual-identity/",
+        BrandVisualIdentityJobAPIView.as_view(),
+        name="brand-visual-identity-job",
     ),
     path(
         "uploads/post-source-images/sign/",

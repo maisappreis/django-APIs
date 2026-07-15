@@ -32,6 +32,12 @@ def get_post_generation_job_url():
     return f"{public_url}/api/content-agent/jobs/post-generation/"
 
 
+def get_brand_visual_identity_job_url():
+    public_url = get_content_agent_job_base_url()
+
+    return f"{public_url}/api/content-agent/jobs/brand-visual-identity/"
+
+
 def publish_qstash_job(callback_url, payload):
     qstash_token = getattr(settings, "QSTASH_TOKEN", "")
     job_token = getattr(settings, "CONTENT_AGENT_JOB_TOKEN", "")
@@ -117,4 +123,24 @@ def enqueue_post_image_generation(user_id, batch_id):
     return publish_qstash_job(
         get_post_image_job_url(),
         {"user_id": user_id, "batch_id": batch_id},
+    )
+
+
+def enqueue_brand_visual_identity(user_id, brand_id):
+    backend = getattr(settings, "CONTENT_AGENT_QUEUE_BACKEND", "inline")
+    if backend == "inline":
+        from .jobs import run_brand_visual_identity_job
+
+        if not run_brand_visual_identity_job(user_id, brand_id):
+            raise RuntimeError("Inline brand visual identity analysis failed.")
+        return {"backend": "inline"}
+
+    if backend != "qstash":
+        raise ImproperlyConfigured(
+            f"Unsupported content agent queue backend: {backend}."
+        )
+
+    return publish_qstash_job(
+        get_brand_visual_identity_job_url(),
+        {"user_id": user_id, "brand_id": brand_id},
     )
