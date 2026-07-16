@@ -906,6 +906,64 @@ class RerenderPostImageTestCase(TestCase):
 
     @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
     @patch("ai_content_agent.services.render_image_file")
+    @patch("ai_content_agent.services.create_final_image_from_base")
+    def test_rerender_text_overlay_uses_template_logo_position(
+        self,
+        create_final_image_from_base,
+        render_image_file,
+    ):
+        user = User.objects.create_user(
+            username="post-logo-editor",
+            password="password",
+        )
+        brand = Brand.objects.create(
+            user=user,
+            business_name="Logo Brand",
+            niche="Fitness",
+            logo="content_agent/logos/logo.png",
+            logo_position="bottom_right",
+        )
+        post = Post.objects.create(
+            brand=brand,
+            user=user,
+            base_image_url="/media/base.png",
+            image_url="/media/final.png",
+            image_title="Text",
+            template="text_bottom_center_box",
+            logo_position="top_right",
+        )
+        create_final_image_from_base.return_value = {
+            "absolute_path": "/tmp/new-final.png",
+            "image_url": "/media/new-final.png",
+        }
+
+        rerendered_post = rerender_post_image(
+            post,
+            {
+                "image_title": "Text",
+                "image_subtitle": "",
+                "template": "text_bottom_center_box",
+                "primary_color": "#111111",
+                "secondary_color": "#222222",
+                "tertiary_color": "#333333",
+                "text_color": "#FFFFFF",
+                "title_font": "inter",
+                "subtitle_font": "inter",
+                "logo_position": "bottom_left",
+            },
+        )
+
+        self.assertEqual(rerendered_post.logo_position, "top_right")
+        self.assertEqual(
+            render_image_file.call_args.kwargs["logo_position"],
+            "top_right",
+        )
+        self.assertFalse(
+            render_image_file.call_args.kwargs["use_template_logo_position"],
+        )
+
+    @override_settings(CONTENT_AGENT_STORAGE_BACKEND="local")
+    @patch("ai_content_agent.services.render_image_file")
     @patch("ai_content_agent.services.enhance_post_image_quality")
     @patch("ai_content_agent.services.create_final_image_from_base")
     def test_background_replace_rerender_uses_image_quality_settings(

@@ -513,6 +513,56 @@ class OperationsTest(TestCase):
         self.assertEqual(settings["image_subtitle"], "")
         self.assertEqual(settings["primary_color"], "#000000")
 
+    def test_build_post_visual_settings_restores_brand_logo_position_when_omitted(self):
+        user = create_user()
+        brand = create_brand(
+            user=user,
+            logo_url="https://cdn.test/logo.png",
+            logo_position="bottom_left",
+        )
+        post = create_post(
+            user=user,
+            brand=brand,
+            logo_position="",
+            template="none",
+        )
+
+        settings = build_post_visual_settings(
+            post,
+            {"template": "text_bottom_center_box"},
+        )
+
+        self.assertEqual(settings["logo_position"], "bottom_left")
+
+    def test_build_post_visual_settings_accepts_logo_position_control_values(self):
+        brand = create_brand(
+            logo_url="https://cdn.test/logo.png",
+            logo_position="bottom_left",
+        )
+        post = create_post(
+            brand=brand,
+            logo_position="",
+            template="none",
+        )
+
+        settings = build_post_visual_settings(
+            post,
+            {
+                "template": "text_bottom_center_box",
+                "logo_position": "top_right",
+            },
+        )
+        without_logo_settings = build_post_visual_settings(
+            post,
+            {
+                "template": "text_bottom_center_box",
+                "logo_position": "",
+            },
+        )
+
+        self.assertEqual(settings["logo_position"], "top_right")
+        self.assertEqual(without_logo_settings["logo_position"], "")
+
     def test_prepare_post_download_local_and_remote(self):
         media_root = Path(self.media_root)
         local_file = media_root / "generated_posts" / "final.png"
@@ -569,6 +619,10 @@ class ServicesTest(SimpleTestCase):
     def test_template_and_text_helpers(self):
         self.assertEqual(get_logo_position_for_template("none", "top_left"), "top_left")
         self.assertEqual(get_logo_position_for_template("rectangle", "top_left"), "top_right")
+        self.assertEqual(
+            get_logo_position_for_template("text_bottom_center_box", "bottom_left"),
+            "top_right",
+        )
         self.assertEqual(get_logo_position_for_template("none", ""), "")
         self.assertEqual(get_template_name_for_post(get_visual_data(quantity=1), 1), "rectangle")
         self.assertEqual(
@@ -778,6 +832,55 @@ class ServicesTest(SimpleTestCase):
         self.assertEqual(renderer.call_args.kwargs["logo_position"], "top_right")
         self.assertEqual(renderer.call_args.kwargs["primary_color"], "#111111")
 
+    def test_render_image_file_with_text_overlay_uses_template_logo_position_by_default(self):
+        renderer = Mock()
+
+        with patch.dict(
+            "ai_content_agent.services.TEMPLATE_RENDERERS",
+            {"text_bottom_center_box": renderer},
+        ):
+            render_image_file(
+                image_path="/tmp/final.png",
+                template_name="text_bottom_center_box",
+                image_title="TITLE",
+                logo_file="/tmp/logo.png",
+                logo_position="bottom_left",
+                primary_color="#111111",
+                text_color="#FFFFFF",
+            )
+
+        renderer.assert_called_once()
+        self.assertEqual(
+            renderer.call_args.kwargs["logo_position"],
+            "top_right",
+        )
+        self.assertEqual(renderer.call_args.kwargs["logo_file"], "/tmp/logo.png")
+
+    def test_render_image_file_with_text_overlay_can_keep_resolved_logo_position(self):
+        renderer = Mock()
+
+        with patch.dict(
+            "ai_content_agent.services.TEMPLATE_RENDERERS",
+            {"text_bottom_center_box": renderer},
+        ):
+            render_image_file(
+                image_path="/tmp/final.png",
+                template_name="text_bottom_center_box",
+                image_title="TITLE",
+                logo_file="/tmp/logo.png",
+                logo_position="bottom_left",
+                primary_color="#111111",
+                text_color="#FFFFFF",
+                use_template_logo_position=False,
+            )
+
+        renderer.assert_called_once()
+        self.assertEqual(
+            renderer.call_args.kwargs["logo_position"],
+            "bottom_left",
+        )
+        self.assertEqual(renderer.call_args.kwargs["logo_file"], "/tmp/logo.png")
+
     def test_build_post_draft_content_uses_visual_defaults(self):
         draft = build_post_draft_content(
             get_visual_data(quantity=1),
@@ -789,6 +892,21 @@ class ServicesTest(SimpleTestCase):
         self.assertEqual(draft["template"], "rectangle")
         self.assertEqual(draft["base_image_url"], "")
         self.assertEqual(draft["image_title"], "TITLE")
+
+    def test_build_post_draft_content_saves_text_overlay_logo_position(self):
+        draft = build_post_draft_content(
+            get_visual_data(
+                quantity=1,
+                template="text_bottom_center_box",
+                logo_position="bottom_left",
+            ),
+            {"title": "Idea"},
+            get_post_result(),
+            1,
+        )
+
+        self.assertEqual(draft["template"], "text_bottom_center_box")
+        self.assertEqual(draft["logo_position"], "top_right")
 
     def test_local_and_remote_image_work_paths(self):
         local_path = Path(self.media_root) / "generated_posts" / "base.png"

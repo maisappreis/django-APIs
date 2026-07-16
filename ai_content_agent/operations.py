@@ -744,6 +744,17 @@ def mark_batch_failed(batch, error):
     batch.save(update_fields=["status", "error_message"])
 
 
+def get_post_logo_position(post_generation):
+    if post_generation.logo_position:
+        return post_generation.logo_position
+
+    brand = post_generation.brand
+    if brand and (brand.logo_url or brand.logo):
+        return brand.logo_position
+
+    return ""
+
+
 def build_post_visual_settings(post_generation, validated_data):
     image_quality_settings = post_generation.image_quality_settings or {}
     image_quality_overrides = validated_data.pop(
@@ -768,6 +779,11 @@ def build_post_visual_settings(post_generation, validated_data):
         image_title = ""
         image_subtitle = ""
 
+    logo_position = validated_data.pop(
+        "logo_position",
+        get_post_logo_position(post_generation),
+    )
+
     return {
         "image_title": image_title,
         "image_subtitle": image_subtitle,
@@ -778,7 +794,7 @@ def build_post_visual_settings(post_generation, validated_data):
         "text_color": post_generation.text_color,
         "title_font": post_generation.title_font or DEFAULT_TEXT_FONT,
         "subtitle_font": post_generation.subtitle_font or DEFAULT_TEXT_FONT,
-        "logo_position": post_generation.logo_position,
+        "logo_position": logo_position,
         "image_quality_settings": get_image_quality_settings(
             image_quality_settings,
         ),

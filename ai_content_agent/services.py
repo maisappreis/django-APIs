@@ -504,7 +504,7 @@ def get_logo_position_for_template(template_name, logo_position):
         return ""
 
     if template_name != "none":
-        return TEMPLATE_LOGO_POSITIONS[template_name]
+        return TEMPLATE_LOGO_POSITIONS.get(template_name, logo_position)
 
     return logo_position
 
@@ -539,7 +539,13 @@ def render_image_file(
     text_color="#FFFFFF",
     title_font="",
     subtitle_font="",
+    use_template_logo_position=True,
 ):
+    if use_template_logo_position:
+        logo_position = get_logo_position_for_template(
+            template_name,
+            logo_position,
+        )
     logo_file = logo_file if logo_position else None
     title_font = title_font or DEFAULT_TEXT_FONT
     subtitle_font = subtitle_font or DEFAULT_TEXT_FONT
@@ -562,7 +568,7 @@ def render_image_file(
             "title": image_title,
             "subtitle": image_subtitle,
             "logo_file": logo_file,
-            "logo_position": TEMPLATE_LOGO_POSITIONS[template_name],
+            "logo_position": logo_position,
             "title_font": title_font,
             "subtitle_font": subtitle_font,
             **color_kwargs,
@@ -878,6 +884,7 @@ def render_approved_post_image(post, use_existing_base=False):
             text_color=post.text_color,
             title_font=post.title_font,
             subtitle_font=post.subtitle_font,
+            use_template_logo_position=False,
         )
     finally:
         if temporary_logo:
@@ -972,6 +979,7 @@ def rerender_post_image(post, visual_settings):
             text_color=visual_settings["text_color"],
             title_font=title_font,
             subtitle_font=subtitle_font,
+            use_template_logo_position=False,
         )
     finally:
         if temporary_logo:
