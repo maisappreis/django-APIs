@@ -294,6 +294,23 @@ def _get_replicate_headers():
     }
 
 
+def _get_bfl_api_key():
+    api_key = getattr(settings, "BFL_API_KEY", None)
+
+    if not api_key:
+        raise ImproperlyConfigured("BFL_API_KEY is not configured.")
+
+    return api_key
+
+
+def _get_bfl_headers():
+    return {
+        "accept": "application/json",
+        "x-key": _get_bfl_api_key(),
+        "Content-Type": "application/json",
+    }
+
+
 def _upload_fal_image(image_bytes, content_type="image/png"):
     try:
         import fal_client
@@ -671,19 +688,10 @@ def _download_replicate_image(result):
     return _download_url_bytes(image_url)
 
 
-def _is_retryable_replicate_merge_error(error):
-    message = str(error)
-    return (
-        "Prediction interrupted" in message
-        or "please retry" in message
-        or "code: PA" in message
-    )
-
-
 def _get_replicate_merge_max_attempts():
     return max(
         1,
-        int(getattr(settings, "REPLICATE_MERGE_IMAGE_EDIT_MAX_ATTEMPTS", 3)),
+        int(getattr(settings, "REPLICATE_MERGE_IMAGE_EDIT_MAX_ATTEMPTS", 2)),
     )
 
 
@@ -692,6 +700,113 @@ def _get_replicate_merge_retry_delay_seconds():
         0,
         float(getattr(settings, "REPLICATE_MERGE_IMAGE_EDIT_RETRY_DELAY_SECONDS", 1)),
     )
+
+
+def _get_bfl_image_dimensions(format_config):
+    width, height = format_config["size"].split("x", 1)
+    return int(width), int(height)
+
+
+def _submit_bfl_merge_image_edit(image_urls, prompt, format_config):
+    base_url = getattr(settings, "BFL_API_BASE_URL", "https://api.bfl.ai/v1").rstrip("/")
+    model = getattr(settings, "BFL_MERGE_IMAGE_EDIT_MODEL", "flux-2-pro")
+    width, height = _get_bfl_image_dimensions(format_config)
+    payload = {
+        "prompt": prompt,
+        "input_image": image_urls[0],
+        "width": width,
+        "height": height,
+        "safety_tolerance": getattr(
+            settings,
+            "BFL_MERGE_IMAGE_EDIT_SAFETY_TOLERANCE",
+            4,
+        ),
+        "output_format": "png",
+    }
+
+    for index, image_url in enumerate(image_urls[1:], start=2):
+        payload[f"input_image_{index}"] = image_url
+
+    seed = getattr(settings, "FAL_IMAGE_EDIT_SEED", "")
+    if seed:
+        payload["seed"] = int(seed)
+
+    response = requests.post(
+        f"{base_url}/{model}",
+        headers=_get_bfl_headers(),
+        json=payload,
+        timeout=30,
+    )
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise RuntimeError(
+            f"BFL merge image edit request failed: "
+            f"{response.status_code} {response.text[:500]}"
+        ) from error
+    return response.json()
+
+
+def _poll_bfl_result(submission):
+    timeout_seconds = getattr(
+        settings,
+        "BFL_MERGE_IMAGE_EDIT_TIMEOUT_SECONDS",
+        180,
+    )
+    poll_interval = getattr(
+        settings,
+        "BFL_MERGE_IMAGE_EDIT_POLL_INTERVAL_SECONDS",
+        1,
+    )
+    polling_url = submission.get("polling_url")
+
+    if not polling_url:
+        raise RuntimeError(
+            f"BFL merge image edit did not return a polling URL: {submission}"
+        )
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        response = requests.get(
+            polling_url,
+            headers=_get_bfl_headers(),
+            timeout=30,
+        )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            raise RuntimeError(
+                f"BFL merge image edit status failed: "
+                f"{response.status_code} {response.text[:500]}"
+            ) from error
+
+        result = response.json()
+        status = result.get("status")
+        if status == "Ready":
+            return result
+        if status in {"Error", "Failed", "Request Moderated", "Content Moderated"}:
+            raise RuntimeError(f"BFL merge image edit failed: {result}")
+
+        time.sleep(poll_interval)
+
+    raise TimeoutError("BFL merge image edit timed out.")
+
+
+def _download_bfl_image(result):
+    image_url = (result.get("result") or {}).get("sample")
+
+    if not image_url:
+        raise RuntimeError(
+            f"BFL merge image edit did not return an image URL: {result}"
+        )
+
+    return _download_url_bytes(image_url)
+
+
+def _run_bfl_merge_image_edit(image_urls, prompt, format_config):
+    submission = _submit_bfl_merge_image_edit(image_urls, prompt, format_config)
+    result = _poll_bfl_result(submission)
+    return _download_bfl_image(result)
 
 
 def _build_flux_generation_payload(prompt):
@@ -957,14 +1072,17 @@ def _run_merge_image_edit(
                 return _download_replicate_image(result)
             except (RuntimeError, TimeoutError) as error:
                 last_error = error
-                if (
-                    attempt >= max_attempts
-                    or not _is_retryable_replicate_merge_error(error)
-                ):
-                    raise
+                if attempt >= max_attempts:
+                    break
                 time.sleep(_get_replicate_merge_retry_delay_seconds())
 
-        raise last_error
+        try:
+            return _run_bfl_merge_image_edit(image_urls, prompt, format_config)
+        except Exception as bfl_error:
+            raise RuntimeError(
+                "Merge image edit failed via Replicate and BFL. "
+                f"Replicate error: {last_error}. BFL error: {bfl_error}"
+            ) from bfl_error
     finally:
         edit_source_path.unlink(missing_ok=True)
         edit_reference_path.unlink(missing_ok=True)

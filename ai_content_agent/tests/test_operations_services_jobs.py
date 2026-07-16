@@ -1361,6 +1361,41 @@ class JobsTest(TestCase):
             1,
         )
 
+    @patch("ai_content_agent.jobs.render_approved_post_image")
+    def test_user_image_ai_edit_usage_counts_all_edit_modes(self, render):
+        from ai_content_agent.jobs import run_post_image_generation_job
+
+        for image_edit_mode in (
+            "full_ai_edit",
+            "background_replace",
+            "merge_images",
+        ):
+            with self.subTest(image_edit_mode=image_edit_mode):
+                user = create_user(username=f"user-{image_edit_mode}")
+                create_subscription(user, tier=Plan.Tier.PRO)
+                brand = create_brand(user=user)
+                batch = create_batch(user=user, brand=brand, image_source="user")
+                post = create_post(
+                    user=user,
+                    brand=brand,
+                    batch=batch,
+                    image_prompt="Edit this image",
+                    image_edit_mode=image_edit_mode,
+                )
+
+                run_post_image_generation_job(user.id, batch.id)
+
+                post.refresh_from_db()
+                self.assertEqual(post.status, GenerationStatus.COMPLETED)
+                self.assertEqual(
+                    get_monthly_ai_image_edit_usage(user)["used"],
+                    1,
+                )
+                self.assertEqual(
+                    get_monthly_user_image_usage(user)["used"],
+                    1,
+                )
+
     def test_run_post_image_generation_job_marks_failed_when_no_posts(self):
         user = create_user()
         brand = create_brand(user=user)

@@ -457,6 +457,125 @@ class PromptQualityTestCase(SimpleTestCase):
         reference_path.unlink.assert_called_once_with(missing_ok=True)
 
     @override_settings(
+        MEDIA_ROOT="/tmp",
+        REPLICATE_MERGE_IMAGE_EDIT_MAX_ATTEMPTS=2,
+        REPLICATE_MERGE_IMAGE_EDIT_RETRY_DELAY_SECONDS=0,
+        BFL_API_KEY="bfl-test-key",
+        BFL_MERGE_IMAGE_EDIT_MODEL="flux-2-pro",
+        BFL_MERGE_IMAGE_EDIT_SAFETY_TOLERANCE=4,
+        BFL_MERGE_IMAGE_EDIT_POLL_INTERVAL_SECONDS=0,
+        BFL_MERGE_IMAGE_EDIT_TIMEOUT_SECONDS=10,
+        FAL_IMAGE_EDIT_SEED="",
+    )
+    @patch("ai_core.clients._download_bfl_image", return_value=b"bfl-merged")
+    @patch("ai_core.clients._poll_bfl_result")
+    @patch("ai_core.clients._submit_bfl_merge_image_edit")
+    @patch("ai_core.clients._poll_replicate_result")
+    @patch("ai_core.clients._submit_replicate_merge_image_edit")
+    @patch("ai_core.clients._build_image_data_url")
+    @patch("ai_core.clients._prepare_image_edit_source")
+    def test_image_edit_falls_back_to_bfl_after_two_replicate_failures(
+        self,
+        prepare_source,
+        build_data_url,
+        submit_replicate,
+        poll_replicate,
+        submit_bfl,
+        poll_bfl,
+        download_bfl,
+    ):
+        source_path = MagicMock()
+        reference_path = MagicMock()
+        focus_path = MagicMock()
+        prepare_source.side_effect = [source_path, reference_path, focus_path]
+        build_data_url.side_effect = [
+            "data:image/png;base64,source",
+            "data:image/png;base64,reference",
+            "data:image/png;base64,focus",
+        ]
+        submit_replicate.side_effect = [
+            {"urls": {"get": "https://api.replicate.com/v1/predictions/one"}},
+            {"urls": {"get": "https://api.replicate.com/v1/predictions/two"}},
+        ]
+        poll_replicate.side_effect = [
+            RuntimeError("Replicate failed once"),
+            TimeoutError("Replicate failed twice"),
+        ]
+        submit_bfl.return_value = {
+            "id": "bfl-request",
+            "polling_url": "https://api.bfl.ai/v1/get_result?id=bfl-request",
+        }
+        poll_bfl.return_value = {
+            "status": "Ready",
+            "result": {"sample": "https://bfl.result/image.png"},
+        }
+
+        image_bytes = _edit_image_bytes(
+            Path("/tmp/source.png"),
+            "Apply clothing from the second image",
+            reference_image_path=Path("/tmp/reference.png"),
+            focus_image_path=Path("/tmp/focus.png"),
+            image_format="portrait",
+            image_edit_mode="merge_images",
+        )
+
+        self.assertEqual(image_bytes, b"bfl-merged")
+        self.assertEqual(submit_replicate.call_count, 2)
+        self.assertEqual(poll_replicate.call_count, 2)
+        submit_bfl.assert_called_once_with(
+            [
+                "data:image/png;base64,source",
+                "data:image/png;base64,reference",
+                "data:image/png;base64,focus",
+            ],
+            "Apply clothing from the second image",
+            _get_image_format_config("portrait"),
+        )
+        poll_bfl.assert_called_once_with(submit_bfl.return_value)
+        download_bfl.assert_called_once_with(poll_bfl.return_value)
+        source_path.unlink.assert_called_once_with(missing_ok=True)
+        reference_path.unlink.assert_called_once_with(missing_ok=True)
+        focus_path.unlink.assert_called_once_with(missing_ok=True)
+
+    @override_settings(
+        BFL_API_KEY="bfl-test-key",
+        BFL_API_BASE_URL="https://api.bfl.ai/v1",
+        BFL_MERGE_IMAGE_EDIT_MODEL="flux-2-pro",
+        BFL_MERGE_IMAGE_EDIT_SAFETY_TOLERANCE=4,
+        FAL_IMAGE_EDIT_SEED="",
+    )
+    @patch("ai_core.clients.requests.post")
+    def test_bfl_merge_image_edit_uses_flux2_pro_inputs(self, post):
+        post.return_value.json.return_value = {
+            "id": "request-id",
+            "polling_url": "https://api.bfl.ai/v1/get_result?id=request-id",
+        }
+
+        from ai_core.clients import _submit_bfl_merge_image_edit
+
+        _submit_bfl_merge_image_edit(
+            [
+                "data:image/png;base64,source",
+                "data:image/png;base64,reference",
+                "data:image/png;base64,focus",
+            ],
+            "Apply clothing from the second image",
+            _get_image_format_config("portrait"),
+        )
+
+        self.assertEqual(post.call_args.args[0], "https://api.bfl.ai/v1/flux-2-pro")
+        self.assertEqual(post.call_args.kwargs["headers"]["x-key"], "bfl-test-key")
+        payload = post.call_args.kwargs["json"]
+        self.assertEqual(payload["input_image"], "data:image/png;base64,source")
+        self.assertEqual(payload["input_image_2"], "data:image/png;base64,reference")
+        self.assertEqual(payload["input_image_3"], "data:image/png;base64,focus")
+        self.assertEqual(payload["prompt"], "Apply clothing from the second image")
+        self.assertEqual(payload["safety_tolerance"], 4)
+        self.assertEqual(payload["output_format"], "png")
+        self.assertEqual(payload["width"], 1024)
+        self.assertEqual(payload["height"], 1536)
+
+    @override_settings(
         FAL_KEY="test-key",
         FAL_QUEUE_BASE_URL="https://queue.fal.run",
         FAL_BACKGROUND_GENERATION_MODEL="fal-ai/flux-pro",
